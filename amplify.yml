@@ -1,0 +1,23 @@
+# AWS Amplify — build Wiselista web app from GitHub
+# App lives in subfolder: web/ (set AMPLIFY_MONOREPO_APP_ROOT=web in Amplify console)
+# Builds run only when you push to the connected branch (e.g. main)
+
+version: 1
+applications:
+  - appRoot: web
+    frontend:
+      phases:
+        preBuild:
+          commands:
+            - npm ci
+        build:
+          commands:
+            - npm run build
+      artifacts:
+        baseDirectory: .next
+        files:
+          - '**/*'
+      cache:
+        paths:
+          - node_modules/**/*
+          - .next/cache/**/*
