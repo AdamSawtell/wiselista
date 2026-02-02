@@ -71,9 +71,21 @@ Use the **production** Supabase project (and Stripe live keys) when you go live.
 ## 4. Get the app URL and set NEXT_PUBLIC_APP_URL
 
 1. After the first successful deploy, open **Hosting** → **Domain management**.
-2. Copy the default URL (e.g. `https://main.xxxxx.amplifyapp.com`).
+2. Copy the default URL (e.g. `https://main.xxxxx.amplifyapp.com`) or your **custom domain** (e.g. `https://wiselista.com`).
 3. In **Environment variables**, set **`NEXT_PUBLIC_APP_URL`** to that URL (no trailing slash).
 4. Redeploy so the app uses the correct URL (e.g. for redirects after Stripe Checkout).
+
+---
+
+## 4b. Custom domain (e.g. wiselista.com)
+
+If you add a custom domain in Amplify (with SSL):
+
+1. **Amplify env var:** Set **`NEXT_PUBLIC_APP_URL`** to your custom domain, e.g. `https://wiselista.com` (no trailing slash). Redeploy.
+2. **Supabase Auth:** In Supabase Dashboard → **Authentication** → **URL Configuration**:
+   - **Site URL:** set to `https://wiselista.com`.
+   - **Redirect URLs:** add `https://wiselista.com/**` (and `https://wiselista.com/login` if you use OAuth or magic links) so Supabase allows redirects back to your domain.
+3. **Stripe** (when you use it): Webhook URL can stay as `https://wiselista.com/api/webhooks/stripe`; success/cancel URLs for Checkout will use `NEXT_PUBLIC_APP_URL`.
 
 ---
 
@@ -109,8 +121,9 @@ For **Submit for edit** to complete payment and trigger the mock AI:
 - [ ] Repo on GitHub; Amplify app created and connected to repo + branch.
 - [ ] Monorepo: app root = **`web`**; `amplify.yml` in repo root (already present).
 - [ ] Env vars in Amplify: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_APP_URL`.
-- [ ] After first deploy: set `NEXT_PUBLIC_APP_URL` to Amplify app URL and redeploy.
-- [ ] (Optional) Stripe keys and webhook secret; webhook URL points to Amplify.
+- [ ] After first deploy: set `NEXT_PUBLIC_APP_URL` to Amplify app URL (or custom domain, e.g. `https://wiselista.com`) and redeploy.
+- [ ] If using a custom domain: set Supabase Auth Site URL and Redirect URLs to the custom domain.
+- [ ] (Optional) Stripe keys and webhook secret; webhook URL points to your app URL.
 - [ ] Deploys only via push to GitHub (and optional “Run build” in console).
 
 ---
