@@ -1,7 +1,7 @@
 "use client";
 
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
@@ -10,9 +10,19 @@ export function LoginForm() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [clearing, setClearing] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
   const sessionError = searchParams.get("error") === "session";
+
+  // When we land here with a broken session, clear any stale Supabase session so the user can sign in fresh.
+  useEffect(() => {
+    if (!sessionError || !isSupabaseConfigured()) return;
+    const supabase = createClient();
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) supabase.auth.signOut({ scope: "local" });
+    });
+  }, [sessionError]);
 
   if (!isSupabaseConfigured()) {
     return (
@@ -34,6 +44,13 @@ export function LoginForm() {
   }
 
   const supabase = createClient();
+
+  async function handleClearSession() {
+    setClearing(true);
+    await supabase.auth.signOut({ scope: "local" });
+    setClearing(false);
+    router.replace("/login", { scroll: false });
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -61,7 +78,15 @@ export function LoginForm() {
           </div>
           {sessionError && (
             <div className="mt-6 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800">
-              Your session may have expired or the dashboard couldn’t load. Please sign in again.
+              <p>Your session may have expired or the dashboard couldn’t load. Please sign in again.</p>
+              <button
+                type="button"
+                onClick={handleClearSession}
+                disabled={clearing}
+                className="mt-3 text-sm font-medium text-amber-900 underline hover:no-underline disabled:opacity-50"
+              >
+                {clearing ? "Clearing…" : "Clear session and try again"}
+              </button>
             </div>
           )}
           <form onSubmit={handleSubmit} className="mt-8 space-y-5">

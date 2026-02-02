@@ -143,6 +143,9 @@ For **Submit for edit** to complete payment and trigger the mock AI:
 - **"Application error: a server-side exception" when logged in**  
   Usually means the server can't create a Supabase client (env vars not available at runtime, or cookies failing). Ensure env vars are set in Amplify under **Environment variables** and **Redeploy**. You should be redirected to login with a session message; if you still see "Something went wrong", check Amplify build logs for "Dashboard load failed". Also run Supabase migrations so the `jobs` and `photos` tables exist.
 
+- **"Like I never sign out" / can't sign back in**  
+  The app uses **Supabase session-refresh middleware** (`src/middleware.ts`) so the auth token is refreshed on every request. Without it, Server Components can get 400/invalid token and users get stuck. If you still hit this after deploy: on the login page with "Your session may have expired", use **"Clear session and try again"** to force sign-out and then sign in fresh.
+
 - **Simulating a dropped DB connection (for testing)**  
   To test how the app behaves when Supabase is unreachable: (1) **Supabase:** Project Settings → General → **Pause project** (DB and API stop). (2) **Amplify:** Temporarily set `NEXT_PUBLIC_SUPABASE_URL` to an invalid URL (e.g. `https://invalid.supabase.co`) and redeploy. The app should redirect to login instead of crashing. Restore the real URL and redeploy when done.
 
