@@ -141,7 +141,10 @@ For **Submit for edit** to complete payment and trigger the mock AI:
   Check that `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` are set in Amplify and that you redeployed after adding them.
 
 - **"Application error: a server-side exception" when logged in**  
-  Usually means the server can't create a Supabase client (env vars not available at runtime, or cookies failing). Ensure env vars are set in Amplify under **Environment variables** and **Redeploy**. If you see the friendly "Something went wrong" dashboard message, use "Try again" or "Sign in again". Also run Supabase migrations so the `jobs` and `photos` tables exist.
+  Usually means the server can't create a Supabase client (env vars not available at runtime, or cookies failing). Ensure env vars are set in Amplify under **Environment variables** and **Redeploy**. You should be redirected to login with a session message; if you still see "Something went wrong", check Amplify build logs for "Dashboard load failed". Also run Supabase migrations so the `jobs` and `photos` tables exist.
+
+- **Simulating a dropped DB connection (for testing)**  
+  To test how the app behaves when Supabase is unreachable: (1) **Supabase:** Project Settings → General → **Pause project** (DB and API stop). (2) **Amplify:** Temporarily set `NEXT_PUBLIC_SUPABASE_URL` to an invalid URL (e.g. `https://invalid.supabase.co`) and redeploy. The app should redirect to login instead of crashing. Restore the real URL and redeploy when done.
 
 - **Stripe redirect fails after payment**  
   Set `NEXT_PUBLIC_APP_URL` to the exact Amplify URL (e.g. `https://main.xxxxx.amplifyapp.com`) and redeploy. The submit API uses this for `success_url` and `cancel_url`.

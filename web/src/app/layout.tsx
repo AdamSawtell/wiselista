@@ -14,17 +14,17 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  let user = null;
-  if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-    try {
+  let user: { email?: string } | null = null;
+  try {
+    if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
       const supabase = await createClient();
       if (supabase) {
         const { data } = await supabase.auth.getUser();
-        user = data.user;
+        user = data?.user ?? null;
       }
-    } catch {
-      // Supabase not configured or error — show signed-out header
     }
+  } catch {
+    // Never throw from layout — show signed-out header so app still renders
   }
 
   return (

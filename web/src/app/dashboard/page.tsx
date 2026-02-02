@@ -10,11 +10,11 @@ import { RedirectToLogin } from "@/components/RedirectToLogin";
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
-  let user: { id: string } | null = null;
-  let jobs: { id: string; status: string; created_at: string }[] | null = null;
-  let jobsError: { message: string } | null = null;
-
   try {
+    let user: { id: string } | null = null;
+    let jobs: { id: string; status: string; created_at: string }[] | null = null;
+    let jobsError: { message: string } | null = null;
+
     const supabase = await createClient();
     if (!supabase) return <RedirectToLogin />;
 
@@ -29,14 +29,10 @@ export default async function DashboardPage() {
       .order("created_at", { ascending: false });
     jobs = result.data ?? null;
     jobsError = result.error ? { message: result.error.message } : null;
-  } catch (e) {
-    console.error("Dashboard load failed:", e);
-    return <RedirectToLogin />;
-  }
 
-  if (!user) return <RedirectToLogin />;
+    if (!user) return <RedirectToLogin />;
 
-  return (
+    return (
     <div className="min-h-full bg-wiselista-surface">
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
         <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
@@ -93,5 +89,9 @@ export default async function DashboardPage() {
         )}
       </div>
     </div>
-  );
+    );
+  } catch (e) {
+    console.error("Dashboard load failed:", e);
+    return <RedirectToLogin />;
+  }
 }
