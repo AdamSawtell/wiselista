@@ -62,8 +62,9 @@ export function LoginForm() {
       setError(err.message);
       return;
     }
-    router.push("/dashboard");
-    router.refresh();
+    // Full page redirect so the browser sends the new session cookies with the dashboard request.
+    // Client-side router.push can run before cookies are applied, causing "session expired" on dashboard.
+    window.location.href = "/dashboard";
   }
 
   return (
