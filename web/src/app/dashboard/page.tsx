@@ -1,8 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
-import { redirect } from "next/navigation";
 import Link from "next/link";
 import { StatusBadge } from "@/components/StatusBadge";
 import { CreateJobButton } from "@/components/CreateJobButton";
+import { RedirectToLogin } from "@/components/RedirectToLogin";
 
 // Dashboard depends on request cookies and Supabase auth.
 // Force dynamic rendering so Amplify's static export worker doesn't try
@@ -16,10 +16,10 @@ export default async function DashboardPage() {
 
   try {
     const supabase = await createClient();
-    if (!supabase) redirect("/login");
+    if (!supabase) return <RedirectToLogin />;
 
     const { data: authData, error: authError } = await supabase.auth.getUser();
-    if (authError || !authData?.user) redirect("/login");
+    if (authError || !authData?.user) return <RedirectToLogin />;
     user = authData.user;
 
     const result = await supabase
@@ -31,10 +31,10 @@ export default async function DashboardPage() {
     jobsError = result.error ? { message: result.error.message } : null;
   } catch (e) {
     console.error("Dashboard load failed:", e);
-    redirect("/login?error=session");
+    return <RedirectToLogin />;
   }
 
-  if (!user) redirect("/login");
+  if (!user) return <RedirectToLogin />;
 
   return (
     <div className="min-h-full bg-wiselista-surface">
