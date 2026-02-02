@@ -18,12 +18,13 @@ export function Header({ user }: HeaderProps) {
         <nav className="flex items-center gap-4">
           {user ? (
             <>
-              <Link
+              {/* Full page link so dashboard request sends cookies; client-side Link can miss cookies on some hosts */}
+              <a
                 href="/dashboard"
                 className="text-sm font-medium text-white/90 transition-colors hover:text-white"
               >
                 Dashboard
-              </Link>
+              </a>
               <SignOutButton className="text-sm font-medium text-white/70 hover:text-white" />
             </>
           ) : (
