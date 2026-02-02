@@ -1,5 +1,8 @@
 import Link from "next/link";
 
+// Force dynamic so root layout (cookies) isn't run during static export on Amplify.
+export const dynamic = "force-dynamic";
+
 export default function Home() {
   return (
     <div className="relative overflow-hidden">
