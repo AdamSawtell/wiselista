@@ -44,7 +44,7 @@ export async function POST(
 
   const { error: updateError } = await supabase
     .from("jobs")
-    .update({ status: "submitted", updated_at: new Date().toISOString() })
+    .update({ status: "processing", updated_at: new Date().toISOString() })
     .eq("id", jobId);
 
   if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 });

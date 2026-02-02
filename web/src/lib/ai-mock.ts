@@ -1,7 +1,8 @@
 /**
- * Mock AI adapter: "submit" stores job id, then after a short delay
- * copies original to edited and marks job ready.
- * Replace with real AI partner integration later.
+ * Mock AI adapter: after a short delay, copies original to edited and marks job ready.
+ * Prompts for real AI live in @/lib/prompts (default + per-room). When you wire a real
+ * AI partner, use buildAIRequests(jobId) from @/lib/ai-adapter to get (originalUrl, prompt)
+ * per photo — no coded prompt per job.
  */
 
 import { createServiceClient } from "@/lib/supabase/server";
@@ -30,7 +31,7 @@ export async function submitJobToMockAI(jobId: string): Promise<void> {
     return;
   }
 
-  // Mock: set edited_key = original_key (no real edit)
+  // Mock: set edited_key = original_key (no real edit). Real AI would use getEditPrompt(room_type) per photo.
   for (const p of photos) {
     await supabase
       .from("photos")
