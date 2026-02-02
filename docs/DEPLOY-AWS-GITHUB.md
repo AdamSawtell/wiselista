@@ -135,6 +135,13 @@ The mobile app uses client-side routing. If opening a deep link (e.g. `/job/123`
 
 **Note:** Camera on mobile web can be limited in some browsers; the app may prompt for camera permission or use a file picker fallback. For the best camera experience, use the native app (Expo Go or a built APK/IPA).
 
+### 5e. Seeing mobile UI changes after a push
+
+- **The new theme and UI live only in the mobile app.** The main website (wiselista.com) is the **web** app; we did not change it.
+- **Where to look:** Open the **mobile** Amplify app URL (the app whose app root is `mobile`), not wiselista.com.
+- **If you only have one Amplify app (web):** Create a second app with app root **`mobile`** (steps 5a–5b above), then open that app’s URL.
+- **After pushing code:** In the **mobile** Amplify app, either wait for the auto-build from the push or go to **Hosting** → **Run build**. When the build finishes, open the mobile app URL and do a **hard refresh** (e.g. pull-to-refresh or clear cache) so you see the latest UI.
+
 ---
 
 ## 6. Build only from GitHub (no manual deploy)
