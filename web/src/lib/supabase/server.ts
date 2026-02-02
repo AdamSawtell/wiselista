@@ -14,7 +14,11 @@ export async function createClient() {
       getAll() {
         return cookieStore.getAll();
       },
-      setAll(cookiesToSet) {
+      // Type from @supabase/ssr: array of { name, value, options }
+      // We only need a light type so TS doesn't complain.
+      setAll(
+        cookiesToSet: { name: string; value: string; options?: Record<string, unknown> }[]
+      ) {
         try {
           cookiesToSet.forEach(({ name, value, options }) =>
             cookieStore.set(name, value, options)
