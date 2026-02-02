@@ -16,6 +16,7 @@ export default async function JobDetailPage({
 }) {
   const { id } = await params;
   const supabase = await createClient();
+  if (!supabase) redirect("/login");
   const {
     data: { user },
   } = await supabase.auth.getUser();

@@ -11,12 +11,13 @@ export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
+  if (!supabase) redirect("/login");
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: jobs } = await supabase
+  const { data: jobs, error: jobsError } = await supabase
     .from("jobs")
     .select("id, status, created_at")
     .eq("user_id", user.id)
@@ -35,7 +36,14 @@ export default async function DashboardPage() {
           <CreateJobButton />
         </div>
 
-        {(!jobs || jobs.length === 0) ? (
+        {jobsError ? (
+          <div className="card p-8 text-center">
+            <p className="text-slate-600">Could not load jobs.</p>
+            <p className="mt-2 text-sm text-slate-500">
+              Check that the <code className="rounded bg-slate-100 px-1">jobs</code> table exists in Supabase (run migrations) and env vars are set in Amplify.
+            </p>
+          </div>
+        ) : (!jobs || jobs.length === 0) ? (
           <div className="card p-12 text-center">
             <p className="text-slate-600">No jobs yet.</p>
             <p className="mt-2 text-sm text-slate-500">

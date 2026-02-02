@@ -2,33 +2,37 @@ import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
-export async function createClient() {
+export async function createClient(): Promise<Awaited<ReturnType<typeof createServerClient>> | null> {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY");
+    return null;
   }
-  const cookieStore = await cookies();
-  return createServerClient(supabaseUrl, supabaseAnonKey, {
-    cookies: {
-      getAll() {
-        return cookieStore.getAll();
+  try {
+    const cookieStore = await cookies();
+    return createServerClient(supabaseUrl, supabaseAnonKey, {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll();
+        },
+        // Type from @supabase/ssr: array of { name, value, options }
+        setAll(
+          cookiesToSet: { name: string; value: string; options?: Record<string, unknown> }[]
+        ) {
+          try {
+            cookiesToSet.forEach(({ name, value, options }) =>
+              cookieStore.set(name, value, options)
+            );
+          } catch {
+            // ignore in middleware / RSC
+          }
+        },
       },
-      // Type from @supabase/ssr: array of { name, value, options }
-      // We only need a light type so TS doesn't complain.
-      setAll(
-        cookiesToSet: { name: string; value: string; options?: Record<string, unknown> }[]
-      ) {
-        try {
-          cookiesToSet.forEach(({ name, value, options }) =>
-            cookieStore.set(name, value, options)
-          );
-        } catch {
-          // ignore in middleware / RSC
-        }
-      },
-    },
-  });
+    });
+  } catch (e) {
+    console.error("Supabase server client init failed:", e);
+    return null;
+  }
 }
 
 /** Use for server actions / API routes that need to bypass RLS (e.g. webhooks). */

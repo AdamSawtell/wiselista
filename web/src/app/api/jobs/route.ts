@@ -7,6 +7,7 @@ export async function GET() {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const supabase = await createClient();
+  if (!supabase) return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
   const { data, error } = await supabase
     .from("jobs")
     .select("id, status, created_at, updated_at")
@@ -22,6 +23,7 @@ export async function POST() {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const supabase = await createClient();
+  if (!supabase) return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
   const { data, error } = await supabase
     .from("jobs")
     .insert({ user_id: user.id, status: "draft" })

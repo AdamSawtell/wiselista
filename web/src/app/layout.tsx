@@ -18,8 +18,10 @@ export default async function RootLayout({
   if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
     try {
       const supabase = await createClient();
-      const { data } = await supabase.auth.getUser();
-      user = data.user;
+      if (supabase) {
+        const { data } = await supabase.auth.getUser();
+        user = data.user;
+      }
     } catch {
       // Supabase not configured or error — show signed-out header
     }

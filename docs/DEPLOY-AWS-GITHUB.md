@@ -127,5 +127,8 @@ For **Submit for edit** to complete payment and trigger the mock AI:
 - **Runtime errors: “Supabase not configured”**  
   Check that `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` are set in Amplify and that you redeployed after adding them.
 
+- **"Application error: a server-side exception" when logged in**  
+  Usually means the server can't create a Supabase client (env vars not available at runtime, or cookies failing). Ensure env vars are set in Amplify under **Environment variables** and **Redeploy**. If you see the friendly "Something went wrong" dashboard message, use "Try again" or "Sign in again". Also run Supabase migrations so the `jobs` and `photos` tables exist.
+
 - **Stripe redirect fails after payment**  
   Set `NEXT_PUBLIC_APP_URL` to the exact Amplify URL (e.g. `https://main.xxxxx.amplifyapp.com`) and redeploy. The submit API uses this for `success_url` and `cancel_url`.

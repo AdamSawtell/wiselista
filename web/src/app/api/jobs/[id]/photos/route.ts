@@ -13,6 +13,7 @@ export async function POST(
 
   const { id: jobId } = await params;
   const supabase = await createClient();
+  if (!supabase) return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
 
   const { data: job } = await supabase
     .from("jobs")
