@@ -89,7 +89,55 @@ If you add a custom domain in Amplify (with SSL):
 
 ---
 
-## 5. Build only from GitHub (no manual deploy)
+## 5. Deploy mobile (web) app to Amplify — test on phone in browser
+
+Instead of Expo Go and QR codes, you can deploy the **mobile app as a web build** to Amplify and open the URL on your phone (or desktop) in the browser. No Expo Go needed.
+
+### 5a. Create a second Amplify app for mobile
+
+1. In **[Amplify console](https://console.aws.amazon.com/amplify/)**, click **Create new app** → **Host web app**.
+2. Choose **GitHub** → **Continue** and select the **same Wiselista repo** and branch (e.g. `main`).
+3. Turn **on** “Monorepo – connect a single app”.
+4. Set **App root** to **`mobile`** (not `web`).
+5. Click **Next**. Amplify will use the **`amplify.yml`** in the repo (the block with `appRoot: mobile`).
+6. Click **Next** → **Save and deploy**.
+
+The first build runs `npm ci` and `npm run build` (Expo web export) in the `mobile` folder and deploys the `dist` output.
+
+### 5b. Environment variables for the mobile app
+
+In the **mobile** Amplify app (the one with app root `mobile`):
+
+1. Go to **Hosting** → **Environment variables** (or **App settings** → **Environment variables**).
+2. Add:
+
+| Variable | Value |
+|----------|--------|
+| `EXPO_PUBLIC_SUPABASE_URL` | Same as web app (e.g. `https://YOUR_PROJECT.supabase.co`) |
+| `EXPO_PUBLIC_SUPABASE_ANON_KEY` | Same as web app (Supabase anon key) |
+| `EXPO_PUBLIC_APP_URL` | Your **web** app URL (e.g. `https://wiselista.com`) — used for the submit API |
+
+3. **Redeploy** after adding variables (e.g. **Run build**).
+
+### 5c. SPA routing (optional)
+
+The mobile app uses client-side routing. If opening a deep link (e.g. `/job/123`) shows a 404:
+
+1. In the **mobile** Amplify app → **Hosting** → **Rewrites and redirects**.
+2. Add a rewrite: **Source** `/<*>`, **Target** `/index.html`, **Type** **200 (Rewrite)**.
+3. Save. This serves `index.html` for all paths so the app can handle routes.
+
+### 5d. Open on your phone
+
+1. After deploy, copy the mobile app URL (e.g. `https://main.xxxxx.amplifyapp.com` or your custom subdomain).
+2. On your **phone**, open **Chrome** or **Safari** and go to that URL.
+3. Sign in and test: jobs, add photo (camera or file picker), submit for edit.
+
+**Note:** Camera on mobile web can be limited in some browsers; the app may prompt for camera permission or use a file picker fallback. For the best camera experience, use the native app (Expo Go or a built APK/IPA).
+
+---
+
+## 6. Build only from GitHub (no manual deploy)
 
 By default, Amplify **only** builds when:
 
@@ -104,7 +152,7 @@ So:
 
 ---
 
-## 6. Stripe webhook (when you use payments)
+## 7. Stripe webhook (when you use payments)
 
 For **Submit for edit** to complete payment and trigger the mock AI:
 
@@ -116,7 +164,7 @@ For **Submit for edit** to complete payment and trigger the mock AI:
 
 ---
 
-## 7. Summary checklist
+## 8. Summary checklist
 
 - [ ] Repo on GitHub; Amplify app created and connected to repo + branch.
 - [ ] Monorepo: app root = **`web`**; `amplify.yml` in repo root (already present).
@@ -124,8 +172,8 @@ For **Submit for edit** to complete payment and trigger the mock AI:
 - [ ] After first deploy: set `NEXT_PUBLIC_APP_URL` to Amplify app URL (or custom domain, e.g. `https://wiselista.com`) and redeploy.
 - [ ] If using a custom domain: set Supabase Auth Site URL and Redirect URLs to the custom domain.
 - [ ] (Optional) Stripe keys and webhook secret; webhook URL points to your app URL.
-- [ ] Deploys only via push to GitHub (and optional “Run build” in console).
-
+- [ ] Deploys only via push to GitHub (and optional "Run build" in console).
+- [ ] **(Optional)** Second Amplify app with app root **`mobile`** for the mobile (web) app — open the URL on your phone in the browser to test without Expo Go.
 ---
 
 ## Troubleshooting
