@@ -34,7 +34,7 @@ export default function LoginScreen({ navigation }: { navigation: { navigate: (n
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
-      style={[styles.container, { backgroundColor: theme.colors.surface }]}
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
     >
       <View style={styles.form}>
         <Text style={[styles.title, { color: theme.colors.textPrimary }]}>Wiselista</Text>
@@ -73,7 +73,7 @@ export default function LoginScreen({ navigation }: { navigation: { navigate: (n
           )}
         </TouchableOpacity>
         <TouchableOpacity onPress={() => navigation.navigate("SignUp")} style={styles.link}>
-          <Text style={[styles.linkText, { color: theme.colors.primaryLight }]}>Create an account</Text>
+          <Text style={[styles.linkText, { color: theme.colors.primary }]}>Create an account</Text>
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
@@ -92,7 +92,8 @@ const styles = StyleSheet.create({
     padding: theme.spacing.md,
     fontSize: 16,
     marginBottom: theme.spacing.md,
-    backgroundColor: theme.colors.surface,
+    backgroundColor: theme.colors.surfaceMuted,
+    color: theme.colors.textPrimary,
   },
   error: { color: theme.colors.error, marginBottom: theme.spacing.md, fontSize: 14 },
   button: {

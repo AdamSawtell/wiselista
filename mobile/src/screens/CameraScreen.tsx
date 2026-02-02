@@ -109,10 +109,10 @@ export default function CameraScreen({
           Camera access is required to capture property photos.
         </Text>
         <TouchableOpacity
-          style={[styles.button, { backgroundColor: theme.colors.surface }]}
+          style={[styles.button, { backgroundColor: theme.colors.primary }]}
           onPress={requestPermission}
         >
-          <Text style={[styles.buttonText, { color: theme.colors.primary }]}>Grant permission</Text>
+          <Text style={[styles.buttonText, { color: theme.colors.textOnPrimary }]}>Grant permission</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.cancel} onPress={() => navigation.goBack()}>
           <Text style={[styles.cancelText, { color: theme.colors.cameraBarMuted }]}>Back</Text>
@@ -144,7 +144,7 @@ export default function CameraScreen({
               key={r}
               style={[
                 styles.roomChip,
-                roomType === r && { backgroundColor: theme.colors.surface },
+                roomType === r && { backgroundColor: theme.colors.primary },
               ]}
               onPress={() => setRoomType(r)}
               activeOpacity={0.8}
@@ -163,15 +163,15 @@ export default function CameraScreen({
         </ScrollView>
         {error && <Text style={[styles.error, { color: theme.colors.error }]}>{error}</Text>}
         <TouchableOpacity
-          style={[styles.capture, { backgroundColor: theme.colors.surface }, uploading && styles.captureDisabled]}
+          style={[styles.capture, { backgroundColor: theme.colors.primary }, uploading && styles.captureDisabled]}
           onPress={handleCapture}
           disabled={uploading}
           activeOpacity={0.9}
         >
           {uploading ? (
-            <ActivityIndicator color={theme.colors.primary} />
+            <ActivityIndicator color={theme.colors.textOnPrimary} />
           ) : (
-            <Text style={[styles.captureText, { color: theme.colors.primary }]}>Capture</Text>
+            <Text style={[styles.captureText, { color: theme.colors.textOnPrimary }]}>Capture</Text>
           )}
         </TouchableOpacity>
         <TouchableOpacity style={styles.back} onPress={() => navigation.goBack()}>

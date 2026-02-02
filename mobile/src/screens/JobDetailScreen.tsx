@@ -128,7 +128,7 @@ export default function JobDetailScreen({
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <View style={[styles.header, { backgroundColor: theme.colors.surface, borderBottomColor: theme.colors.border }]}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={[styles.back, { color: theme.colors.primaryLight }]}>← Back</Text>
+          <Text style={[styles.back, { color: theme.colors.primary }]}>← Back</Text>
         </TouchableOpacity>
         <Text style={[styles.title, { color: theme.colors.textPrimary }]}>Job</Text>
       </View>

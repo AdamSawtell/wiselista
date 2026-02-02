@@ -27,7 +27,7 @@ export default function CreateJobScreen({ navigation }: { navigation: any }) {
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.surface }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <View style={styles.inner}>
         <Text style={[styles.title, { color: theme.colors.textPrimary }]}>New property job</Text>
         <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
@@ -35,7 +35,7 @@ export default function CreateJobScreen({ navigation }: { navigation: any }) {
         </Text>
         {error && <Text style={[styles.error, { color: theme.colors.error }]}>{error}</Text>}
         <TouchableOpacity
-          style={[styles.button, { backgroundColor: theme.colors.primary }, loading && styles.buttonDisabled]}
+          style={[styles.button, loading && styles.buttonDisabled]}
           onPress={handleCreate}
           disabled={loading}
           activeOpacity={0.9}
@@ -56,11 +56,19 @@ export default function CreateJobScreen({ navigation }: { navigation: any }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  inner: { flex: 1, padding: theme.spacing.xl, justifyContent: "center", maxWidth: 400, alignSelf: "center", width: "100%" },
+  inner: {
+    flex: 1,
+    padding: theme.spacing.xl,
+    justifyContent: "center",
+    maxWidth: 400,
+    alignSelf: "center",
+    width: "100%",
+  },
   title: { ...theme.typography.title, marginBottom: theme.spacing.sm },
   subtitle: { ...theme.typography.body, marginBottom: theme.spacing.xl },
   error: { ...theme.typography.caption, marginBottom: theme.spacing.md },
   button: {
+    backgroundColor: theme.colors.primary,
     padding: theme.spacing.md,
     borderRadius: theme.radius.sm,
     alignItems: "center",

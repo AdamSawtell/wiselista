@@ -1,33 +1,33 @@
 /**
- * Wiselista mobile theme — clean, modern, property/real estate inspired.
- * Fits rental managers, agents, homeowners (product brief).
+ * Wiselista mobile theme — dark, modern, property/real estate inspired.
+ * Matches dark UI examples: dark navy background, bright accent, bottom nav.
  */
 import { Platform } from "react-native";
 
 export const theme = {
   colors: {
-    // Primary: deep teal/slate — trustworthy, listings, property
-    primary: "#0f4c5c",
-    primaryLight: "#0d9488",
-    // Backgrounds
-    background: "#f8fafc",
-    backgroundWarm: "#fafaf9",
-    surface: "#ffffff",
-    surfaceMuted: "#f1f5f9",
-    // Text
-    textPrimary: "#1e293b",
-    textSecondary: "#475569",
-    textMuted: "#64748b",
+    // Dark background (navy/black like property search examples)
+    background: "#0f172a",
+    backgroundElevated: "#1e293b",
+    surface: "#1e293b",
+    surfaceMuted: "#334155",
+    // Bright accent (blue — primary CTA, active state)
+    primary: "#3b82f6",
+    primaryLight: "#60a5fa",
+    // Text on dark
+    textPrimary: "#f8fafc",
+    textSecondary: "#cbd5e1",
+    textMuted: "#94a3b8",
     textOnPrimary: "#ffffff",
-    // Borders & dividers
-    border: "#e2e8f0",
-    borderLight: "#f1f5f9",
+    // Borders
+    border: "#334155",
+    borderLight: "#475569",
     // Semantic
-    success: "#059669",
-    error: "#dc2626",
-    warning: "#d97706",
-    // Camera overlay (dark)
-    cameraBar: "#0f4c5c",
+    success: "#22c55e",
+    error: "#ef4444",
+    warning: "#f59e0b",
+    // Camera bar (dark)
+    cameraBar: "#0f172a",
     cameraBarText: "#f8fafc",
     cameraBarMuted: "#94a3b8",
   },
@@ -59,10 +59,10 @@ export const theme = {
     ios: {
       shadowColor: "#000",
       shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.06,
+      shadowOpacity: 0.25,
       shadowRadius: 8,
     },
-    android: { elevation: 3 },
+    android: { elevation: 4 },
     default: {},
   }),
 };

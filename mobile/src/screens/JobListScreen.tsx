@@ -24,7 +24,7 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 export default function JobListScreen({ navigation }: { navigation: any }) {
-  const { user, signOut } = useAuth();
+  const { user } = useAuth();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -62,9 +62,6 @@ export default function JobListScreen({ navigation }: { navigation: any }) {
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <View style={[styles.header, { backgroundColor: theme.colors.surface, borderBottomColor: theme.colors.border }]}>
         <Text style={[styles.title, { color: theme.colors.textPrimary }]}>Property jobs</Text>
-        <TouchableOpacity style={styles.signOut} onPress={() => signOut()}>
-          <Text style={[styles.signOutText, { color: theme.colors.textMuted }]}>Sign out</Text>
-        </TouchableOpacity>
       </View>
       <FlatList
         data={jobs}
@@ -122,9 +119,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   title: { ...theme.typography.title },
-  signOut: {},
-  signOutText: { ...theme.typography.captionMedium },
-  list: { padding: theme.spacing.md, paddingBottom: 88 },
+  list: { padding: theme.spacing.md, paddingBottom: 100 },
   emptyList: { flex: 1, padding: theme.spacing.md },
   empty: { padding: theme.spacing.xxl, alignItems: "center" },
   emptyText: { ...theme.typography.titleSmall, marginBottom: theme.spacing.sm },
