@@ -4,6 +4,11 @@ import Link from "next/link";
 import { StatusBadge } from "@/components/StatusBadge";
 import { CreateJobButton } from "@/components/CreateJobButton";
 
+// Dashboard depends on request cookies and Supabase auth.
+// Force dynamic rendering so Amplify's static export worker doesn't try
+// to pre-render this page at build time.
+export const dynamic = "force-dynamic";
+
 export default async function DashboardPage() {
   const supabase = await createClient();
   const {

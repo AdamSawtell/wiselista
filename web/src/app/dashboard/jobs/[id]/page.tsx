@@ -5,6 +5,10 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { AddPhotoForm } from "@/components/AddPhotoForm";
 import { SubmitJobButton } from "@/components/SubmitJobButton";
 
+// Job details rely on request cookies and Supabase auth.
+// Mark as dynamic to avoid static export attempts in Amplify.
+export const dynamic = "force-dynamic";
+
 export default async function JobDetailPage({
   params,
 }: {
