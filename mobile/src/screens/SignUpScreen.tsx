@@ -10,6 +10,7 @@ import {
   Platform,
 } from "react-native";
 import { useAuth } from "../contexts/AuthContext";
+import { theme } from "../theme";
 
 export default function SignUpScreen({ navigation }: { navigation: { navigate: (name: string) => void } }) {
   const [email, setEmail] = useState("");
@@ -38,10 +39,12 @@ export default function SignUpScreen({ navigation }: { navigation: { navigate: (
 
   if (success) {
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, { backgroundColor: theme.colors.surface }]}>
         <View style={styles.form}>
-          <Text style={styles.title}>Check your email</Text>
-          <Text style={styles.subtitle}>We sent a confirmation link to {email}</Text>
+          <Text style={[styles.title, { color: theme.colors.textPrimary }]}>Check your email</Text>
+          <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
+            We sent a confirmation link to {email}
+          </Text>
           <TouchableOpacity style={styles.button} onPress={() => navigation.navigate("Login")}>
             <Text style={styles.buttonText}>Back to sign in</Text>
           </TouchableOpacity>
@@ -53,14 +56,17 @@ export default function SignUpScreen({ navigation }: { navigation: { navigate: (
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
-      style={styles.container}
+      style={[styles.container, { backgroundColor: theme.colors.surface }]}
     >
       <View style={styles.form}>
-        <Text style={styles.title}>Create account</Text>
-        <Text style={styles.subtitle}>Sign up for Wiselista</Text>
+        <Text style={[styles.title, { color: theme.colors.textPrimary }]}>Create account</Text>
+        <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
+          Sign up for Wiselista — property photos, AI-edited.
+        </Text>
         <TextInput
           style={styles.input}
           placeholder="Email"
+          placeholderTextColor={theme.colors.textMuted}
           value={email}
           onChangeText={setEmail}
           autoCapitalize="none"
@@ -70,6 +76,7 @@ export default function SignUpScreen({ navigation }: { navigation: { navigate: (
         <TextInput
           style={styles.input}
           placeholder="Password (min 6 characters)"
+          placeholderTextColor={theme.colors.textMuted}
           value={password}
           onChangeText={setPassword}
           secureTextEntry
@@ -81,10 +88,16 @@ export default function SignUpScreen({ navigation }: { navigation: { navigate: (
           onPress={handleSignUp}
           disabled={loading}
         >
-          {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Sign up</Text>}
+          {loading ? (
+            <ActivityIndicator color={theme.colors.textOnPrimary} />
+          ) : (
+            <Text style={styles.buttonText}>Sign up</Text>
+          )}
         </TouchableOpacity>
         <TouchableOpacity onPress={() => navigation.navigate("Login")} style={styles.link}>
-          <Text style={styles.linkText}>Already have an account? Sign in</Text>
+          <Text style={[styles.linkText, { color: theme.colors.primaryLight }]}>
+            Already have an account? Sign in
+          </Text>
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
@@ -92,22 +105,29 @@ export default function SignUpScreen({ navigation }: { navigation: { navigate: (
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: "center", padding: 24, backgroundColor: "#fff" },
+  container: { flex: 1, justifyContent: "center", padding: theme.spacing.xl },
   form: { maxWidth: 400, width: "100%", alignSelf: "center" },
-  title: { fontSize: 28, fontWeight: "700", color: "#0f172a", marginBottom: 4 },
-  subtitle: { fontSize: 16, color: "#64748b", marginBottom: 24 },
+  title: { ...theme.typography.titleLarge, marginBottom: theme.spacing.xs },
+  subtitle: { ...theme.typography.body, marginBottom: theme.spacing.xl },
   input: {
     borderWidth: 1,
-    borderColor: "#e2e8f0",
-    borderRadius: 8,
-    padding: 14,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radius.sm,
+    padding: theme.spacing.md,
     fontSize: 16,
-    marginBottom: 12,
+    marginBottom: theme.spacing.md,
+    backgroundColor: theme.colors.surface,
   },
-  error: { color: "#dc2626", marginBottom: 12, fontSize: 14 },
-  button: { backgroundColor: "#0f172a", padding: 16, borderRadius: 8, alignItems: "center", marginTop: 8 },
+  error: { color: theme.colors.error, marginBottom: theme.spacing.md, fontSize: 14 },
+  button: {
+    backgroundColor: theme.colors.primary,
+    padding: theme.spacing.md,
+    borderRadius: theme.radius.sm,
+    alignItems: "center",
+    marginTop: theme.spacing.sm,
+  },
   buttonDisabled: { opacity: 0.7 },
-  buttonText: { color: "#fff", fontSize: 16, fontWeight: "600" },
-  link: { marginTop: 20, alignItems: "center" },
-  linkText: { color: "#3b82f6", fontSize: 14 },
+  buttonText: { color: theme.colors.textOnPrimary, ...theme.typography.bodyMedium },
+  link: { marginTop: theme.spacing.lg, alignItems: "center" },
+  linkText: { ...theme.typography.captionMedium },
 });

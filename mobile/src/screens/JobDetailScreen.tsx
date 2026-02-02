@@ -8,10 +8,12 @@ import {
   ActivityIndicator,
   RefreshControl,
   Alert,
+  SafeAreaView,
 } from "react-native";
 import { supabase } from "../lib/supabase";
 import { APP_URL } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
+import { theme } from "../theme";
 import type { Job, Photo } from "../types";
 import { ROOM_LABELS } from "../types";
 
@@ -101,16 +103,19 @@ export default function JobDetailScreen({
 
   if (loading) {
     return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" />
+      <View style={[styles.centered, { backgroundColor: theme.colors.background }]}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
       </View>
     );
   }
   if (!job) {
     return (
-      <View style={styles.centered}>
-        <Text>Job not found</Text>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.button}>
+      <View style={[styles.centered, { backgroundColor: theme.colors.background }]}>
+        <Text style={{ color: theme.colors.textSecondary }}>Job not found</Text>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={[styles.button, { backgroundColor: theme.colors.primary }]}
+        >
           <Text style={styles.buttonText}>Back</Text>
         </TouchableOpacity>
       </View>
@@ -120,80 +125,137 @@ export default function JobDetailScreen({
   const canSubmit = job.status === "draft" && photos.length >= 1;
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <View style={[styles.header, { backgroundColor: theme.colors.surface, borderBottomColor: theme.colors.border }]}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.back}>← Back</Text>
+          <Text style={[styles.back, { color: theme.colors.primaryLight }]}>← Back</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>Job</Text>
+        <Text style={[styles.title, { color: theme.colors.textPrimary }]}>Job</Text>
       </View>
       <ScrollView
         style={styles.scroll}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[theme.colors.primary]} />
+        }
       >
-        <View style={styles.card}>
-          <Text style={styles.status}>{STATUS_LABELS[job.status] ?? job.status}</Text>
-          <Text style={styles.date}>{new Date(job.created_at).toLocaleString()}</Text>
+        <View style={[styles.card, { backgroundColor: theme.colors.surface }, theme.shadow]}>
+          <Text style={[styles.status, { color: theme.colors.textPrimary }]}>
+            {STATUS_LABELS[job.status] ?? job.status}
+          </Text>
+          <Text style={[styles.date, { color: theme.colors.textMuted }]}>
+            {new Date(job.created_at).toLocaleString(undefined, {
+              day: "numeric",
+              month: "short",
+              year: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
+          </Text>
         </View>
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Photos ({photos.length})</Text>
+        <View style={[styles.section, { backgroundColor: theme.colors.surface }, theme.shadow]}>
+          <Text style={[styles.sectionTitle, { color: theme.colors.textPrimary }]}>
+            Photos ({photos.length})
+          </Text>
           {photos.map((p) => (
-            <View key={p.id} style={styles.photoRow}>
-              <Text style={styles.photoRoom}>{ROOM_LABELS[p.room_type]}</Text>
-              <Text style={styles.photoSeq}>#{p.sequence + 1}</Text>
+            <View
+              key={p.id}
+              style={[styles.photoRow, { borderBottomColor: theme.colors.borderLight }]}
+            >
+              <Text style={[styles.photoRoom, { color: theme.colors.textPrimary }]}>
+                {ROOM_LABELS[p.room_type]}
+              </Text>
+              <Text style={[styles.photoSeq, { color: theme.colors.textMuted }]}>#{p.sequence + 1}</Text>
             </View>
           ))}
         </View>
         {job.status === "draft" && (
           <>
             <TouchableOpacity
-              style={styles.addPhoto}
+              style={[styles.addPhoto, { backgroundColor: theme.colors.surfaceMuted }]}
               onPress={() => navigation.navigate("Camera", { jobId })}
+              activeOpacity={0.8}
             >
-              <Text style={styles.addPhotoText}>+ Add photo</Text>
+              <Text style={[styles.addPhotoText, { color: theme.colors.textSecondary }]}>+ Add photo</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.submit, (!canSubmit || submitting) && styles.submitDisabled]}
+              style={[
+                styles.submit,
+                { backgroundColor: theme.colors.primary },
+                (!canSubmit || submitting) && styles.submitDisabled,
+              ]}
               onPress={handleSubmit}
               disabled={!canSubmit || submitting}
+              activeOpacity={0.9}
             >
               {submitting ? (
-                <ActivityIndicator color="#fff" />
+                <ActivityIndicator color={theme.colors.textOnPrimary} />
               ) : (
                 <Text style={styles.submitText}>Submit for edit</Text>
               )}
             </TouchableOpacity>
             {photos.length < 1 && (
-              <Text style={styles.hint}>Add at least one photo to submit.</Text>
+              <Text style={[styles.hint, { color: theme.colors.textMuted }]}>
+                Add at least one photo to submit.
+              </Text>
             )}
           </>
         )}
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f8fafc" },
+  container: { flex: 1 },
   centered: { flex: 1, justifyContent: "center", alignItems: "center" },
-  header: { flexDirection: "row", alignItems: "center", padding: 16, backgroundColor: "#fff", borderBottomWidth: 1, borderBottomColor: "#e2e8f0" },
-  back: { fontSize: 16, color: "#3b82f6", marginRight: 16 },
-  title: { fontSize: 20, fontWeight: "600", color: "#0f172a" },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: theme.spacing.md,
+    borderBottomWidth: 1,
+  },
+  back: { ...theme.typography.body, marginRight: theme.spacing.md },
+  title: { ...theme.typography.titleSmall },
   scroll: { flex: 1 },
-  card: { margin: 16, padding: 16, backgroundColor: "#fff", borderRadius: 8 },
-  status: { fontSize: 16, fontWeight: "600", color: "#0f172a" },
-  date: { fontSize: 14, color: "#64748b", marginTop: 4 },
-  section: { marginHorizontal: 16, marginBottom: 16, padding: 16, backgroundColor: "#fff", borderRadius: 8 },
-  sectionTitle: { fontSize: 16, fontWeight: "600", color: "#0f172a", marginBottom: 12 },
-  photoRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: "#f1f5f9" },
-  photoRoom: { fontSize: 14, color: "#0f172a" },
-  photoSeq: { fontSize: 14, color: "#64748b" },
-  addPhoto: { marginHorizontal: 16, marginBottom: 12, padding: 16, backgroundColor: "#e2e8f0", borderRadius: 8, alignItems: "center" },
-  addPhotoText: { fontSize: 16, color: "#475569" },
-  submit: { marginHorizontal: 16, marginBottom: 8, padding: 16, backgroundColor: "#0f172a", borderRadius: 8, alignItems: "center" },
+  scrollContent: { padding: theme.spacing.md, paddingBottom: theme.spacing.xxl },
+  card: {
+    marginBottom: theme.spacing.md,
+    padding: theme.spacing.md,
+    borderRadius: theme.radius.md,
+  },
+  status: { ...theme.typography.bodyMedium },
+  date: { ...theme.typography.caption, marginTop: theme.spacing.xs },
+  section: {
+    marginBottom: theme.spacing.md,
+    padding: theme.spacing.md,
+    borderRadius: theme.radius.md,
+  },
+  sectionTitle: { ...theme.typography.bodyMedium, marginBottom: theme.spacing.md },
+  photoRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingVertical: theme.spacing.sm,
+    borderBottomWidth: 1,
+  },
+  photoRoom: { ...theme.typography.captionMedium },
+  photoSeq: { ...theme.typography.caption },
+  addPhoto: {
+    marginBottom: theme.spacing.md,
+    padding: theme.spacing.md,
+    borderRadius: theme.radius.sm,
+    alignItems: "center",
+  },
+  addPhotoText: { ...theme.typography.body },
+  submit: {
+    marginBottom: theme.spacing.sm,
+    padding: theme.spacing.md,
+    borderRadius: theme.radius.sm,
+    alignItems: "center",
+  },
   submitDisabled: { opacity: 0.6 },
-  submitText: { color: "#fff", fontSize: 16, fontWeight: "600" },
-  button: { marginTop: 16, padding: 16, backgroundColor: "#0f172a", borderRadius: 8 },
-  buttonText: { color: "#fff" },
-  hint: { marginHorizontal: 16, marginBottom: 24, fontSize: 14, color: "#64748b", textAlign: "center" },
+  submitText: { color: theme.colors.textOnPrimary, ...theme.typography.bodyMedium },
+  button: { marginTop: theme.spacing.md, padding: theme.spacing.md, borderRadius: theme.radius.sm },
+  buttonText: { color: theme.colors.textOnPrimary, ...theme.typography.bodyMedium },
+  hint: { ...theme.typography.caption, textAlign: "center" },
 });

@@ -11,6 +11,7 @@ import JobDetailScreen from "./src/screens/JobDetailScreen";
 import CreateJobScreen from "./src/screens/CreateJobScreen";
 import CameraScreen from "./src/screens/CameraScreen";
 import { View, ActivityIndicator, StyleSheet } from "react-native";
+import { theme } from "./src/theme";
 
 export type AppStackParamList = {
   JobList: undefined;
@@ -46,8 +47,8 @@ function RootNavigator() {
   const { user, loading } = useAuth();
   if (loading) {
     return (
-      <View style={styles.loading}>
-        <ActivityIndicator size="large" />
+      <View style={[styles.loading, { backgroundColor: theme.colors.surface }]}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
       </View>
     );
   }
@@ -59,12 +60,12 @@ export default function App() {
     <AuthProvider>
       <NavigationContainer>
         <RootNavigator />
-        <StatusBar style="auto" />
+        <StatusBar style="dark" />
       </NavigationContainer>
     </AuthProvider>
   );
 }
 
 const styles = StyleSheet.create({
-  loading: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#fff" },
+  loading: { flex: 1, justifyContent: "center", alignItems: "center" },
 });

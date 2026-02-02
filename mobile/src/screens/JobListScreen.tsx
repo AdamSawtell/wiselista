@@ -7,9 +7,11 @@ import {
   StyleSheet,
   ActivityIndicator,
   RefreshControl,
+  SafeAreaView,
 } from "react-native";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
+import { theme } from "../theme";
 import type { Job } from "../types";
 
 const STATUS_LABELS: Record<string, string> = {
@@ -50,63 +52,98 @@ export default function JobListScreen({ navigation }: { navigation: any }) {
 
   if (loading) {
     return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" />
+      <View style={[styles.centered, { backgroundColor: theme.colors.background }]}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Jobs</Text>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <View style={[styles.header, { backgroundColor: theme.colors.surface, borderBottomColor: theme.colors.border }]}>
+        <Text style={[styles.title, { color: theme.colors.textPrimary }]}>Property jobs</Text>
         <TouchableOpacity style={styles.signOut} onPress={() => signOut()}>
-          <Text style={styles.signOutText}>Sign out</Text>
+          <Text style={[styles.signOutText, { color: theme.colors.textMuted }]}>Sign out</Text>
         </TouchableOpacity>
       </View>
       <FlatList
         data={jobs}
         keyExtractor={(item) => item.id}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        contentContainerStyle={jobs.length === 0 ? styles.emptyList : styles.list}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[theme.colors.primary]} />
+        }
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Text style={styles.emptyText}>No jobs yet</Text>
-            <Text style={styles.emptySub}>Create a job and add photos to get started</Text>
+            <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>No jobs yet</Text>
+            <Text style={[styles.emptySub, { color: theme.colors.textMuted }]}>
+              Create a job and add photos to get started
+            </Text>
           </View>
         }
         renderItem={({ item }) => (
           <TouchableOpacity
-            style={styles.card}
+            style={[styles.card, { backgroundColor: theme.colors.surface }, theme.shadow]}
             onPress={() => navigation.navigate("JobDetail", { jobId: item.id })}
+            activeOpacity={0.8}
           >
-            <Text style={styles.cardDate}>{new Date(item.created_at).toLocaleDateString()}</Text>
-            <Text style={styles.cardStatus}>{STATUS_LABELS[item.status] ?? item.status}</Text>
+            <Text style={[styles.cardDate, { color: theme.colors.textPrimary }]}>
+              {new Date(item.created_at).toLocaleDateString(undefined, {
+                day: "numeric",
+                month: "short",
+                year: "numeric",
+              })}
+            </Text>
+            <Text style={[styles.cardStatus, { color: theme.colors.textMuted }]}>
+              {STATUS_LABELS[item.status] ?? item.status}
+            </Text>
           </TouchableOpacity>
         )}
       />
       <TouchableOpacity
-        style={styles.fab}
+        style={[styles.fab, { backgroundColor: theme.colors.primary }]}
         onPress={() => navigation.navigate("CreateJob")}
+        activeOpacity={0.9}
       >
         <Text style={styles.fabText}>+ New job</Text>
       </TouchableOpacity>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f8fafc" },
+  container: { flex: 1 },
   centered: { flex: 1, justifyContent: "center", alignItems: "center" },
-  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 16, backgroundColor: "#fff", borderBottomWidth: 1, borderBottomColor: "#e2e8f0" },
-  title: { fontSize: 24, fontWeight: "700", color: "#0f172a" },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: theme.spacing.md,
+    borderBottomWidth: 1,
+  },
+  title: { ...theme.typography.title },
   signOut: {},
-  signOutText: { color: "#64748b", fontSize: 14 },
-  empty: { padding: 48, alignItems: "center" },
-  emptyText: { fontSize: 18, color: "#64748b" },
-  emptySub: { fontSize: 14, color: "#94a3b8", marginTop: 8 },
-  card: { backgroundColor: "#fff", marginHorizontal: 16, marginVertical: 6, padding: 16, borderRadius: 8 },
-  cardDate: { fontSize: 16, color: "#0f172a" },
-  cardStatus: { fontSize: 14, color: "#64748b", marginTop: 4 },
-  fab: { position: "absolute", bottom: 24, right: 24, backgroundColor: "#0f172a", paddingHorizontal: 20, paddingVertical: 14, borderRadius: 8 },
-  fabText: { color: "#fff", fontSize: 16, fontWeight: "600" },
+  signOutText: { ...theme.typography.captionMedium },
+  list: { padding: theme.spacing.md, paddingBottom: 88 },
+  emptyList: { flex: 1, padding: theme.spacing.md },
+  empty: { padding: theme.spacing.xxl, alignItems: "center" },
+  emptyText: { ...theme.typography.titleSmall, marginBottom: theme.spacing.sm },
+  emptySub: { ...theme.typography.caption, textAlign: "center" },
+  card: {
+    marginHorizontal: theme.spacing.md,
+    marginVertical: theme.spacing.sm,
+    padding: theme.spacing.md,
+    borderRadius: theme.radius.md,
+  },
+  cardDate: { ...theme.typography.bodyMedium },
+  cardStatus: { ...theme.typography.caption, marginTop: theme.spacing.xs },
+  fab: {
+    position: "absolute",
+    bottom: theme.spacing.xl,
+    right: theme.spacing.xl,
+    paddingHorizontal: theme.spacing.lg,
+    paddingVertical: theme.spacing.md,
+    borderRadius: theme.radius.sm,
+  },
+  fabText: { color: theme.colors.textOnPrimary, ...theme.typography.bodyMedium },
 });

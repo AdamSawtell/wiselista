@@ -11,6 +11,7 @@ import {
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
+import { theme } from "../theme";
 import { ROOM_TYPES, ROOM_LABELS, type RoomType } from "../types";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -94,20 +95,27 @@ export default function CameraScreen({
 
   if (!permission) {
     return (
-      <View style={styles.centered}>
-        <Text>Requesting camera access…</Text>
+      <View style={[styles.centered, { backgroundColor: theme.colors.cameraBar }]}>
+        <Text style={[styles.permissionText, { color: theme.colors.cameraBarText }]}>
+          Requesting camera access…
+        </Text>
       </View>
     );
   }
   if (!permission.granted) {
     return (
-      <View style={styles.centered}>
-        <Text style={styles.permissionText}>Camera access is required to capture photos.</Text>
-        <TouchableOpacity style={styles.button} onPress={requestPermission}>
-          <Text style={styles.buttonText}>Grant permission</Text>
+      <View style={[styles.centered, { backgroundColor: theme.colors.cameraBar }]}>
+        <Text style={[styles.permissionText, { color: theme.colors.cameraBarText }]}>
+          Camera access is required to capture property photos.
+        </Text>
+        <TouchableOpacity
+          style={[styles.button, { backgroundColor: theme.colors.surface }]}
+          onPress={requestPermission}
+        >
+          <Text style={[styles.buttonText, { color: theme.colors.primary }]}>Grant permission</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.cancel} onPress={() => navigation.goBack()}>
-          <Text style={styles.cancelText}>Back</Text>
+          <Text style={[styles.cancelText, { color: theme.colors.cameraBarMuted }]}>Back</Text>
         </TouchableOpacity>
       </View>
     );
@@ -124,8 +132,8 @@ export default function CameraScreen({
           <View style={styles.frameGuide} />
         </View>
       </View>
-      <View style={styles.controls}>
-        <Text style={styles.roomLabel}>Room type</Text>
+      <View style={[styles.controls, { backgroundColor: theme.colors.cameraBar }]}>
+        <Text style={[styles.roomLabel, { color: theme.colors.cameraBarMuted }]}>Room type</Text>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -134,29 +142,40 @@ export default function CameraScreen({
           {ROOM_TYPES.map((r) => (
             <TouchableOpacity
               key={r}
-              style={[styles.roomChip, roomType === r && styles.roomChipActive]}
+              style={[
+                styles.roomChip,
+                roomType === r && { backgroundColor: theme.colors.surface },
+              ]}
               onPress={() => setRoomType(r)}
+              activeOpacity={0.8}
             >
-              <Text style={[styles.roomChipText, roomType === r && styles.roomChipTextActive]}>
+              <Text
+                style={[
+                  styles.roomChipText,
+                  { color: theme.colors.cameraBarText },
+                  roomType === r && { color: theme.colors.primary, fontWeight: "600" },
+                ]}
+              >
                 {ROOM_LABELS[r]}
               </Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
-        {error && <Text style={styles.error}>{error}</Text>}
+        {error && <Text style={[styles.error, { color: theme.colors.error }]}>{error}</Text>}
         <TouchableOpacity
-          style={[styles.capture, uploading && styles.captureDisabled]}
+          style={[styles.capture, { backgroundColor: theme.colors.surface }, uploading && styles.captureDisabled]}
           onPress={handleCapture}
           disabled={uploading}
+          activeOpacity={0.9}
         >
           {uploading ? (
-            <ActivityIndicator color="#fff" />
+            <ActivityIndicator color={theme.colors.primary} />
           ) : (
-            <Text style={styles.captureText}>Capture</Text>
+            <Text style={[styles.captureText, { color: theme.colors.primary }]}>Capture</Text>
           )}
         </TouchableOpacity>
         <TouchableOpacity style={styles.back} onPress={() => navigation.goBack()}>
-          <Text style={styles.backText}>Cancel</Text>
+          <Text style={[styles.backText, { color: theme.colors.cameraBarMuted }]}>Cancel</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -165,7 +184,7 @@ export default function CameraScreen({
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#000" },
-  centered: { flex: 1, justifyContent: "center", alignItems: "center", padding: 24 },
+  centered: { flex: 1, justifyContent: "center", alignItems: "center", padding: theme.spacing.xl },
   camera: { flex: 1 },
   overlay: {
     ...StyleSheet.absoluteFillObject,
@@ -174,57 +193,52 @@ const styles = StyleSheet.create({
   },
   frame: {
     borderWidth: 2,
-    borderColor: "rgba(255,255,255,0.8)",
-    borderRadius: 8,
+    borderColor: "rgba(255,255,255,0.85)",
+    borderRadius: theme.radius.sm,
     justifyContent: "center",
     alignItems: "center",
   },
   frameLabel: {
     position: "absolute",
-    top: 8,
-    left: 12,
-    color: "rgba(255,255,255,0.9)",
-    fontSize: 14,
-    fontWeight: "600",
+    top: theme.spacing.sm,
+    left: theme.spacing.md,
+    color: "rgba(255,255,255,0.95)",
+    ...theme.typography.captionMedium,
   },
   frameGuide: {
     width: "90%",
     height: "70%",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.3)",
+    borderColor: "rgba(255,255,255,0.35)",
     borderStyle: "dashed",
   },
   controls: {
-    padding: 16,
-    paddingBottom: 32,
-    backgroundColor: "#0f172a",
+    padding: theme.spacing.md,
+    paddingBottom: theme.spacing.xxl,
   },
-  roomLabel: { color: "#94a3b8", fontSize: 12, marginBottom: 8 },
-  roomRow: { flexDirection: "row", gap: 8, marginBottom: 16 },
+  roomLabel: { ...theme.typography.label, marginBottom: theme.spacing.sm },
+  roomRow: { flexDirection: "row", gap: theme.spacing.sm, marginBottom: theme.spacing.md },
   roomChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    borderRadius: theme.radius.full,
     backgroundColor: "rgba(255,255,255,0.15)",
   },
-  roomChipActive: { backgroundColor: "#fff" },
-  roomChipText: { color: "#e2e8f0", fontSize: 14 },
-  roomChipTextActive: { color: "#0f172a", fontWeight: "600" },
-  error: { color: "#f87171", fontSize: 14, marginBottom: 8 },
+  roomChipText: { ...theme.typography.captionMedium },
+  error: { ...theme.typography.caption, marginBottom: theme.spacing.sm },
   capture: {
-    backgroundColor: "#fff",
-    padding: 16,
-    borderRadius: 8,
+    padding: theme.spacing.md,
+    borderRadius: theme.radius.sm,
     alignItems: "center",
-    marginBottom: 12,
+    marginBottom: theme.spacing.md,
   },
   captureDisabled: { opacity: 0.7 },
-  captureText: { color: "#0f172a", fontSize: 16, fontWeight: "600" },
+  captureText: { ...theme.typography.bodyMedium },
   back: { alignItems: "center" },
-  backText: { color: "#94a3b8", fontSize: 14 },
-  permissionText: { color: "#e2e8f0", textAlign: "center", marginBottom: 16 },
-  button: { backgroundColor: "#fff", padding: 16, borderRadius: 8, marginBottom: 12 },
-  buttonText: { color: "#0f172a", fontWeight: "600" },
+  backText: { ...theme.typography.caption },
+  permissionText: { ...theme.typography.body, textAlign: "center", marginBottom: theme.spacing.md },
+  button: { padding: theme.spacing.md, borderRadius: theme.radius.sm, marginBottom: theme.spacing.md },
+  buttonText: { ...theme.typography.bodyMedium },
   cancel: {},
-  cancelText: { color: "#94a3b8" },
+  cancelText: {},
 });
