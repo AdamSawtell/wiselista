@@ -21,6 +21,21 @@
 
 ---
 
+## Current status & next steps (Feb 2025)
+
+**Done:** Web deployed at wiselista.com (Amplify + custom domain, SSL). Login, dashboard, create job, add photos, error handling. Supabase + migrations. Submit button exists but **submit API and Stripe webhook were removed** (Stripe API version mismatch); re-adding them is the first priority.
+
+**Recommended order:**
+
+1. **Re-enable Submit + Stripe** — Restore `POST /api/jobs/[id]/submit` and `POST /api/webhooks/stripe` using a Stripe API version compatible with your SDK. Then: create job → add photos → Submit for edit → pay (Stripe Checkout) → webhook marks job paid → mock AI “processes” → job ready. Completes Phase 1 web happy path.
+2. **Web: edited photos + download** — When job status is “ready,” show edited thumbnails on job detail and add “Download” (signed URLs from Supabase storage). Mock AI already sets `edited_key`; wire UI to display and download.
+3. **CI: lint + test** — Add GitHub Actions (or use Amplify) to run `npm run lint` and basic tests on push.
+4. **Phase 2: Mobile** — When ready, start Expo app: auth, camera, framing, build job, submit (same API).
+
+**Out of scope for now:** Virtual tour, CMS, teams, Book & Capture (see Phase 5).
+
+---
+
 ## Phase 1: Foundation (weeks 1–2)
 
 **Goal:** Auth, backend API skeleton, DB, storage, and one end-to-end path (upload → “edit” → return) with mock or real AI.
