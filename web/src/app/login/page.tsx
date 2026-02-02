@@ -2,7 +2,7 @@
 
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
 export default function LoginPage() {
@@ -11,6 +11,8 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const sessionError = searchParams.get("error") === "session";
 
   if (!isSupabaseConfigured()) {
     return (
@@ -57,6 +59,11 @@ export default function LoginPage() {
               Property photos, AI-edited. For agents, rental managers & homeowners.
             </p>
           </div>
+          {sessionError && (
+            <div className="mt-6 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              Your session may have expired or the dashboard couldn’t load. Please sign in again.
+            </div>
+          )}
           <form onSubmit={handleSubmit} className="mt-8 space-y-5">
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-slate-700">

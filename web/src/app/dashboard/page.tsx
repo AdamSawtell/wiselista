@@ -10,18 +10,31 @@ import { CreateJobButton } from "@/components/CreateJobButton";
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
-  const supabase = await createClient();
-  if (!supabase) redirect("/login");
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  let user: { id: string } | null = null;
+  let jobs: { id: string; status: string; created_at: string }[] | null = null;
+  let jobsError: { message: string } | null = null;
 
-  const { data: jobs, error: jobsError } = await supabase
-    .from("jobs")
-    .select("id, status, created_at")
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: false });
+  try {
+    const supabase = await createClient();
+    if (!supabase) redirect("/login");
+
+    const { data: authData, error: authError } = await supabase.auth.getUser();
+    if (authError || !authData?.user) redirect("/login");
+    user = authData.user;
+
+    const result = await supabase
+      .from("jobs")
+      .select("id, status, created_at")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false });
+    jobs = result.data ?? null;
+    jobsError = result.error ? { message: result.error.message } : null;
+  } catch (e) {
+    console.error("Dashboard load failed:", e);
+    redirect("/login?error=session");
+  }
+
+  if (!user) redirect("/login");
 
   return (
     <div className="min-h-full bg-wiselista-surface">
