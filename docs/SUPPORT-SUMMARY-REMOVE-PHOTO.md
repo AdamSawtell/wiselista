@@ -88,17 +88,24 @@ Despite these changes, **Remove still does not work** for the user on mobile (Ap
 
 ---
 
-## 7. Suggested next steps for support
+## 7. E2E diagnostics (implemented)
+
+- **Mobile:** Job detail screen has a **Debug (e2e)** panel showing: APP_URL, last delete URL, last delete rid/status/body/duration/error. Delete request sends **X-Request-Id**; response body is always read as `res.text()` and included in any error message. On 200 `{ok:true}`, the client optimistically removes the photo from UI then refetches.
+- **API:** DELETE logs **rid, jobId, photoId, hasBearer, userId**; returns **{ok, rid}** on both success and error responses.
+- **GET /api/health:** Returns `{ok: true, service, timestamp}`. Mobile has a **Test API** button that calls it and shows result in the debug panel.
+- **Next step:** Get a screenshot of the debug panel after a Remove attempt, and the matching CloudWatch log line (search by `rid`). Then proceed to a targeted fix.
+
+## 8. Suggested next steps for support
 
 1. **Get exact behaviour** from the user when they tap Remove: no response, spinner only, or alert text (and copy it).
-2. **Confirm API URL** used by the built app (e.g. log or debug screen showing `APP_URL` or the full delete URL).
-3. **Reproduce** with a test token: call `DELETE https://wiselista.com/api/jobs/{id}/photos/{id}` with a valid Bearer token and confirm 200 + `{"ok":true}`.
-4. **Check CloudWatch** for `[DeletePhoto]` when the user tries Remove; use that to decide if the failure is before the API (no log), at auth (Unauthorized), or after (success but client not updating).
+2. **Get a screenshot** of the **Debug (e2e)** panel on the job detail screen (shows APP_URL, last delete URL, rid, status, body, duration, error).
+3. **Check CloudWatch** for `[DeletePhoto]` with the same **rid** as in the screenshot; use that to decide if the failure is before the API (no log), at auth (Unauthorized), or after (success but client not updating).
+4. **Reproduce** with a test token: call `DELETE https://wiselista.com/api/jobs/{id}/photos/{id}` with header `X-Request-Id: <rid>` and a valid Bearer token; confirm 200 + `{"ok":true,"rid":"..."}`.
 5. If the request never reaches the API, verify **EXPO_PUBLIC_APP_URL** in the build and that the device can reach **wiselista.com** (no firewall/VPN blocking).
 
 ---
 
-## 8. Other issues encountered (same project)
+## 9. Other issues encountered (same project)
 
 - **Photos not showing in Supabase after adding on mobile** – Addressed by using Bearer auth on the upload API and (for “Choose from library”) ensuring the same API is used; “Take photo” was reverted to direct Supabase upload on iOS.
 - **“Load failed”** – User is on Apple; handling was added for failed job load (try/catch, “Try again”) and for failed thumbnails (placeholder instead of broken image). Exact source of “Load failed” text was not confirmed.
