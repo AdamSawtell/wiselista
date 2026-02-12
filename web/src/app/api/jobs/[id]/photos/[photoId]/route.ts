@@ -18,7 +18,10 @@ export async function DELETE(
   const user = await getApiUser(request);
   if (!user) {
     console.warn("[DeletePhoto] Unauthorized: no user from getApiUser");
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json(
+      { error: "Unauthorized. Sign out and sign in again, then try again." },
+      { status: 401 }
+    );
   }
 
   const token = hasBearer ? authHeader!.slice(7) : null;

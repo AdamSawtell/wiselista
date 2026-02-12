@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   RefreshControl,
   SafeAreaView,
 } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 import { theme } from "../theme";
@@ -44,6 +45,13 @@ export default function JobListScreen({ navigation }: { navigation: any }) {
   useEffect(() => {
     fetchJobs();
   }, [user?.id]);
+
+  // Refetch when screen gains focus so jobs/photos from other devices (or desktop) appear
+  useFocusEffect(
+    useCallback(() => {
+      if (user?.id) fetchJobs();
+    }, [user?.id])
+  );
 
   const onRefresh = () => {
     setRefreshing(true);

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   SafeAreaView,
   Image,
 } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 import * as ImagePicker from "expo-image-picker";
 import { supabase } from "../lib/supabase";
 import { APP_URL } from "../lib/supabase";
@@ -96,6 +97,13 @@ export default function JobDetailScreen({
     fetchJob();
   }, [jobId, user?.id]);
 
+  // Refetch when screen gains focus (e.g. return from Camera or after add) so new photos show without leaving the job
+  useFocusEffect(
+    useCallback(() => {
+      if (user?.id && jobId) fetchJob();
+    }, [jobId, user?.id])
+  );
+
   const onRefresh = () => {
     setRefreshing(true);
     fetchJob();
@@ -146,16 +154,19 @@ export default function JobDetailScreen({
       setPendingLibrary(null);
       await fetchJob();
     } catch {
-      Alert.alert("Error", "Network error");
+      Alert.alert("Error", "Network error. Check your connection and that the app URL is correct.");
+    } finally {
+      setAddingFromLibrary(false);
     }
-    setAddingFromLibrary(false);
   }
 
   async function handleDeletePhoto(photoId: string) {
     if (!session?.access_token) {
-      Alert.alert("Error", "Not signed in");
+      Alert.alert("Error", "Not signed in. Sign out and sign in again, then try Remove.");
       return;
     }
+    const baseUrl = APP_URL || "https://wiselista.com";
+    const deleteUrl = `${baseUrl.replace(/\/$/, "")}/api/jobs/${jobId}/photos/${photoId}`;
     Alert.alert("Remove photo", "Remove this photo from the job?", [
       { text: "Cancel", style: "cancel" },
       {
@@ -163,13 +174,15 @@ export default function JobDetailScreen({
         style: "destructive",
         onPress: async () => {
           setRemovingPhotoId(photoId);
-          const url = `${APP_URL}/api/jobs/${jobId}/photos/${photoId}`;
           const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 15000);
+          const timeoutId = setTimeout(() => controller.abort(), 20000);
           try {
-            const res = await fetch(url, {
+            const res = await fetch(deleteUrl, {
               method: "DELETE",
-              headers: { Authorization: `Bearer ${session.access_token}` },
+              headers: {
+                Authorization: `Bearer ${session.access_token}`,
+                "Content-Type": "application/json",
+              },
               signal: controller.signal,
             });
             clearTimeout(timeoutId);
@@ -183,13 +196,23 @@ export default function JobDetailScreen({
             if (res.ok) {
               await fetchJob();
             } else {
-              Alert.alert("Could not remove photo", data.error ?? `Error ${res.status}`);
+              const status = res.status;
+              const msg =
+                status === 401
+                  ? "Session expired or invalid. Sign out and sign in again, then try Remove."
+                  : data.error ?? `Server error ${status}`;
+              Alert.alert("Could not remove photo", msg);
             }
           } catch (e) {
             clearTimeout(timeoutId);
             const msg = e instanceof Error ? e.message : "Network error";
             const isAbort = e instanceof Error && e.name === "AbortError";
-            Alert.alert("Error", isAbort ? "Request timed out. Check your connection and EXPO_PUBLIC_APP_URL." : msg);
+            Alert.alert(
+              "Remove failed",
+              isAbort
+                ? "Request timed out. Check your connection. The API must be at the URL set in EXPO_PUBLIC_APP_URL (e.g. https://wiselista.com)."
+                : msg
+            );
           } finally {
             setRemovingPhotoId(null);
           }
