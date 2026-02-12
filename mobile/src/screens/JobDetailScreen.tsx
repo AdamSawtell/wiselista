@@ -251,6 +251,17 @@ export default function JobDetailScreen({
               minute: "2-digit",
             })}
           </Text>
+          {job.status === "failed" && (
+            <View style={[styles.failedCard, { backgroundColor: theme.colors.error + "20", borderColor: theme.colors.error }]}>
+              <Text style={[styles.failedTitle, { color: theme.colors.error }]}>Enhancement failed</Text>
+              {job.failure_message ? (
+                <Text style={[styles.failedMessage, { color: theme.colors.textPrimary }]}>{job.failure_message}</Text>
+              ) : null}
+              <Text style={[styles.failedHint, { color: theme.colors.textMuted }]}>
+                You can delete this job and try again, or contact support with the job ID.
+              </Text>
+            </View>
+          )}
         </View>
         <View style={[styles.section, { backgroundColor: theme.colors.surface }, theme.shadow]}>
           <Text style={[styles.sectionTitle, { color: theme.colors.textPrimary }]}>
@@ -413,6 +424,15 @@ const styles = StyleSheet.create({
   },
   status: { ...theme.typography.bodyMedium },
   date: { ...theme.typography.caption, marginTop: theme.spacing.xs },
+  failedCard: {
+    marginTop: theme.spacing.md,
+    padding: theme.spacing.md,
+    borderRadius: theme.radius.sm,
+    borderWidth: 1,
+  },
+  failedTitle: { ...theme.typography.bodyMedium },
+  failedMessage: { ...theme.typography.caption, marginTop: theme.spacing.xs },
+  failedHint: { ...theme.typography.caption, marginTop: theme.spacing.sm },
   section: {
     marginBottom: theme.spacing.md,
     padding: theme.spacing.md,

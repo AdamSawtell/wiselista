@@ -9,6 +9,7 @@ export interface Job {
   created_at: string;
   updated_at: string;
   completed_at?: string | null;
+  failure_message?: string | null;
   photos?: Photo[];
 }
 

@@ -2,6 +2,7 @@ import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { getApiUser } from "@/lib/api-auth";
 import { triggerMockAI } from "@/lib/ai-mock";
+import { processJobWithRealAI } from "@/lib/ai-adapter";
 import { NextResponse } from "next/server";
 
 export async function POST(
@@ -49,7 +50,12 @@ export async function POST(
 
   if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 });
 
-  triggerMockAI(jobId);
+  if (process.env.CLAID_API_KEY) {
+    console.info("[Submit] job submitted for Claid", { jobId, userId: user.id, photoCount: photos.length });
+    void processJobWithRealAI(jobId);
+  } else {
+    triggerMockAI(jobId);
+  }
 
   return NextResponse.json({ ok: true, message: "Job submitted for editing" });
 }

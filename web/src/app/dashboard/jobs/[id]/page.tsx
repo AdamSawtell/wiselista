@@ -99,6 +99,19 @@ export default async function JobDetailPage({
               <DeleteJobButton jobId={id} redirectAfter="/dashboard" />
             </div>
           </div>
+          {job.status === "failed" && (
+            <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-4">
+              <p className="font-medium text-red-800">Enhancement failed</p>
+              {(job as { failure_message?: string }).failure_message && (
+                <p className="mt-1 text-sm text-red-700">
+                  {(job as { failure_message?: string }).failure_message}
+                </p>
+              )}
+              <p className="mt-2 text-xs text-red-600">
+                You can delete this job and try again, or contact support with the job ID if it keeps failing.
+              </p>
+            </div>
+          )}
         </div>
 
         {job.status === "draft" && (

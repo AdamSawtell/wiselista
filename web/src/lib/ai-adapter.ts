@@ -183,8 +183,22 @@ export async function processJobWithRealAI(jobId: string): Promise<void> {
 
       await supabase.from("photos").update({ edited_key: editedKey }).eq("id", r.photoId);
     } catch (e) {
-      console.error(`[Claid] job ${jobId} photo ${r.photoId}:`, e);
-      // Leave job in processing; can retry or fix manually. Optionally set status to 'failed' later.
+      const message = e instanceof Error ? e.message : String(e);
+      const failureMessage = `Photo ${r.photoId.slice(0, 8)}: ${message}`.slice(0, 500);
+      console.error("[Claid]", {
+        jobId,
+        userId,
+        photoId: r.photoId,
+        error: message,
+      });
+      await supabase
+        .from("jobs")
+        .update({
+          status: "failed",
+          failure_message: failureMessage,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", jobId);
       return;
     }
   }
