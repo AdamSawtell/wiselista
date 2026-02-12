@@ -163,11 +163,16 @@ export default function JobDetailScreen({
         style: "destructive",
         onPress: async () => {
           setRemovingPhotoId(photoId);
+          const url = `${APP_URL}/api/jobs/${jobId}/photos/${photoId}`;
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 15000);
           try {
-            const res = await fetch(`${APP_URL}/api/jobs/${jobId}/photos/${photoId}`, {
+            const res = await fetch(url, {
               method: "DELETE",
               headers: { Authorization: `Bearer ${session.access_token}` },
+              signal: controller.signal,
             });
+            clearTimeout(timeoutId);
             let data: { error?: string } = {};
             try {
               const text = await res.text();
@@ -181,7 +186,10 @@ export default function JobDetailScreen({
               Alert.alert("Could not remove photo", data.error ?? `Error ${res.status}`);
             }
           } catch (e) {
-            Alert.alert("Error", e instanceof Error ? e.message : "Network error");
+            clearTimeout(timeoutId);
+            const msg = e instanceof Error ? e.message : "Network error";
+            const isAbort = e instanceof Error && e.name === "AbortError";
+            Alert.alert("Error", isAbort ? "Request timed out. Check your connection and EXPO_PUBLIC_APP_URL." : msg);
           } finally {
             setRemovingPhotoId(null);
           }
