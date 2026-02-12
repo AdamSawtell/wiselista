@@ -48,6 +48,7 @@ export default function JobDetailScreen({
     roomType: RoomType;
   } | null>(null);
   const [addingFromLibrary, setAddingFromLibrary] = useState(false);
+  const [removingPhotoId, setRemovingPhotoId] = useState<string | null>(null);
 
   async function fetchJob() {
     const { data: jobData, error: jobErr } = await supabase
@@ -151,22 +152,38 @@ export default function JobDetailScreen({
   }
 
   async function handleDeletePhoto(photoId: string) {
-    if (!session?.access_token) return;
+    if (!session?.access_token) {
+      Alert.alert("Error", "Not signed in");
+      return;
+    }
     Alert.alert("Remove photo", "Remove this photo from the job?", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Remove",
         style: "destructive",
         onPress: async () => {
+          setRemovingPhotoId(photoId);
           try {
             const res = await fetch(`${APP_URL}/api/jobs/${jobId}/photos/${photoId}`, {
               method: "DELETE",
               headers: { Authorization: `Bearer ${session.access_token}` },
             });
-            if (res.ok) await fetchJob();
-            else Alert.alert("Error", "Could not remove photo");
-          } catch {
-            Alert.alert("Error", "Network error");
+            let data: { error?: string } = {};
+            try {
+              const text = await res.text();
+              data = text ? JSON.parse(text) : {};
+            } catch {
+              // ignore non-JSON response
+            }
+            if (res.ok) {
+              await fetchJob();
+            } else {
+              Alert.alert("Could not remove photo", data.error ?? `Error ${res.status}`);
+            }
+          } catch (e) {
+            Alert.alert("Error", e instanceof Error ? e.message : "Network error");
+          } finally {
+            setRemovingPhotoId(null);
           }
         },
       },
@@ -180,24 +197,39 @@ export default function JobDetailScreen({
       Alert.alert("Error", "Not signed in");
       return;
     }
+    const url = `${APP_URL}/api/jobs/${jobId}/submit`;
     setSubmitting(true);
     try {
-      const res = await fetch(`${APP_URL}/api/jobs/${jobId}/submit`, {
+      const res = await fetch(url, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
       });
-      const data = await res.json();
+      let data: { error?: string } = {};
+      try {
+        const text = await res.text();
+        data = text ? JSON.parse(text) : {};
+      } catch {
+        // Non-JSON response (e.g. HTML error page)
+        if (!res.ok) {
+          Alert.alert("Submit failed", `Server error ${res.status}. Check that the app URL is correct.`);
+          return;
+        }
+      }
       if (!res.ok) {
-        Alert.alert("Submit failed", data.error ?? "Something went wrong");
-        setSubmitting(false);
+        Alert.alert("Submit failed", data.error ?? `Error ${res.status}`);
         return;
       }
       await fetchJob();
-      Alert.alert("Submitted", "Job submitted for editing.");
-    } catch {
-      Alert.alert("Error", "Network error");
+      Alert.alert("Submitted", "Job submitted for editing. Status will update to Processing, then Ready.");
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Network error";
+      Alert.alert(
+        "Submit failed",
+        `${message}. If using a device or simulator, set EXPO_PUBLIC_APP_URL to your deployed URL (e.g. https://wiselista.com).`
+      );
+    } finally {
+      setSubmitting(false);
     }
-    setSubmitting(false);
   }
 
   if (loading) {
@@ -295,9 +327,14 @@ export default function JobDetailScreen({
               {job.status === "draft" && (
                 <TouchableOpacity
                   onPress={() => handleDeletePhoto(p.id)}
-                  style={[styles.removeBtn, { borderColor: theme.colors.error }]}
+                  disabled={removingPhotoId === p.id}
+                  style={[styles.removeBtn, { borderColor: theme.colors.error }, removingPhotoId === p.id && { opacity: 0.6 }]}
                 >
-                  <Text style={[styles.removeBtnText, { color: theme.colors.error }]}>Remove</Text>
+                  {removingPhotoId === p.id ? (
+                    <ActivityIndicator size="small" color={theme.colors.error} />
+                  ) : (
+                    <Text style={[styles.removeBtnText, { color: theme.colors.error }]}>Remove</Text>
+                  )}
                 </TouchableOpacity>
               )}
             </View>

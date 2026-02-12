@@ -1,19 +1,26 @@
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
-import { getCurrentUser } from "@/lib/auth";
+import { getApiUser } from "@/lib/api-auth";
 import { NextResponse } from "next/server";
 
 const BUCKET = "wiselista-photos";
 
-/** Delete one photo (storage + DB). Only allowed when job is draft. User must own the job. */
+/** Delete one photo (storage + DB). Only allowed when job is draft. User must own the job. Supports cookie (web) or Bearer token (mobile). */
 export async function DELETE(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string; photoId: string }> }
 ) {
-  const user = await getCurrentUser();
+  const user = await getApiUser(request);
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id: jobId, photoId } = await params;
-  const supabase = await createClient();
+  const authHeader = request.headers.get("authorization");
+  const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+  const supabase = token
+    ? createSupabaseClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
+        global: { headers: { Authorization: `Bearer ${token}` } },
+      })
+    : await createClient();
   if (!supabase) return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
 
   const { data: job } = await supabase
