@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 
 const ROOM_OPTIONS = [
@@ -19,18 +19,18 @@ type AddPhotoFormProps = {
 export function AddPhotoForm({ jobId }: AddPhotoFormProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
     const form = e.currentTarget;
-    const formData = new FormData(form);
-    const file = formData.get("file") as File | null;
-    const roomType = formData.get("room_type") as string;
+    const roomType = (new FormData(form).get("room_type") as string) || "";
+    const files = fileInputRef.current?.files;
 
-    if (!file?.size) {
-      setError("Choose a photo");
+    if (!files?.length) {
+      setError("Choose one or more photos");
       return;
     }
     if (!roomType) {
@@ -40,36 +40,38 @@ export function AddPhotoForm({ jobId }: AddPhotoFormProps) {
 
     setLoading(true);
     try {
-      const body = new FormData();
-      body.set("file", file);
-      body.set("room_type", roomType);
-      body.set("sequence", "0");
+      for (let i = 0; i < files.length; i++) {
+        const body = new FormData();
+        body.set("file", files[i]!);
+        body.set("room_type", roomType);
+        body.set("sequence", String(i));
 
-      const res = await fetch(`/api/jobs/${jobId}/photos`, {
-        method: "POST",
-        body,
-      });
-      const data = await res.json();
-
-      if (!res.ok) {
-        setError(data.error ?? "Upload failed");
-        setLoading(false);
-        return;
+        const res = await fetch(`/api/jobs/${jobId}/photos`, {
+          method: "POST",
+          body,
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          setError(data.error ?? `Upload failed (photo ${i + 1})`);
+          setLoading(false);
+          return;
+        }
       }
       form.reset();
+      if (fileInputRef.current) fileInputRef.current.value = "";
       router.refresh();
     } catch {
       setError("Something went wrong");
-      setLoading(false);
     }
+    setLoading(false);
   }
 
   return (
     <form onSubmit={handleSubmit} className="card p-4 space-y-4">
-      <h3 className="font-medium text-slate-900">Add photo</h3>
+      <h3 className="font-medium text-slate-900">Add photos</h3>
       <div>
         <label htmlFor="room_type" className="block text-sm font-medium text-slate-700">
-          Room type
+          Room type (for selected photos)
         </label>
         <select
           id="room_type"
@@ -87,24 +89,24 @@ export function AddPhotoForm({ jobId }: AddPhotoFormProps) {
       </div>
       <div>
         <label htmlFor="file" className="block text-sm font-medium text-slate-700">
-          Photo
+          Photo(s)
         </label>
+        <p className="mt-0.5 text-xs text-slate-500">
+          Take a photo or choose from your library. You can select multiple.
+        </p>
         <input
+          ref={fileInputRef}
           id="file"
           name="file"
           type="file"
-          accept="image/jpeg,image/png,image/webp"
-          required
+          accept="image/*"
+          multiple
           className="mt-1 block w-full text-sm text-slate-600 file:mr-4 file:rounded-lg file:border-0 file:bg-wiselista-accent file:px-4 file:py-2 file:text-sm file:font-medium file:text-white file:cursor-pointer hover:file:bg-wiselista-accent-hover"
         />
       </div>
       {error && <p className="text-sm text-red-600">{error}</p>}
-      <button
-        type="submit"
-        disabled={loading}
-        className="btn-primary"
-      >
-        {loading ? "Uploading…" : "Add photo"}
+      <button type="submit" disabled={loading} className="btn-primary">
+        {loading ? "Uploading…" : "Add selected photos"}
       </button>
     </form>
   );

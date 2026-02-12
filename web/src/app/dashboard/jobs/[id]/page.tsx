@@ -112,9 +112,16 @@ export default async function JobDetailPage({
 
         <section className="mt-8">
           <div className="flex flex-wrap items-center justify-between gap-4">
-            <h2 className="text-lg font-semibold text-slate-900">
-              Photos ({photos?.length ?? 0})
-            </h2>
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900">
+                Photos ({photos?.length ?? 0})
+              </h2>
+              {job.status === "draft" && (
+                <p className="mt-0.5 text-sm text-slate-500">
+                  These will be enhanced. Remove any you don&apos;t want before submitting.
+                </p>
+              )}
+            </div>
             {job.status === "ready" && downloadAllEdited.length > 0 && (
               <DownloadAllButton items={downloadAllEdited} />
             )}
