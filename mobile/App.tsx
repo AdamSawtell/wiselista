@@ -1,10 +1,48 @@
-import React from "react";
+import React, { Component, type ErrorInfo, type ReactNode } from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { StatusBar } from "expo-status-bar";
-import { View, ActivityIndicator, StyleSheet, Text } from "react-native";
+import { View, ActivityIndicator, StyleSheet, Text, TouchableOpacity } from "react-native";
 import { AuthProvider, useAuth } from "./src/contexts/AuthContext";
+import { theme } from "./src/theme";
+
+class ErrorBoundary extends Component<
+  { children: ReactNode },
+  { hasError: boolean; error: Error | null }
+> {
+  state = { hasError: false, error: null as Error | null };
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error("App error:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <View style={[styles.errorScreen, { backgroundColor: theme.colors.background }]}>
+          <Text style={[styles.errorTitle, { color: theme.colors.textPrimary }]}>
+            Something went wrong
+          </Text>
+          <Text style={[styles.errorText, { color: theme.colors.textMuted }]}>
+            {this.state.error?.message ?? "Please try again."}
+          </Text>
+          <TouchableOpacity
+            style={[styles.errorButton, { backgroundColor: theme.colors.primary }]}
+            onPress={() => this.setState({ hasError: false, error: null })}
+          >
+            <Text style={styles.errorButtonText}>Try again</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+    return this.props.children;
+  }
+}
 import { theme } from "./src/theme";
 import LoginScreen from "./src/screens/LoginScreen";
 import SignUpScreen from "./src/screens/SignUpScreen";
@@ -94,15 +132,22 @@ function RootNavigator() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <NavigationContainer>
-        <RootNavigator />
-        <StatusBar style="light" />
-      </NavigationContainer>
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <NavigationContainer>
+          <RootNavigator />
+          <StatusBar style="light" />
+        </NavigationContainer>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }
 
 const styles = StyleSheet.create({
   loading: { flex: 1, justifyContent: "center", alignItems: "center" },
+  errorScreen: { flex: 1, justifyContent: "center", alignItems: "center", padding: 24 },
+  errorTitle: { fontSize: 18, fontWeight: "600", marginBottom: 8 },
+  errorText: { fontSize: 14, textAlign: "center", marginBottom: 24 },
+  errorButton: { paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8 },
+  errorButtonText: { color: theme.colors.textOnPrimary, fontWeight: "600" },
 });

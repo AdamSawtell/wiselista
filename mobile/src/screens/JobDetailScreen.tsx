@@ -51,9 +51,11 @@ export default function JobDetailScreen({
   const [addingFromLibrary, setAddingFromLibrary] = useState(false);
   const [removingPhotoId, setRemovingPhotoId] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [failedThumbnails, setFailedThumbnails] = useState<Record<string, boolean>>({});
 
   async function fetchJob() {
     setLoadError(null);
+    setFailedThumbnails({});
     try {
       const { data: jobData, error: jobErr } = await supabase
         .from("jobs")
@@ -362,17 +364,12 @@ export default function JobDetailScreen({
               key={p.id}
               style={[styles.photoRow, { borderBottomColor: theme.colors.borderLight }]}
             >
-              {signedUrls[p.id]?.original ? (
+              {signedUrls[p.id]?.original && !failedThumbnails[p.id] ? (
                 <Image
                   source={{ uri: signedUrls[p.id].original }}
                   style={styles.thumbnail}
                   resizeMode="cover"
-                  onError={() => {
-                    setSignedUrls((prev) => ({
-                      ...prev,
-                      [p.id]: { ...prev[p.id], original: undefined },
-                    }));
-                  }}
+                  onError={() => setFailedThumbnails((prev) => ({ ...prev, [p.id]: true }))}
                 />
               ) : (
                 <View style={[styles.thumbnailPlaceholder, { backgroundColor: theme.colors.borderLight }]} />
