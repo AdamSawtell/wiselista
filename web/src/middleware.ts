@@ -1,23 +1,21 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
 
-/** Origins allowed for API (mobile app in browser, web app). */
-const CORS_ORIGINS = [
-  "https://main.d2p8p12cz1my9h.amplifyapp.com",
-  "https://wiselista.com",
-  "http://localhost:3000",
-  "http://localhost:8081",
-];
+/** Allow origin for API if it's our app (Amplify Expo web, wiselista.com, or localhost). */
+function isAllowedOrigin(origin: string | null): boolean {
+  if (!origin) return false;
+  if (origin === "https://wiselista.com") return true;
+  if (origin.startsWith("http://localhost:") || origin.startsWith("http://127.0.0.1:")) return true;
+  if (origin.includes("amplifyapp.com")) return true;
+  return false;
+}
 
 function corsHeaders(origin: string | null) {
-  const allowOrigin =
-    origin && CORS_ORIGINS.some((o) => origin === o || origin.startsWith(o + "/"))
-      ? origin
-      : CORS_ORIGINS[0];
+  const allowOrigin = origin && isAllowedOrigin(origin) ? origin : "https://wiselista.com";
   return {
     "Access-Control-Allow-Origin": allowOrigin,
     "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-    "Access-Control-Allow-Headers": "Authorization, Content-Type",
+    "Access-Control-Allow-Headers": "Authorization, Content-Type, X-Request-Id",
     "Access-Control-Max-Age": "86400",
   };
 }
