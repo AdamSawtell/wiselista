@@ -38,12 +38,17 @@ export async function POST(
   const roomType = formData.get("room_type") as string;
   const sequence = parseInt(String(formData.get("sequence") ?? "0"), 10);
   const file = formData.get("file") as File | null;
+  const hasFile = file && typeof file.size === "number" && file.size > 0;
+  console.info("[UploadPhoto]", { jobId, userId: user.id, hasFile, fileSize: file?.size ?? 0 });
 
   if (!ROOM_TYPES.includes(roomType)) {
     return NextResponse.json({ error: "Invalid room_type" }, { status: 400 });
   }
-  if (!file || !file.size) {
-    return NextResponse.json({ error: "file required" }, { status: 400 });
+  if (!hasFile) {
+    return NextResponse.json(
+      { error: "No file received. If using the app, check your connection and try again." },
+      { status: 400 }
+    );
   }
 
   const ext = file.name.split(".").pop() || "jpg";
@@ -69,5 +74,6 @@ export async function POST(
     .single();
 
   if (insertError) return NextResponse.json({ error: insertError.message }, { status: 500 });
+  console.info("[UploadPhoto] success", { jobId, photoId: photo?.id });
   return NextResponse.json(photo);
 }

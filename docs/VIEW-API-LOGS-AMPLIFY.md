@@ -10,7 +10,7 @@ When the mobile app calls your API (e.g. Remove photo, Submit for edit), the ser
 2. In the left sidebar, look for **Monitoring** or **Hosting**.
 3. Look for **Logs**, **Application logs**, or **Backend logs**.
 4. Open the latest log stream and set the time range to when you tapped Remove (or Submit).
-5. Search the page (Ctrl+F / Cmd+F) for **`[DeletePhoto]`** or **`[Submit]`**.
+5. Search the page (Ctrl+F / Cmd+F) for **`[UploadPhoto]`**, **`[DeletePhoto]`**, or **`[Submit]`**.
 
 If you don’t see runtime/application logs here, use Option B.
 
@@ -28,10 +28,12 @@ Amplify runs your Next.js API routes on Lambda. Their `console.info` / `console.
    - or contain **Next.js** / **SSR** / **Amplify**.
 4. Click the log group → open the most recent **Log stream** (by “Last event time”).
 5. Set the time range to when you tried Remove (or Submit).
-6. Search in the log events for **`[DeletePhoto]`** or **`[Submit]`**.
+6. Search in the log events for **`[UploadPhoto]`**, **`[DeletePhoto]`**, or **`[Submit]`**.
 
 **What you’ll see:**
 
+- **`[UploadPhoto] { jobId, userId, hasFile, fileSize }`** — upload request reached the API. If `hasFile: false` or `fileSize: 0`, the server didn't receive the image.
+- **`[UploadPhoto] success`** — photo was stored and a row was added.
 - **`[DeletePhoto] { jobId, photoId, hasBearer }`** — request reached the API. If `hasBearer: false`, the app didn’t send the token.
 - **`[DeletePhoto] Unauthorized: no user from getApiUser`** — token missing, wrong, or expired.
 - **`[DeletePhoto] job fetch error`** — job not found or RLS/auth issue.

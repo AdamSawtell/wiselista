@@ -145,14 +145,16 @@ export default function JobDetailScreen({
           body: formData,
         });
         if (!res.ok) {
-          const data = await res.json();
-          Alert.alert("Upload failed", data.error ?? "Could not add photo");
+          const data = await res.json().catch(() => ({}));
+          Alert.alert("Upload failed", (data as { error?: string }).error ?? "Could not add photo");
           setAddingFromLibrary(false);
           return;
         }
       }
+      const added = pendingLibrary.assets.length;
       setPendingLibrary(null);
       await fetchJob();
+      Alert.alert("Photos added", `${added} photo${added === 1 ? "" : "s"} added. They should appear in Storage and in this job.`);
     } catch {
       Alert.alert("Error", "Network error. Check your connection and that the app URL is correct.");
     } finally {
@@ -429,7 +431,7 @@ export default function JobDetailScreen({
             <View style={styles.addPhotoRow}>
               <TouchableOpacity
                 style={[styles.addPhoto, { backgroundColor: theme.colors.surfaceMuted }]}
-                onPress={() => navigation.navigate("Camera", { jobId })}
+                onPress={() => navigation.navigate("Camera", { jobId, startSequence: photos.length })}
                 activeOpacity={0.8}
               >
                 <Text style={[styles.addPhotoText, { color: theme.colors.textSecondary }]}>Take photo</Text>
