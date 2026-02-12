@@ -1,11 +1,18 @@
 import React, { Component, type ErrorInfo, type ReactNode } from "react";
+import { View, ActivityIndicator, StyleSheet, Text, TouchableOpacity } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { StatusBar } from "expo-status-bar";
-import { View, ActivityIndicator, StyleSheet, Text, TouchableOpacity } from "react-native";
 import { AuthProvider, useAuth } from "./src/contexts/AuthContext";
 import { theme } from "./src/theme";
+import LoginScreen from "./src/screens/LoginScreen";
+import SignUpScreen from "./src/screens/SignUpScreen";
+import JobListScreen from "./src/screens/JobListScreen";
+import JobDetailScreen from "./src/screens/JobDetailScreen";
+import CreateJobScreen from "./src/screens/CreateJobScreen";
+import CameraScreen from "./src/screens/CameraScreen";
+import AccountScreen from "./src/screens/AccountScreen";
 
 class ErrorBoundary extends Component<
   { children: ReactNode },
@@ -43,14 +50,6 @@ class ErrorBoundary extends Component<
     return this.props.children;
   }
 }
-
-import LoginScreen from "./src/screens/LoginScreen";
-import SignUpScreen from "./src/screens/SignUpScreen";
-import JobListScreen from "./src/screens/JobListScreen";
-import JobDetailScreen from "./src/screens/JobDetailScreen";
-import CreateJobScreen from "./src/screens/CreateJobScreen";
-import CameraScreen from "./src/screens/CameraScreen";
-import AccountScreen from "./src/screens/AccountScreen";
 
 export type AppStackParamList = {
   JobList: undefined;

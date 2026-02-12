@@ -605,7 +605,7 @@ export default function JobDetailScreen({
                 ok: {String(healthResult.ok)} | status: {healthResult.status} | {healthResult.durationMs} ms
               </Text>
               <Text style={[styles.debugValue, { color: theme.colors.textPrimary }]} selectable numberOfLines={2}>
-                {healthResult.error ?? healthResult.body || "—"}
+                {healthResult.error ?? (healthResult.body || "—")}
               </Text>
             </>
           )}
