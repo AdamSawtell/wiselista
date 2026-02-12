@@ -43,7 +43,7 @@ class ErrorBoundary extends Component<
     return this.props.children;
   }
 }
-import { theme } from "./src/theme";
+
 import LoginScreen from "./src/screens/LoginScreen";
 import SignUpScreen from "./src/screens/SignUpScreen";
 import JobListScreen from "./src/screens/JobListScreen";
