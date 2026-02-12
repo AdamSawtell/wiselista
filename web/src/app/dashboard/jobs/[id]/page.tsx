@@ -5,6 +5,8 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { AddPhotoForm } from "@/components/AddPhotoForm";
 import { SubmitJobButton } from "@/components/SubmitJobButton";
 import { DownloadAllButton } from "@/components/DownloadAllButton";
+import { DeletePhotoButton } from "@/components/DeletePhotoButton";
+import { DeleteJobButton } from "@/components/DeleteJobButton";
 import { getSignedUrlsForPhotos } from "@/lib/storage";
 
 // Job details rely on request cookies and Supabase auth.
@@ -92,7 +94,10 @@ export default async function JobDetailPage({
                 Created {new Date(job.created_at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}
               </p>
             </div>
-            <StatusBadge status={job.status} />
+            <div className="flex flex-wrap items-center gap-3">
+              <StatusBadge status={job.status} />
+              <DeleteJobButton jobId={id} redirectAfter="/dashboard" />
+            </div>
           </div>
         </div>
 
@@ -128,11 +133,16 @@ export default async function JobDetailPage({
                       <span className="font-medium text-slate-800">
                         {roomLabel[p.room_type] ?? p.room_type}
                       </span>
-                      {p.edited_key ? (
-                        <span className="badge-ready">Edited</span>
-                      ) : (
-                        <span className="badge-draft">Pending</span>
-                      )}
+                      <div className="flex flex-wrap items-center gap-2">
+                        {p.edited_key ? (
+                          <span className="badge-ready">Edited</span>
+                        ) : (
+                          <span className="badge-draft">Pending</span>
+                        )}
+                        {job.status === "draft" && (
+                          <DeletePhotoButton jobId={id} photoId={p.id} />
+                        )}
+                      </div>
                     </div>
                     <div className="mt-3 flex flex-wrap gap-4">
                       {urls?.originalUrl && (

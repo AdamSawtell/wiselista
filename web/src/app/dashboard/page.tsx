@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { StatusBadge } from "@/components/StatusBadge";
 import { CreateJobButton } from "@/components/CreateJobButton";
+import { DeleteJobButton } from "@/components/DeleteJobButton";
 import { RedirectToLogin } from "@/components/RedirectToLogin";
 
 // Dashboard depends on request cookies and Supabase auth.
@@ -62,27 +63,27 @@ export default async function DashboardPage() {
         ) : (
           <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {jobs.map((job) => (
-              <li key={job.id}>
-                <Link
-                  href={`/dashboard/jobs/${job.id}`}
-                  className="card block p-5 transition-shadow hover:shadow-md"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <span className="font-mono text-sm text-slate-500">
-                      {job.id.slice(0, 8)}…
+              <li key={job.id} className="card p-5 transition-shadow hover:shadow-md">
+                <div className="flex items-start justify-between gap-2">
+                  <Link href={`/dashboard/jobs/${job.id}`} className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-sm text-slate-500">
+                        {job.id.slice(0, 8)}…
+                      </span>
+                      <StatusBadge status={job.status} />
+                    </div>
+                    <p className="mt-3 text-sm text-slate-600">
+                      {new Date(job.created_at).toLocaleDateString(undefined, {
+                        dateStyle: "medium",
+                        timeStyle: "short",
+                      })}
+                    </p>
+                    <span className="mt-2 inline-block text-sm font-medium text-wiselista-accent">
+                      View job →
                     </span>
-                    <StatusBadge status={job.status} />
-                  </div>
-                  <p className="mt-3 text-sm text-slate-600">
-                    {new Date(job.created_at).toLocaleDateString(undefined, {
-                      dateStyle: "medium",
-                      timeStyle: "short",
-                    })}
-                  </p>
-                  <span className="mt-2 inline-block text-sm font-medium text-wiselista-accent">
-                    View job →
-                  </span>
-                </Link>
+                  </Link>
+                  <DeleteJobButton jobId={job.id} variant="link" />
+                </div>
               </li>
             ))}
           </ul>
