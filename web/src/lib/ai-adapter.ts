@@ -3,10 +3,10 @@
  * No "coded prompt every time": prompts live in prompts.ts (default + per-room).
  *
  * Flow:
- * 1. Submit API calls triggerMockAI (or triggerRealAI when wired).
+ * 1. Submit API calls triggerMockAI (or processJobWithRealAI when CLAID_API_KEY set).
  * 2. Build payload: job + photos with originalUrl + prompt per photo (getEditPrompt(room_type)).
  * 3. Mock: copy original → edited, mark job ready (current behaviour).
- * 4. Real: call AI partner API with (originalUrl, prompt) per photo → upload result → set edited_key → mark job ready.
+ * 4. Real (Claid): call Claid /v1/image/edit per photo → download tmp_url → upload to storage → set edited_key → mark job ready.
  */
 
 import { createServiceClient } from "@/lib/supabase/server";
@@ -14,6 +14,53 @@ import { getEditPrompt, type RoomType } from "@/lib/prompts";
 
 const BUCKET = "wiselista-photos";
 const SIGNED_URL_EXPIRY_AI = 3600; // 1 hour for AI partner to fetch
+
+const CLAID_API_URL = "https://api.claid.ai/v1";
+
+/** Wiselista default: bright, clean, realistic. Real-estate upscale, HDR, mild manual tweaks. */
+const CLAID_BASE_OPERATIONS = {
+  restorations: {
+    upscale: "smart_enhance" as const,
+    decompress: "auto" as const,
+    polish: false,
+  },
+  resizing: { fit: "bounds" as const, width: "150%", height: "150%" },
+  adjustments: {
+    hdr: { intensity: 100, stitching: false },
+    exposure: 10,
+    saturation: 10,
+    contrast: 10,
+    sharpness: 12,
+  },
+};
+
+/** Room-specific adjustment overrides (merged over base). Exterior: punch. Kitchen/bath: neutral. */
+const CLAID_ROOM_ADJUSTMENTS: Partial<
+  Record<RoomType, { exposure?: number; saturation?: number; contrast?: number; sharpness?: number }>
+> = {
+  exterior: { saturation: 15, contrast: 15 },
+  kitchen: { saturation: 5 },
+  bathroom: { saturation: 5 },
+  living_room: { exposure: 12 },
+  bedroom: {},
+  other: {},
+};
+
+const CLAID_OUTPUT = { format: { type: "jpeg" as const, quality: 88 } };
+
+/** Build Claid operations for a room type (default + room overrides). */
+function getClaidOperations(roomType: RoomType) {
+  const base = { ...CLAID_BASE_OPERATIONS };
+  const adjustments = { ...base.adjustments };
+  const overrides = CLAID_ROOM_ADJUSTMENTS[roomType];
+  if (overrides) {
+    if (overrides.exposure !== undefined) adjustments.exposure = overrides.exposure;
+    if (overrides.saturation !== undefined) adjustments.saturation = overrides.saturation;
+    if (overrides.contrast !== undefined) adjustments.contrast = overrides.contrast;
+    if (overrides.sharpness !== undefined) adjustments.sharpness = overrides.sharpness;
+  }
+  return { ...base, adjustments };
+}
 
 export type AIPhotoRequest = {
   photoId: string;
@@ -61,22 +108,93 @@ export async function buildAIRequests(jobId: string): Promise<AIPhotoRequest[]> 
 }
 
 /**
- * Stub: call your AI partner here. For each item in buildAIRequests(jobId):
- * - POST imageUrl + prompt to partner API
- * - Partner returns edited image (URL or buffer)
- * - Upload to storage (e.g. same path with /edited/ or new key), set photo.edited_key
- * - Then mark job ready (and optionally notify user).
- *
- * Example (pseudo):
- *   const requests = await buildAIRequests(jobId);
- *   for (const r of requests) {
- *     const editedImage = await yourAIPartner.edit(r.originalUrl, r.prompt);
- *     const editedKey = await uploadToStorage(editedImage, jobId, r.photoId);
- *     await supabase.from("photos").update({ edited_key: editedKey }).eq("id", r.photoId);
- *   }
- *   await supabase.from("jobs").update({ status: "ready", completed_at: ... }).eq("id", jobId);
+ * Call Claid /v1/image/edit with a signed image URL; returns temporary URL of enhanced image.
+ * Uses room-specific operations (Wiselista default + room overrides). Requires CLAID_API_KEY.
  */
-export async function processJobWithRealAI(_jobId: string): Promise<void> {
-  // TODO: Wire your AI partner. Use buildAIRequests(jobId) to get (originalUrl, prompt) per photo.
-  throw new Error("Real AI not wired yet. Use mock.");
+async function callClaidEdit(inputUrl: string, roomType: RoomType): Promise<string> {
+  const apiKey = process.env.CLAID_API_KEY;
+  if (!apiKey) throw new Error("CLAID_API_KEY not set");
+
+  const operations = getClaidOperations(roomType);
+
+  const res = await fetch(`${CLAID_API_URL}/image/edit`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      input: inputUrl,
+      operations,
+      output: CLAID_OUTPUT,
+    }),
+  });
+
+  if (!res.ok) {
+    const err = (await res.json().catch(() => ({}))) as { message?: string };
+    throw new Error(`Claid API error ${res.status}: ${err.message ?? res.statusText}`);
+  }
+
+  const data = (await res.json()) as { data?: { output?: { tmp_url?: string } } };
+  const tmpUrl = data?.data?.output?.tmp_url;
+  if (!tmpUrl) throw new Error("Claid response missing data.output.tmp_url");
+  return tmpUrl;
+}
+
+/**
+ * Process job with Claid: for each photo, call Claid edit → download result → upload to storage → set edited_key → mark job ready.
+ * Call without await from the submit route so the HTTP response returns immediately (fire-and-forget).
+ */
+export async function processJobWithRealAI(jobId: string): Promise<void> {
+  const supabase = createServiceClient();
+
+  const { data: job } = await supabase
+    .from("jobs")
+    .select("id, user_id")
+    .eq("id", jobId)
+    .single();
+
+  if (!job?.user_id) return;
+
+  const requests = await buildAIRequests(jobId);
+  if (!requests.length) {
+    await supabase
+      .from("jobs")
+      .update({ status: "ready", completed_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+      .eq("id", jobId);
+    return;
+  }
+
+  const userId = job.user_id as string;
+
+  for (const r of requests) {
+    try {
+      const tmpUrl = await callClaidEdit(r.originalUrl, r.roomType);
+      const imageRes = await fetch(tmpUrl);
+      if (!imageRes.ok) throw new Error(`Failed to download Claid result: ${imageRes.status}`);
+      const buffer = await imageRes.arrayBuffer();
+
+      const editedKey = `${userId}/${jobId}/edited/${r.photoId}.jpg`;
+      const { error: uploadError } = await supabase.storage
+        .from(BUCKET)
+        .upload(editedKey, buffer, { contentType: "image/jpeg", upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      await supabase.from("photos").update({ edited_key: editedKey }).eq("id", r.photoId);
+    } catch (e) {
+      console.error(`[Claid] job ${jobId} photo ${r.photoId}:`, e);
+      // Leave job in processing; can retry or fix manually. Optionally set status to 'failed' later.
+      return;
+    }
+  }
+
+  await supabase
+    .from("jobs")
+    .update({
+      status: "ready",
+      completed_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", jobId);
 }
