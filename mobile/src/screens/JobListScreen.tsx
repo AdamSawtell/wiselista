@@ -32,14 +32,19 @@ export default function JobListScreen({ navigation }: { navigation: any }) {
 
   async function fetchJobs() {
     if (!user) return;
-    const { data, error } = await supabase
-      .from("jobs")
-      .select("id, status, created_at, updated_at")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
-    if (!error) setJobs((data ?? []) as Job[]);
-    setLoading(false);
-    setRefreshing(false);
+    try {
+      const { data, error } = await supabase
+        .from("jobs")
+        .select("id, status, created_at, updated_at")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+      if (!error) setJobs((data ?? []) as Job[]);
+    } catch {
+      setJobs([]);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   }
 
   useEffect(() => {

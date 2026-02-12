@@ -50,47 +50,57 @@ export default function JobDetailScreen({
   } | null>(null);
   const [addingFromLibrary, setAddingFromLibrary] = useState(false);
   const [removingPhotoId, setRemovingPhotoId] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   async function fetchJob() {
-    const { data: jobData, error: jobErr } = await supabase
-      .from("jobs")
-      .select("*")
-      .eq("id", jobId)
-      .eq("user_id", user?.id ?? "")
-      .single();
-    if (jobErr || !jobData) {
+    setLoadError(null);
+    try {
+      const { data: jobData, error: jobErr } = await supabase
+        .from("jobs")
+        .select("*")
+        .eq("id", jobId)
+        .eq("user_id", user?.id ?? "")
+        .single();
+      if (jobErr || !jobData) {
+        setJob(null);
+        setLoading(false);
+        setRefreshing(false);
+        return;
+      }
+      setJob(jobData as Job);
+      const { data: photosData } = await supabase
+        .from("photos")
+        .select("*")
+        .eq("job_id", jobId)
+        .order("sequence");
+      const photoList = photosData ?? [];
+      setPhotos(photoList);
+
+      const urls: Record<string, { original?: string; edited?: string }> = {};
+      await Promise.all(
+        photoList.map(async (p: Photo) => {
+          const [orig, edited] = await Promise.all([
+            supabase.storage.from("wiselista-photos").createSignedUrl(p.original_key, 3600),
+            p.edited_key
+              ? supabase.storage.from("wiselista-photos").createSignedUrl(p.edited_key, 3600)
+              : { data: { signedUrl: null } },
+          ]);
+          urls[p.id] = {
+            original: orig.data?.signedUrl ?? undefined,
+            edited: edited.data?.signedUrl ?? undefined,
+          };
+        })
+      );
+      setSignedUrls(urls);
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : "Could not load job");
       setJob(null);
+      setPhotos([]);
+      setSignedUrls({});
+    } finally {
       setLoading(false);
       setRefreshing(false);
-      return;
     }
-    setJob(jobData as Job);
-    const { data: photosData } = await supabase
-      .from("photos")
-      .select("*")
-      .eq("job_id", jobId)
-      .order("sequence");
-    const photoList = photosData ?? [];
-    setPhotos(photoList);
-
-    const urls: Record<string, { original?: string; edited?: string }> = {};
-    await Promise.all(
-      photoList.map(async (p: Photo) => {
-        const [orig, edited] = await Promise.all([
-          supabase.storage.from("wiselista-photos").createSignedUrl(p.original_key, 3600),
-          p.edited_key
-            ? supabase.storage.from("wiselista-photos").createSignedUrl(p.edited_key, 3600)
-            : { data: { signedUrl: null } },
-        ]);
-        urls[p.id] = {
-          original: orig.data?.signedUrl ?? undefined,
-          edited: edited.data?.signedUrl ?? undefined,
-        };
-      })
-    );
-    setSignedUrls(urls);
-    setLoading(false);
-    setRefreshing(false);
   }
 
   useEffect(() => {
@@ -275,13 +285,23 @@ export default function JobDetailScreen({
   if (!job) {
     return (
       <View style={[styles.centered, { backgroundColor: theme.colors.background }]}>
-        <Text style={{ color: theme.colors.textSecondary }}>Job not found</Text>
+        <Text style={{ color: theme.colors.textSecondary }}>
+          {loadError ?? "Job not found"}
+        </Text>
         <TouchableOpacity
           onPress={() => navigation.goBack()}
           style={[styles.button, { backgroundColor: theme.colors.primary }]}
         >
           <Text style={styles.buttonText}>Back</Text>
         </TouchableOpacity>
+        {loadError && (
+          <TouchableOpacity
+            onPress={() => { setLoadError(null); setLoading(true); fetchJob(); }}
+            style={[styles.button, { backgroundColor: theme.colors.surface, marginTop: theme.spacing.sm }]}
+          >
+            <Text style={[styles.buttonText, { color: theme.colors.textPrimary }]}>Try again</Text>
+          </TouchableOpacity>
+        )}
       </View>
     );
   }
@@ -347,6 +367,12 @@ export default function JobDetailScreen({
                   source={{ uri: signedUrls[p.id].original }}
                   style={styles.thumbnail}
                   resizeMode="cover"
+                  onError={() => {
+                    setSignedUrls((prev) => ({
+                      ...prev,
+                      [p.id]: { ...prev[p.id], original: undefined },
+                    }));
+                  }}
                 />
               ) : (
                 <View style={[styles.thumbnailPlaceholder, { backgroundColor: theme.colors.borderLight }]} />
