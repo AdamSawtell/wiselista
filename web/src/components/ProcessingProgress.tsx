@@ -20,6 +20,20 @@ export function ProcessingProgress({ jobId, photoCount, initialStatus }: Process
     if (status !== "processing") return;
 
     let active = true;
+    let kickedOff = false;
+
+    const kickOffProcessing = async () => {
+      if (kickedOff || !active) return;
+      kickedOff = true;
+      try {
+        await fetch(`/api/jobs/${jobId}/process`, { method: "POST" });
+      } catch {
+        kickedOff = false;
+      }
+    };
+
+    void kickOffProcessing();
+
     const poll = async () => {
       try {
         const res = await fetch(`/api/jobs/${jobId}/processing`);

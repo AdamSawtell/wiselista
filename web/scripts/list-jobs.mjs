@@ -30,6 +30,6 @@ for (const j of jobs ?? []) {
   const edited = (photos ?? []).filter((p) => p.edited_key).length;
   const total = photos?.length ?? 0;
   console.log(
-    `${j.id.slice(0, 8)}  ${j.status.padEnd(12)}  ${(j.name || "(no name)").slice(0, 28).padEnd(28)}  ${edited}/${total} edited  ${j.failure_message || ""}`
+    `${j.id}  ${j.status.padEnd(12)}  ${(j.name || "(no name)").slice(0, 28).padEnd(28)}  ${edited}/${total} edited  ${j.failure_message || ""}`
   );
 }

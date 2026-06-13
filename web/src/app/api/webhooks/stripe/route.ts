@@ -1,9 +1,9 @@
 import { createServiceClient } from "@/lib/supabase/server";
 import { getStripe } from "@/lib/stripe";
-import { runJobProcessing } from "@/lib/trigger-job-processing";
 import { NextResponse } from "next/server";
 import type Stripe from "stripe";
 
+/** Stripe only needs a fast 200; processing runs when the agent opens the job page. */
 export async function POST(request: Request) {
   const stripe = getStripe();
   if (!stripe) {
@@ -85,11 +85,10 @@ export async function POST(request: Request) {
       console.error("[StripeWebhook] payment insert failed", { jobId, error: paymentError.message });
     }
 
-    console.info("[StripeWebhook] payment received, starting processing", {
+    console.info("[StripeWebhook] payment received — agent dashboard will run processing", {
       jobId,
       sessionId: session.id,
     });
-    await runJobProcessing(jobId);
   }
 
   return NextResponse.json({ received: true });

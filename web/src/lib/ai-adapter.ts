@@ -103,7 +103,7 @@ export async function buildAIRequests(jobId: string): Promise<AIPhotoRequest[]> 
 
   const { data: photos } = await supabase
     .from("photos")
-    .select("id, original_key, room_type")
+    .select("id, original_key, room_type, edited_key")
     .eq("job_id", jobId)
     .order("sequence");
 
@@ -112,6 +112,7 @@ export async function buildAIRequests(jobId: string): Promise<AIPhotoRequest[]> 
   const requests: AIPhotoRequest[] = [];
 
   for (const p of photos) {
+    if (p.edited_key) continue;
     const { data: signed } = await supabase.storage
       .from(BUCKET)
       .createSignedUrl(p.original_key, SIGNED_URL_EXPIRY_AI);
@@ -253,8 +254,6 @@ export async function processJobWithRealAI(jobId: string): Promise<void> {
     await markJobReady(supabase, jobId);
     return;
   }
-
-  const userId = job.user_id as string;
   const startedAt = new Date().toISOString();
 
   await supabase
@@ -275,11 +274,11 @@ export async function processJobWithRealAI(jobId: string): Promise<void> {
       .eq("id", jobId);
 
     try {
-      await uploadClaidResult(supabase, userId, jobId, r.photoId, r.roomType, r.originalUrl);
+      await uploadClaidResult(supabase, job.user_id, jobId, r.photoId, r.roomType, r.originalUrl);
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       const failureMessage = `Photo ${r.photoId.slice(0, 8)}: ${message}`.slice(0, 500);
-      console.error("[Claid]", { jobId, userId, photoId: r.photoId, error: message });
+      console.error("[Claid]", { jobId, userId: job.user_id, photoId: r.photoId, error: message });
       await supabase
         .from("jobs")
         .update({

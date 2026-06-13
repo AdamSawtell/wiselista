@@ -36,7 +36,8 @@ process.env.NEXT_PUBLIC_SUPABASE_URL = env.NEXT_PUBLIC_SUPABASE_URL;
 process.env.SUPABASE_SERVICE_ROLE_KEY = env.SUPABASE_SERVICE_ROLE_KEY;
 process.env.CLAID_API_KEY = env.CLAID_API_KEY;
 
-const { processJobWithRealAI } = await import("../src/lib/ai-adapter.ts").catch(() => null);
+const mod = await import("../src/lib/ai-adapter.ts").catch(() => ({}));
+const processJobWithRealAI = mod.processJobWithRealAI;
 if (!processJobWithRealAI) {
   // Run inline if TS import fails in plain node
   const BUCKET = "wiselista-photos";
