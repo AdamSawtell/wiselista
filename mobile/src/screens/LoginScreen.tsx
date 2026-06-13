@@ -3,14 +3,15 @@ import {
   View,
   Text,
   TextInput,
-  TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
 } from "react-native";
 import { useAuth } from "../contexts/AuthContext";
 import { theme } from "../theme";
+import PrimaryButton from "../components/PrimaryButton";
 
 export default function LoginScreen({ navigation }: { navigation: { navigate: (name: string) => void } }) {
   const [email, setEmail] = useState("");
@@ -36,75 +37,88 @@ export default function LoginScreen({ navigation }: { navigation: { navigate: (n
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       style={[styles.container, { backgroundColor: theme.colors.background }]}
     >
-      <View style={styles.form}>
-        <Text style={[styles.title, { color: theme.colors.textPrimary }]}>Wiselista</Text>
-        <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
-          Property photos, AI-edited. Sign in to continue.
-        </Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Email"
-          placeholderTextColor={theme.colors.textMuted}
-          value={email}
-          onChangeText={setEmail}
-          autoCapitalize="none"
-          keyboardType="email-address"
-          autoComplete="email"
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Password"
-          placeholderTextColor={theme.colors.textMuted}
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-          autoComplete="password"
-        />
-        {error && <Text style={styles.error}>{error}</Text>}
-        <TouchableOpacity
-          style={[styles.button, loading && styles.buttonDisabled]}
-          onPress={handleLogin}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator color={theme.colors.textOnPrimary} />
-          ) : (
-            <Text style={styles.buttonText}>Sign in</Text>
-          )}
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => navigation.navigate("SignUp")} style={styles.link}>
-          <Text style={[styles.linkText, { color: theme.colors.primary }]}>Create an account</Text>
-        </TouchableOpacity>
-      </View>
+      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+        <View style={[styles.brandCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+          <Text style={styles.logoMark}>W</Text>
+          <Text style={[styles.title, { color: theme.colors.textPrimary }]}>Wiselista</Text>
+          <Text style={[styles.tagline, { color: theme.colors.textSecondary }]}>
+            Listing-ready property photos, enhanced with AI.
+          </Text>
+        </View>
+
+        <View style={styles.form}>
+          <TextInput
+            style={[styles.input, { backgroundColor: theme.colors.surface, color: theme.colors.textPrimary, borderColor: theme.colors.border }]}
+            placeholder="Email"
+            placeholderTextColor={theme.colors.textMuted}
+            value={email}
+            onChangeText={setEmail}
+            autoCapitalize="none"
+            keyboardType="email-address"
+            autoComplete="email"
+          />
+          <TextInput
+            style={[styles.input, { backgroundColor: theme.colors.surface, color: theme.colors.textPrimary, borderColor: theme.colors.border }]}
+            placeholder="Password"
+            placeholderTextColor={theme.colors.textMuted}
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+            autoComplete="password"
+          />
+          {error && <Text style={[styles.error, { color: theme.colors.error }]}>{error}</Text>}
+          <PrimaryButton label="Sign in" onPress={handleLogin} loading={loading} style={styles.signIn} />
+          <PrimaryButton
+            label="Create an account"
+            onPress={() => navigation.navigate("SignUp")}
+            variant="ghost"
+          />
+        </View>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: "center", padding: theme.spacing.xl },
-  form: { maxWidth: 400, width: "100%", alignSelf: "center" },
+  container: { flex: 1 },
+  scroll: {
+    flexGrow: 1,
+    justifyContent: "center",
+    padding: theme.spacing.xl,
+    maxWidth: 420,
+    alignSelf: "center",
+    width: "100%",
+  },
+  brandCard: {
+    alignItems: "center",
+    padding: theme.spacing.xl,
+    borderRadius: theme.radius.lg,
+    borderWidth: 1,
+    marginBottom: theme.spacing.xl,
+  },
+  logoMark: {
+    width: 56,
+    height: 56,
+    lineHeight: 56,
+    textAlign: "center",
+    borderRadius: 16,
+    backgroundColor: theme.colors.primary,
+    color: theme.colors.textOnPrimary,
+    fontSize: 28,
+    fontWeight: "700",
+    marginBottom: theme.spacing.md,
+    overflow: "hidden",
+  },
   title: { ...theme.typography.titleLarge, marginBottom: theme.spacing.xs },
-  subtitle: { ...theme.typography.body, marginBottom: theme.spacing.xl },
+  tagline: { ...theme.typography.body, textAlign: "center" },
+  form: { gap: 0 },
   input: {
     borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: theme.radius.sm,
+    borderRadius: theme.radius.md,
     padding: theme.spacing.md,
     fontSize: 16,
     marginBottom: theme.spacing.md,
-    backgroundColor: theme.colors.surfaceMuted,
-    color: theme.colors.textPrimary,
   },
-  error: { color: theme.colors.error, marginBottom: theme.spacing.md, fontSize: 14 },
-  button: {
-    backgroundColor: theme.colors.primary,
-    padding: theme.spacing.md,
-    borderRadius: theme.radius.sm,
-    alignItems: "center",
-    marginTop: theme.spacing.sm,
-  },
-  buttonDisabled: { opacity: 0.7 },
-  buttonText: { color: theme.colors.textOnPrimary, ...theme.typography.bodyMedium },
-  link: { marginTop: theme.spacing.lg, alignItems: "center" },
-  linkText: { ...theme.typography.captionMedium },
+  error: { marginBottom: theme.spacing.md, fontSize: 14 },
+  signIn: { marginBottom: theme.spacing.sm },
 });

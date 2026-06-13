@@ -115,21 +115,24 @@ function MainTabs() {
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: theme.colors.surface,
+          backgroundColor: theme.colors.backgroundElevated,
           borderTopColor: theme.colors.border,
           borderTopWidth: 1,
+          height: 64,
+          paddingBottom: 8,
+          paddingTop: 8,
         },
-        tabBarActiveTintColor: theme.colors.primary,
+        tabBarActiveTintColor: theme.colors.primaryLight,
         tabBarInactiveTintColor: theme.colors.textMuted,
-        tabBarLabelStyle: { fontSize: 12, fontWeight: "500" },
+        tabBarLabelStyle: { fontSize: 12, fontWeight: "600" },
       }}
     >
       <Tab.Screen
         name="Jobs"
         component={JobsStack}
         options={{
-          tabBarLabel: "Jobs",
-          tabBarIcon: () => null,
+          tabBarLabel: "Shoots",
+          tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 18 }}>📋</Text>,
         }}
       />
       <Tab.Screen
@@ -137,7 +140,7 @@ function MainTabs() {
         component={AccountScreen}
         options={{
           tabBarLabel: "Account",
-          tabBarIcon: () => null,
+          tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 18 }}>👤</Text>,
         }}
       />
     </Tab.Navigator>

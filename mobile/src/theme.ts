@@ -14,6 +14,8 @@ export const theme = {
     // Bright accent (blue — primary CTA, active state)
     primary: "#3b82f6",
     primaryLight: "#60a5fa",
+    primaryGlow: "rgba(59, 130, 246, 0.25)",
+    accent: "#6366f1",
     // Text on dark
     textPrimary: "#f8fafc",
     textSecondary: "#cbd5e1",
@@ -53,6 +55,7 @@ export const theme = {
     sm: 8,
     md: 12,
     lg: 16,
+    xl: 20,
     full: 9999,
   },
   shadow: Platform.select({

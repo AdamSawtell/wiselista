@@ -3,14 +3,21 @@ import {
   View,
   Text,
   TextInput,
-  TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
   SafeAreaView,
+  ScrollView,
 } from "react-native";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 import { theme } from "../theme";
+import PrimaryButton from "../components/PrimaryButton";
+
+const FEATURES = [
+  { icon: "🏠", text: "Room-by-room walkthrough" },
+  { icon: "💡", text: "Pro framing tips as you shoot" },
+  { icon: "✨", text: "AI enhancement when you submit" },
+];
 
 export default function ShootStartScreen({ navigation }: { navigation: any }) {
   const { user } = useAuth();
@@ -46,17 +53,27 @@ export default function ShootStartScreen({ navigation }: { navigation: any }) {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <View style={styles.inner}>
-        <Text style={[styles.kicker, { color: theme.colors.primary }]}>Guided shoot</Text>
-        <Text style={[styles.title, { color: theme.colors.textPrimary }]}>Shoot this property</Text>
-        <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
-          We&apos;ll walk you room by room with framing tips — like having a photographer in your pocket.
-        </Text>
+      <ScrollView contentContainerStyle={styles.scroll}>
+        <View style={[styles.heroCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+          <Text style={styles.heroEmoji}>📸</Text>
+          <Text style={[styles.kicker, { color: theme.colors.primaryLight }]}>Guided shoot</Text>
+          <Text style={[styles.title, { color: theme.colors.textPrimary }]}>Shoot this property</Text>
+          <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
+            Like having a photographer in your pocket — we coach you through every room.
+          </Text>
+        </View>
+
+        {FEATURES.map((f) => (
+          <View key={f.text} style={[styles.featureRow, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+            <Text style={styles.featureIcon}>{f.icon}</Text>
+            <Text style={[styles.featureText, { color: theme.colors.textPrimary }]}>{f.text}</Text>
+          </View>
+        ))}
 
         <Text style={[styles.label, { color: theme.colors.textMuted }]}>Property name (optional)</Text>
         <TextInput
           style={[styles.input, { backgroundColor: theme.colors.surface, color: theme.colors.textPrimary, borderColor: theme.colors.border }]}
-          placeholder="e.g. 12 Oak Street listing"
+          placeholder="e.g. 12 Oak Street"
           placeholderTextColor={theme.colors.textMuted}
           value={propertyName}
           onChangeText={setPropertyName}
@@ -65,76 +82,58 @@ export default function ShootStartScreen({ navigation }: { navigation: any }) {
 
         {error && <Text style={[styles.error, { color: theme.colors.error }]}>{error}</Text>}
 
-        <TouchableOpacity
-          style={[styles.primaryBtn, loading && styles.btnDisabled]}
-          onPress={startGuidedShoot}
-          disabled={loading}
-          activeOpacity={0.9}
-        >
-          {loading ? (
-            <ActivityIndicator color={theme.colors.textOnPrimary} />
-          ) : (
-            <Text style={styles.primaryBtnText}>Start guided shoot</Text>
-          )}
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.secondaryBtn, { borderColor: theme.colors.border }]}
-          onPress={() => navigation.navigate("CreateJob")}
-          activeOpacity={0.8}
-        >
-          <Text style={[styles.secondaryBtnText, { color: theme.colors.textSecondary }]}>
-            Quick capture (no guide)
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.cancel} onPress={() => navigation.goBack()}>
-          <Text style={[styles.cancelText, { color: theme.colors.textMuted }]}>Cancel</Text>
-        </TouchableOpacity>
-      </View>
+        {loading ? (
+          <ActivityIndicator color={theme.colors.primary} style={styles.loader} />
+        ) : (
+          <>
+            <PrimaryButton label="Start guided shoot" onPress={startGuidedShoot} style={styles.cta} />
+            <PrimaryButton
+              label="Quick capture (no guide)"
+              onPress={() => navigation.navigate("CreateJob")}
+              variant="secondary"
+            />
+            <PrimaryButton label="Cancel" onPress={() => navigation.goBack()} variant="ghost" />
+          </>
+        )}
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  inner: {
-    flex: 1,
+  scroll: { padding: theme.spacing.xl, paddingBottom: theme.spacing.xxl, maxWidth: 440, alignSelf: "center", width: "100%" },
+  heroCard: {
+    alignItems: "center",
     padding: theme.spacing.xl,
-    justifyContent: "center",
-    maxWidth: 420,
-    alignSelf: "center",
-    width: "100%",
+    borderRadius: theme.radius.lg,
+    borderWidth: 1,
+    marginBottom: theme.spacing.lg,
   },
-  kicker: { ...theme.typography.label, marginBottom: theme.spacing.sm, textTransform: "uppercase" },
-  title: { ...theme.typography.title, marginBottom: theme.spacing.sm },
-  subtitle: { ...theme.typography.body, marginBottom: theme.spacing.xl },
-  label: { ...theme.typography.caption, marginBottom: theme.spacing.xs },
+  heroEmoji: { fontSize: 48, marginBottom: theme.spacing.sm },
+  kicker: { ...theme.typography.label, letterSpacing: 1, textTransform: "uppercase", marginBottom: theme.spacing.xs },
+  title: { ...theme.typography.title, marginBottom: theme.spacing.sm, textAlign: "center" },
+  subtitle: { ...theme.typography.body, textAlign: "center" },
+  featureRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing.md,
+    padding: theme.spacing.md,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    marginBottom: theme.spacing.sm,
+  },
+  featureIcon: { fontSize: 22 },
+  featureText: { ...theme.typography.bodyMedium, flex: 1 },
+  label: { ...theme.typography.caption, marginBottom: theme.spacing.xs, marginTop: theme.spacing.md },
   input: {
     borderWidth: 1,
-    borderRadius: theme.radius.sm,
+    borderRadius: theme.radius.md,
     padding: theme.spacing.md,
     marginBottom: theme.spacing.lg,
     ...theme.typography.body,
   },
   error: { ...theme.typography.caption, marginBottom: theme.spacing.md },
-  primaryBtn: {
-    backgroundColor: theme.colors.primary,
-    padding: theme.spacing.md,
-    borderRadius: theme.radius.sm,
-    alignItems: "center",
-    marginBottom: theme.spacing.md,
-  },
-  btnDisabled: { opacity: 0.7 },
-  primaryBtnText: { color: theme.colors.textOnPrimary, ...theme.typography.bodyMedium },
-  secondaryBtn: {
-    padding: theme.spacing.md,
-    borderRadius: theme.radius.sm,
-    alignItems: "center",
-    borderWidth: 1,
-    marginBottom: theme.spacing.md,
-  },
-  secondaryBtnText: { ...theme.typography.bodyMedium },
-  cancel: { alignItems: "center" },
-  cancelText: { ...theme.typography.captionMedium },
+  loader: { marginVertical: theme.spacing.lg },
+  cta: { marginBottom: theme.spacing.sm },
 });
