@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ClientShareGallery } from "@/components/ClientShareGallery";
+import { ShareAgentCard } from "@/components/ShareAgentCard";
 import { getSharePageData } from "@/lib/share";
 import { formatJobDate } from "@/lib/jobs";
 
@@ -18,7 +19,7 @@ export async function generateMetadata({
   }
   return {
     title: `${data.propertyName} — Property photos`,
-    description: `Listing-ready photos prepared by ${data.agentName}. View enhanced property images shared via Wiselista.`,
+    description: `Listing-ready photos prepared by ${data.agent.name}. View enhanced property images shared via Wiselista.`,
   };
 }
 
@@ -74,20 +75,13 @@ export default async function SharePage({
             </div>
           </div>
 
-          <div className="grid gap-6 border-b border-wiselista-border px-6 py-6 sm:grid-cols-[1fr_auto] sm:items-center sm:px-8">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Prepared by</p>
-              <p className="mt-1 text-lg font-semibold text-slate-900">{data.agentName}</p>
-              {data.agentEmail && (
-                <p className="mt-0.5 text-sm text-slate-600">{data.agentEmail}</p>
-              )}
-            </div>
-            {data.completedAt && (
-              <p className="text-sm text-slate-500">
-                Photos ready {formatJobDate(data.completedAt)}
-              </p>
-            )}
-          </div>
+          <ShareAgentCard
+            agent={data.agent}
+            completedAt={data.completedAt}
+            completedLabel={
+              data.completedAt ? `Photos ready ${formatJobDate(data.completedAt)}` : undefined
+            }
+          />
 
           <div className="px-6 py-6 sm:px-8">
             <p className="text-sm leading-relaxed text-slate-600">

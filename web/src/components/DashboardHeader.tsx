@@ -26,6 +26,12 @@ export function DashboardHeader({ userEmail }: DashboardHeaderProps) {
             >
               Projects
             </Link>
+            <Link
+              href="/dashboard/account"
+              className="rounded-md px-3 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100"
+            >
+              Account
+            </Link>
           </nav>
         </div>
 

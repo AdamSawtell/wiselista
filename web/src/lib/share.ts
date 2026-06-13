@@ -1,6 +1,11 @@
 import { createClient as createSupabaseClient, type SupabaseClient } from "@supabase/supabase-js";
 import { LISTING_TYPE_LABELS, type ListingType } from "@/lib/enhancement";
 import { getJobDisplayName, ROOM_LABELS } from "@/lib/jobs";
+import {
+  type AgentProfile,
+  shareAgentFromPayload,
+  type ShareAgentInfo,
+} from "@/lib/profile";
 import { getServiceClientOrNull } from "@/lib/supabase/server";
 
 const BUCKET = "wiselista-photos";
@@ -18,8 +23,7 @@ export type SharePageData = {
   propertyName: string;
   propertyAddress: string | null;
   listingTypeLabel: string | null;
-  agentName: string;
-  agentEmail: string | null;
+  agent: ShareAgentInfo;
   completedAt: string | null;
   photos: SharePhoto[];
 };
@@ -40,6 +44,7 @@ type RpcSharePayload = {
   completed_at: string | null;
   agent_email: string | null;
   agent_meta: Record<string, unknown> | null;
+  agent_profile?: Partial<AgentProfile> | null;
   share_photo_urls?: Record<string, string> | null;
   photos: RpcPhoto[];
 };
@@ -58,19 +63,6 @@ function photosFromCachedUrls(payload: RpcSharePayload): SharePhoto[] {
       imageUrl: cached[photo.id] ?? "",
     }))
     .filter((p) => p.imageUrl);
-}
-
-function agentDisplayName(
-  email: string | null | undefined,
-  metadata: Record<string, unknown> | null | undefined
-): string {
-  const fullName = metadata?.full_name;
-  if (typeof fullName === "string" && fullName.trim()) return fullName.trim();
-  if (email) {
-    const local = email.split("@")[0]?.replace(/[._]/g, " ").trim();
-    if (local) return local.charAt(0).toUpperCase() + local.slice(1);
-  }
-  return "Your agent";
 }
 
 function createAnonClient(): SupabaseClient | null {
@@ -138,12 +130,15 @@ async function loadSharePayloadViaService(token: string): Promise<RpcSharePayloa
 
   let agentEmail: string | null = null;
   let agentMeta: Record<string, unknown> | null = null;
+  let agentProfile: Partial<AgentProfile> | null = null;
   if (job.user_id) {
     const { data: authData } = await supabase.auth.admin.getUserById(job.user_id);
     if (authData?.user) {
       agentEmail = authData.user.email ?? null;
       agentMeta = (authData.user.user_metadata as Record<string, unknown>) ?? null;
     }
+    const { data: profile } = await supabase.from("profiles").select("*").eq("id", job.user_id).maybeSingle();
+    agentProfile = profile ?? null;
   }
 
   const { data: photos } = await supabase
@@ -161,6 +156,7 @@ async function loadSharePayloadViaService(token: string): Promise<RpcSharePayloa
     completed_at: job.completed_at ?? null,
     agent_email: agentEmail,
     agent_meta: agentMeta,
+    agent_profile: agentProfile,
     share_photo_urls: (job.share_photo_urls as Record<string, string> | null) ?? null,
     photos: (photos ?? []).map((p) => ({
       id: p.id,
@@ -181,8 +177,11 @@ function payloadToSharePageData(payload: RpcSharePayload, photos: SharePhoto[]):
     }),
     propertyAddress: payload.property_address ?? null,
     listingTypeLabel: listingType ? LISTING_TYPE_LABELS[listingType] : null,
-    agentName: agentDisplayName(payload.agent_email, payload.agent_meta ?? undefined),
-    agentEmail: payload.agent_email ?? null,
+    agent: shareAgentFromPayload(
+      payload.agent_email,
+      payload.agent_meta ?? undefined,
+      payload.agent_profile ?? undefined
+    ),
     completedAt: payload.completed_at ?? null,
     photos,
   };
