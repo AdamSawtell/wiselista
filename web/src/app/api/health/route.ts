@@ -6,5 +6,7 @@ export async function GET() {
     ok: true,
     service: "wiselista-api",
     timestamp: new Date().toISOString(),
+    claidConfigured: Boolean(process.env.CLAID_API_KEY),
+    serviceRoleConfigured: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
   });
 }

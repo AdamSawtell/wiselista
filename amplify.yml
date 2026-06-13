@@ -12,6 +12,10 @@ applications:
             - npm ci
         build:
           commands:
+            # Amplify console vars are build-only unless written for Next.js SSR/API routes.
+            # https://docs.aws.amazon.com/amplify/latest/userguide/ssr-environment-variables.html
+            - env | grep -e CLAID_API_KEY -e SUPABASE_SERVICE_ROLE_KEY -e STRIPE_SECRET_KEY -e STRIPE_WEBHOOK_SECRET -e WISELISTA_SKIP_PAYMENT >> .env.production
+            - env | grep -e NEXT_PUBLIC_ >> .env.production
             - npm run build
       artifacts:
         baseDirectory: .next
