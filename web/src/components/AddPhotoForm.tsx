@@ -67,46 +67,53 @@ export function AddPhotoForm({ jobId }: AddPhotoFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="card p-4 space-y-4">
-      <h3 className="font-medium text-slate-900">Add photos</h3>
-      <div>
-        <label htmlFor="room_type" className="block text-sm font-medium text-slate-700">
-          Room type (for selected photos)
-        </label>
-        <select
-          id="room_type"
-          name="room_type"
-          required
-          className="mt-1 block w-full rounded-lg border border-wiselista-border bg-white px-3 py-2 text-sm text-slate-900 focus:border-wiselista-accent focus:outline-none focus:ring-1 focus:ring-wiselista-accent"
-        >
-          <option value="">Select…</option>
-          {ROOM_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
+    <form onSubmit={handleSubmit} className="rounded-xl border border-wiselista-border bg-white p-5 shadow-sm">
+      <h3 className="font-semibold text-slate-900">Add photos</h3>
+      <p className="mt-1 text-sm text-slate-500">
+        Choose a room type, then upload one or more images from your device.
+      </p>
+
+      <div className="mt-5 grid gap-4 sm:grid-cols-2">
+        <div>
+          <label htmlFor="room_type" className="block text-sm font-medium text-slate-700">
+            Room type
+          </label>
+          <select
+            id="room_type"
+            name="room_type"
+            required
+            className="mt-1.5 block w-full rounded-lg border border-wiselista-border bg-white px-3 py-2.5 text-sm text-slate-900 focus:border-wiselista-accent focus:outline-none focus:ring-1 focus:ring-wiselista-accent"
+          >
+            <option value="">Select room…</option>
+            {ROOM_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label htmlFor="file" className="block text-sm font-medium text-slate-700">
+            Photos
+          </label>
+          <div className="mt-1.5 rounded-lg border-2 border-dashed border-slate-200 bg-slate-50 px-3 py-4 transition-colors hover:border-wiselista-accent/40 hover:bg-slate-100/80">
+            <input
+              ref={fileInputRef}
+              id="file"
+              name="file"
+              type="file"
+              accept="image/*"
+              multiple
+              className="block w-full text-sm text-slate-600 file:mr-3 file:rounded-md file:border-0 file:bg-wiselista-accent file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white file:cursor-pointer hover:file:bg-wiselista-accent-hover"
+            />
+          </div>
+        </div>
       </div>
-      <div>
-        <label htmlFor="file" className="block text-sm font-medium text-slate-700">
-          Photo(s)
-        </label>
-        <p className="mt-0.5 text-xs text-slate-500">
-          Take a photo or choose from your library. You can select multiple.
-        </p>
-        <input
-          ref={fileInputRef}
-          id="file"
-          name="file"
-          type="file"
-          accept="image/*"
-          multiple
-          className="mt-1 block w-full text-sm text-slate-600 file:mr-4 file:rounded-lg file:border-0 file:bg-wiselista-accent file:px-4 file:py-2 file:text-sm file:font-medium file:text-white file:cursor-pointer hover:file:bg-wiselista-accent-hover"
-        />
-      </div>
-      {error && <p className="text-sm text-red-600">{error}</p>}
-      <button type="submit" disabled={loading} className="btn-primary">
-        {loading ? "Uploading…" : "Add selected photos"}
+
+      {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
+      <button type="submit" disabled={loading} className="btn-primary mt-5">
+        {loading ? "Uploading…" : "Add photos"}
       </button>
     </form>
   );

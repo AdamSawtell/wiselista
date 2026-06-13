@@ -1,16 +1,27 @@
+import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-import Link from "next/link";
-import { StatusBadge } from "@/components/StatusBadge";
-import { CreateJobButton } from "@/components/CreateJobButton";
-import { DeleteJobButton } from "@/components/DeleteJobButton";
+import { CreateJobForm } from "@/components/CreateJobForm";
+import { JobCard } from "@/components/JobCard";
+import { JobStatusFilter } from "@/components/JobStatusFilter";
+import { getSignedUrlsForPhotos } from "@/lib/storage";
 
-// Dashboard depends on request cookies and Supabase auth.
-// Force dynamic rendering so Amplify's static export worker doesn't try
-// to pre-render this page at build time.
 export const dynamic = "force-dynamic";
 
-export default async function DashboardPage() {
+type JobRow = {
+  id: string;
+  status: string;
+  name: string | null;
+  created_at: string;
+  photos: { id: string; room_type: string; original_key: string; edited_key: string | null }[];
+};
+
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ status?: string }>;
+}) {
+  const { status: statusFilter } = await searchParams;
   const supabase = await createClient();
   if (!supabase) redirect("/login?error=session");
 
@@ -18,70 +29,100 @@ export default async function DashboardPage() {
   if (authError || !authData?.user) redirect("/login?error=session");
   const user = authData.user;
 
-  const result = await supabase
+  let query = supabase
     .from("jobs")
-    .select("id, status, created_at")
+    .select("id, status, name, created_at, photos(id, room_type, original_key, edited_key)")
     .eq("user_id", user.id)
     .order("created_at", { ascending: false });
-  const jobs = result.data ?? null;
+
+  if (statusFilter && statusFilter !== "all") {
+    if (statusFilter === "processing") {
+      query = query.in("status", ["submitted", "payment_pending", "processing"]);
+    } else {
+      query = query.eq("status", statusFilter);
+    }
+  }
+
+  const result = await query;
+  const jobs = (result.data ?? null) as JobRow[] | null;
   const jobsError = result.error ? { message: result.error.message } : null;
 
-  return (
-    <div className="min-h-full bg-wiselista-surface">
-      <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
-        <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900">My jobs</h1>
-            <p className="mt-1 text-slate-600">
-              Create a job, add photos, then submit for AI editing.
-            </p>
-          </div>
-          <CreateJobButton />
-        </div>
+  const cards = await Promise.all(
+    (jobs ?? []).map(async (job) => {
+      const photos = job.photos ?? [];
+      const previewPhotos = photos.slice(0, 4);
+      const signed = previewPhotos.length
+        ? await getSignedUrlsForPhotos(
+            previewPhotos.map((p) => ({
+              id: p.id,
+              original_key: p.original_key,
+              edited_key: p.edited_key,
+            }))
+          )
+        : [];
 
-        {jobsError ? (
-          <div className="card p-8 text-center">
-            <p className="text-slate-600">Could not load jobs.</p>
-            <p className="mt-2 text-sm text-slate-500">
-              Check that the <code className="rounded bg-slate-100 px-1">jobs</code> table exists in Supabase (run migrations) and env vars are set in Amplify.
-            </p>
-          </div>
-        ) : (!jobs || jobs.length === 0) ? (
-          <div className="card p-12 text-center">
-            <p className="text-slate-600">No jobs yet.</p>
-            <p className="mt-2 text-sm text-slate-500">
-              Click “Create new job” above to start.
-            </p>
-          </div>
-        ) : (
-          <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {jobs.map((job) => (
-              <li key={job.id} className="card p-5 transition-shadow hover:shadow-md">
-                <div className="flex items-start justify-between gap-2">
-                  <Link href={`/dashboard/jobs/${job.id}`} className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-sm text-slate-500">
-                        {job.id.slice(0, 8)}…
-                      </span>
-                      <StatusBadge status={job.status} />
-                    </div>
-                    <p className="mt-3 text-sm text-slate-600">
-                      {new Date(job.created_at).toLocaleString(undefined, {
-                        dateStyle: "medium",
-                        timeStyle: "short",
-                      })}
-                    </p>
-                    <span className="mt-2 inline-block text-sm font-medium text-wiselista-accent">
-                      View job →
-                    </span>
-                  </Link>
-                  <DeleteJobButton jobId={job.id} variant="link" />
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
+      return {
+        job: {
+          id: job.id,
+          status: job.status,
+          name: job.name,
+          created_at: job.created_at,
+          photoCount: photos.length,
+        },
+        previews: previewPhotos.map((p, i) => ({
+          url: signed[i]?.editedUrl ?? signed[i]?.originalUrl ?? null,
+          roomType: p.room_type,
+        })),
+      };
+    })
+  );
+
+  return (
+    <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
+          Your projects
+        </h1>
+        <p className="mt-2 max-w-xl text-slate-600">
+          Create a project, add property photos, and submit for AI editing. Everything in one place.
+        </p>
       </div>
+
+      <div className="mb-8">
+        <CreateJobForm />
+      </div>
+
+      <Suspense fallback={<div className="mb-6 h-9" />}>
+        <div className="mb-6">
+          <JobStatusFilter />
+        </div>
+      </Suspense>
+
+      {jobsError ? (
+        <div className="rounded-xl border border-wiselista-border bg-white p-8 text-center shadow-sm">
+          <p className="text-slate-600">Could not load projects.</p>
+          <p className="mt-2 text-sm text-slate-500">
+            Check that the jobs table exists in Supabase and env vars are set in Amplify.
+          </p>
+        </div>
+      ) : cards.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-slate-300 bg-white p-12 text-center">
+          <p className="font-medium text-slate-700">
+            {statusFilter && statusFilter !== "all"
+              ? "No projects match this filter."
+              : "No projects yet."}
+          </p>
+          <p className="mt-2 text-sm text-slate-500">
+            Create your first project above to start adding photos.
+          </p>
+        </div>
+      ) : (
+        <ul className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+          {cards.map(({ job, previews }) => (
+            <JobCard key={job.id} job={job} previews={previews} />
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

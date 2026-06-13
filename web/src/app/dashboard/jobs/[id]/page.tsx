@@ -5,12 +5,12 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { AddPhotoForm } from "@/components/AddPhotoForm";
 import { SubmitJobButton } from "@/components/SubmitJobButton";
 import { DownloadAllButton } from "@/components/DownloadAllButton";
-import { DeletePhotoButton } from "@/components/DeletePhotoButton";
 import { DeleteJobButton } from "@/components/DeleteJobButton";
+import { JobNameEditor } from "@/components/JobNameEditor";
+import { PhotoGallery } from "@/components/PhotoGallery";
 import { getSignedUrlsForPhotos } from "@/lib/storage";
+import { formatJobDate } from "@/lib/jobs";
 
-// Job details rely on request cookies and Supabase auth.
-// Mark as dynamic to avoid static export attempts in Amplify.
 export const dynamic = "force-dynamic";
 
 export default async function JobDetailPage({
@@ -51,6 +51,15 @@ export default async function JobDetailPage({
       )
     : [];
 
+  const galleryPhotos =
+    photos?.map((p, i) => ({
+      id: p.id,
+      room_type: p.room_type,
+      originalUrl: signedUrls[i]?.originalUrl ?? null,
+      editedUrl: signedUrls[i]?.editedUrl ?? null,
+      hasEdited: Boolean(p.edited_key),
+    })) ?? [];
+
   const downloadAllEdited: { filename: string; url: string }[] =
     photos?.length && signedUrls.length === photos.length
       ? signedUrls
@@ -67,173 +76,84 @@ export default async function JobDetailPage({
           }))
       : [];
 
-  const roomLabel: Record<string, string> = {
-    living_room: "Living room",
-    kitchen: "Kitchen",
-    bedroom: "Bedroom",
-    bathroom: "Bathroom",
-    exterior: "Exterior",
-    other: "Other",
-  };
+  const isDraft = job.status === "draft";
 
   return (
-    <div className="min-h-full bg-wiselista-surface">
-      <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
-        <Link
-          href="/dashboard"
-          className="inline-flex items-center text-sm font-medium text-wiselista-accent hover:underline"
-        >
-          ← Back to dashboard
-        </Link>
+    <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
+      <Link
+        href="/dashboard"
+        className="inline-flex items-center gap-1 text-sm font-medium text-slate-500 transition-colors hover:text-wiselista-accent"
+      >
+        <span aria-hidden>←</span> All projects
+      </Link>
 
-        <div className="mt-6 card p-6">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <h1 className="text-xl font-bold text-slate-900">Job {id.slice(0, 8)}</h1>
-              <p className="mt-1 text-sm text-slate-500">
-                Created {new Date(job.created_at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}
-              </p>
-            </div>
-            <div className="flex flex-wrap items-center gap-3">
-              <StatusBadge status={job.status} />
-              <DeleteJobButton jobId={id} redirectAfter="/dashboard" />
-            </div>
+      <header className="mt-5 rounded-xl border border-wiselista-border bg-white p-5 shadow-sm sm:p-6">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="min-w-0 flex-1">
+            <JobNameEditor jobId={id} initialName={job.name ?? null} />
+            <p className="mt-2 text-sm text-slate-500">
+              Created {formatJobDate(job.created_at)}
+            </p>
           </div>
-          {job.status === "failed" && (
-            <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-4">
-              <p className="font-medium text-red-800">Enhancement failed</p>
-              {(job as { failure_message?: string }).failure_message && (
-                <p className="mt-1 text-sm text-red-700">
-                  {(job as { failure_message?: string }).failure_message}
-                </p>
-              )}
-              <p className="mt-2 text-xs text-red-600">
-                You can delete this job and try again, or contact support with the job ID if it keeps failing.
-              </p>
-            </div>
-          )}
-        </div>
-
-        {job.status === "draft" && (
-          <section className="mt-8">
-            <AddPhotoForm jobId={id} />
-            <div className="mt-6">
-              <SubmitJobButton jobId={id} photoCount={photos?.length ?? 0} />
-            </div>
-          </section>
-        )}
-
-        <section className="mt-8">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <h2 className="text-lg font-semibold text-slate-900">
-                Photos ({photos?.length ?? 0})
-              </h2>
-              {job.status === "draft" && (
-                <p className="mt-0.5 text-sm text-slate-500">
-                  These will be enhanced. Remove any you don&apos;t want before submitting.
-                </p>
-              )}
-            </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <StatusBadge status={job.status} />
             {job.status === "ready" && downloadAllEdited.length > 0 && (
               <DownloadAllButton items={downloadAllEdited} />
             )}
+            <DeleteJobButton jobId={id} redirectAfter="/dashboard" />
           </div>
-          <ul className="mt-4 space-y-4">
-            {(!photos || photos.length === 0) ? (
-              <li className="card p-6 text-center text-slate-500">
-                No photos in this job yet.
-              </li>
-            ) : (
-              photos.map((p, i) => {
-                const urls = signedUrls[i];
-                return (
-                  <li key={p.id} className="card p-4">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <span className="font-medium text-slate-800">
-                        {roomLabel[p.room_type] ?? p.room_type}
-                      </span>
-                      <div className="flex flex-wrap items-center gap-2">
-                        {p.edited_key ? (
-                          <span className="badge-ready">Edited</span>
-                        ) : (
-                          <span className="badge-draft">Pending</span>
-                        )}
-                        {job.status === "draft" && (
-                          <DeletePhotoButton jobId={id} photoId={p.id} />
-                        )}
-                      </div>
-                    </div>
-                    <div className="mt-3 flex flex-wrap gap-4">
-                      {urls?.originalUrl && (
-                        <div className="flex flex-col gap-1">
-                          <p className="text-xs font-medium text-slate-500">
-                            Original
-                          </p>
-                          <a
-                            href={urls.originalUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="block w-24 overflow-hidden rounded border border-wiselista-border bg-slate-100"
-                          >
-                            <img
-                              src={urls.originalUrl}
-                              alt={`${roomLabel[p.room_type] ?? p.room_type} original`}
-                              className="h-24 w-24 object-cover"
-                            />
-                          </a>
-                          <a
-                            href={urls.originalUrl}
-                            download
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-sm font-medium text-wiselista-accent hover:underline"
-                          >
-                            Download original
-                          </a>
-                        </div>
-                      )}
-                      {urls?.editedUrl && (
-                        <div className="flex flex-col gap-1">
-                          <p className="text-xs font-medium text-slate-500">
-                            Edited
-                          </p>
-                          <a
-                            href={urls.editedUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="block w-24 overflow-hidden rounded border border-wiselista-border bg-slate-100"
-                          >
-                            <img
-                              src={urls.editedUrl}
-                              alt={`${roomLabel[p.room_type] ?? p.room_type} edited`}
-                              className="h-24 w-24 object-cover"
-                            />
-                          </a>
-                          <a
-                            href={urls.editedUrl}
-                            download
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-sm font-medium text-wiselista-accent hover:underline"
-                          >
-                            Download edited
-                          </a>
-                        </div>
-                      )}
-                      {!urls?.originalUrl && !urls?.editedUrl && (
-                        <p className="font-mono text-xs text-slate-500">
-                          {p.original_key}
-                        </p>
-                      )}
-                    </div>
-                  </li>
-                );
-              })
+        </div>
+
+        {job.status === "failed" && (
+          <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-4">
+            <p className="font-medium text-red-800">Enhancement failed</p>
+            {(job as { failure_message?: string }).failure_message && (
+              <p className="mt-1 text-sm text-red-700">
+                {(job as { failure_message?: string }).failure_message}
+              </p>
             )}
-          </ul>
+            <p className="mt-2 text-xs text-red-600">
+              Delete this project and try again, or contact support with the project ID.
+            </p>
+          </div>
+        )}
+      </header>
+
+      {isDraft && (
+        <section className="mt-6 space-y-4">
+          <AddPhotoForm jobId={id} />
+          <div className="rounded-xl border border-wiselista-border bg-white p-5 shadow-sm">
+            <h2 className="font-semibold text-slate-900">Ready to enhance?</h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Submit when you&apos;ve added all the photos you want edited.
+            </p>
+            <div className="mt-4">
+              <SubmitJobButton jobId={id} photoCount={photos?.length ?? 0} />
+            </div>
+          </div>
         </section>
-      </div>
+      )}
+
+      <section className="mt-8">
+        <div className="mb-4 flex items-end justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900">
+              Photos
+              <span className="ml-2 font-normal text-slate-500">({photos?.length ?? 0})</span>
+            </h2>
+            {isDraft && (
+              <p className="mt-0.5 text-sm text-slate-500">
+                Remove any you don&apos;t want before submitting.
+              </p>
+            )}
+          </div>
+        </div>
+        <PhotoGallery
+          jobId={id}
+          jobStatus={job.status}
+          photos={galleryPhotos}
+        />
+      </section>
     </div>
   );
 }

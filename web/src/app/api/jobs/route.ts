@@ -10,7 +10,7 @@ export async function GET() {
   if (!supabase) return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
   const { data, error } = await supabase
     .from("jobs")
-    .select("id, status, created_at, updated_at")
+    .select("id, status, name, created_at, updated_at")
     .eq("user_id", user.id)
     .order("created_at", { ascending: false });
 
@@ -18,16 +18,28 @@ export async function GET() {
   return NextResponse.json(data);
 }
 
-export async function POST() {
+export async function POST(request: Request) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  let name: string | null = null;
+  try {
+    const body = await request.json();
+    const trimmed = typeof body?.name === "string" ? body.name.trim() : "";
+    if (trimmed.length > 120) {
+      return NextResponse.json({ error: "Name must be 120 characters or fewer" }, { status: 400 });
+    }
+    name = trimmed || null;
+  } catch {
+    // no body — create unnamed project
+  }
 
   const supabase = await createClient();
   if (!supabase) return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
   const { data, error } = await supabase
     .from("jobs")
-    .insert({ user_id: user.id, status: "draft" })
-    .select("id, status, created_at")
+    .insert({ user_id: user.id, status: "draft", name })
+    .select("id, status, name, created_at")
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

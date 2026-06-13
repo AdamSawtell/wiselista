@@ -3,8 +3,8 @@ import Link from "next/link";
 export function Footer() {
   return (
     <footer className="mt-auto border-t border-wiselista-border bg-white">
-      <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-        <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
           <div className="lg:col-span-2">
             <div className="flex items-center gap-3">
               <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-wiselista-accent text-xs font-bold text-white">
@@ -12,9 +12,8 @@ export function Footer() {
               </span>
               <span className="text-lg font-bold text-slate-900">Wiselista</span>
             </div>
-            <p className="mt-3 max-w-sm text-sm leading-relaxed text-slate-600">
-              Pro-quality property photos for rental managers, real estate agents, and homeowners.
-              Capture, submit, download — listing ready.
+            <p className="mt-2 max-w-sm text-sm text-slate-600">
+              Pro-quality property photos for rental managers, agents, and homeowners.
             </p>
           </div>
 
@@ -58,7 +57,7 @@ export function Footer() {
           </div>
         </div>
 
-        <p className="mt-10 border-t border-wiselista-border pt-6 text-center text-xs text-slate-500 sm:text-left">
+        <p className="mt-6 border-t border-wiselista-border pt-4 text-center text-xs text-slate-500 sm:text-left">
           © {new Date().getFullYear()} Wiselista. Property photos, AI-edited.
         </p>
       </div>

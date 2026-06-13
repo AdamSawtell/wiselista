@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS public.jobs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'submitted', 'payment_pending', 'processing', 'ready', 'failed')),
+  name TEXT,
   stripe_checkout_session_id TEXT,
   ai_job_id TEXT,
   failure_message TEXT,
