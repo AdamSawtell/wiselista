@@ -40,8 +40,25 @@ type RpcSharePayload = {
   completed_at: string | null;
   agent_email: string | null;
   agent_meta: Record<string, unknown> | null;
+  share_photo_urls?: Record<string, string> | null;
   photos: RpcPhoto[];
 };
+
+function photosFromCachedUrls(payload: RpcSharePayload): SharePhoto[] {
+  const raw = Array.isArray(payload.photos) ? payload.photos : [];
+  const cached = payload.share_photo_urls;
+  if (!cached || typeof cached !== "object") return [];
+
+  return raw
+    .map((photo) => ({
+      id: photo.id,
+      roomType: photo.room_type,
+      roomLabel: ROOM_LABELS[photo.room_type] ?? photo.room_type,
+      sequence: photo.sequence,
+      imageUrl: cached[photo.id] ?? "",
+    }))
+    .filter((p) => p.imageUrl);
+}
 
 function agentDisplayName(
   email: string | null | undefined,
@@ -113,7 +130,7 @@ async function loadSharePayloadViaService(token: string): Promise<RpcSharePayloa
 
   const { data: job } = await supabase
     .from("jobs")
-    .select("id, name, status, property_address, listing_type, user_id, completed_at")
+    .select("id, name, status, property_address, listing_type, user_id, completed_at, share_photo_urls")
     .eq("share_token", token)
     .single();
 
@@ -144,6 +161,7 @@ async function loadSharePayloadViaService(token: string): Promise<RpcSharePayloa
     completed_at: job.completed_at ?? null,
     agent_email: agentEmail,
     agent_meta: agentMeta,
+    share_photo_urls: (job.share_photo_urls as Record<string, string> | null) ?? null,
     photos: (photos ?? []).map((p) => ({
       id: p.id,
       room_type: p.room_type,
@@ -177,6 +195,8 @@ export async function getSharePageData(token: string): Promise<SharePageData | n
   if (!payload) return null;
 
   const photos = Array.isArray(payload.photos) ? payload.photos : [];
-  const signedPhotos = await signPhotoUrls(photos);
+  const cachedPhotos = photosFromCachedUrls(payload);
+  const signedPhotos =
+    cachedPhotos.length > 0 ? cachedPhotos : await signPhotoUrls(photos);
   return payloadToSharePageData(payload, signedPhotos);
 }
