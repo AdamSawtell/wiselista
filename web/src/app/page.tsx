@@ -26,6 +26,20 @@ const SHOWCASE = [
 
 const AUDIENCES = ["Agents", "Rentals", "Homeowners"] as const;
 
+const DIY_STEPS = [
+  "Shoot on your phone and hope the angles work",
+  "Jump between editing apps, desktop software, or a freelancer",
+  "Fix exposure and colour photo by photo, room by room",
+  "Export, rename, and resize for each portal and CRM",
+] as const;
+
+const WISELISTA_STEPS = [
+  "The app walks you through each room — framing, tips, nothing missed",
+  "Review your batch on site, drop the duds, submit once",
+  "AI enhancement tuned for property listings — HDR, colour, sharpness",
+  "Download listing-ready files from one dashboard",
+] as const;
+
 export default function Home() {
   return (
     <div className="bg-white">
@@ -108,6 +122,95 @@ export default function Home() {
               <p className="mt-1 text-sm text-slate-600">{stat.label}</p>
             </div>
           ))}
+        </div>
+      </section>
+
+      {/* Why Wiselista */}
+      <section id="why-wiselista" className="py-16 sm:py-20">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-3xl text-center">
+            <h2 className="text-3xl font-bold text-slate-900">Why Wiselista</h2>
+            <p className="mt-3 text-lg text-slate-600">
+              Yes, you can do it yourself — with a stack of apps, tabs, and trial-and-error.
+              Wiselista makes it easy: one flow from the front door to a listing you&apos;re proud to publish.
+            </p>
+          </div>
+
+          <div className="mt-12 grid gap-6 lg:grid-cols-2">
+            <div className="card border-slate-200 bg-slate-50 p-6 sm:p-8">
+              <p className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+                The hard way
+              </p>
+              <p className="mt-2 text-lg font-semibold text-slate-800">
+                Lots of tools. Lots of steps.
+              </p>
+              <ul className="mt-6 space-y-4">
+                {DIY_STEPS.map((step) => (
+                  <li key={step} className="flex items-start gap-3 text-sm text-slate-600">
+                    <span className="mt-0.5 shrink-0 text-slate-400" aria-hidden="true">
+                      ✕
+                    </span>
+                    {step}
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-6 text-sm text-slate-500">
+                It works — until you&apos;re between keys, juggling five listings, and the photos still
+                look flat on realestate.com.au.
+              </p>
+            </div>
+
+            <div className="card border-wiselista-accent/20 bg-white p-6 ring-1 ring-wiselista-accent/10 sm:p-8">
+              <p className="text-sm font-semibold uppercase tracking-wide text-wiselista-accent">
+                With Wiselista
+              </p>
+              <p className="mt-2 text-lg font-semibold text-slate-900">
+                One app. Guided start to finish.
+              </p>
+              <ul className="mt-6 space-y-4">
+                {WISELISTA_STEPS.map((step) => (
+                  <li key={step} className="flex items-start gap-3 text-sm text-slate-700">
+                    <span className="mt-0.5 shrink-0 text-wiselista-accent" aria-hidden="true">
+                      ✓
+                    </span>
+                    {step}
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-6 text-sm font-medium text-slate-700">
+                Built for agents and rental managers on site — not for people who want another
+                subscription to learn.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-10 grid gap-6 sm:grid-cols-3">
+            {[
+              {
+                title: "You stay in control",
+                body: "Shoot yourself, on your schedule. No photographer booking, no waiting on edits from a third party.",
+              },
+              {
+                title: "Quality you can list with",
+                body: "Not phone-filters — property-grade enhancement so rentals and sales look bright, sharp, and trustworthy.",
+              },
+              {
+                title: "One price, no tool stack",
+                body: "AUD $29 per job covers the lot. No Lightroom, no freelancer quotes, no piecing it together.",
+              },
+            ].map((item) => (
+              <div key={item.title} className="text-center sm:text-left">
+                <h3 className="font-semibold text-slate-900">{item.title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-slate-600">{item.body}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-10 text-center">
+            <Link href="/login" className="btn-primary">
+              Start your first job
+            </Link>
+          </div>
         </div>
       </section>
 

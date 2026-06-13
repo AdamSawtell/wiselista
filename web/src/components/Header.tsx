@@ -21,6 +21,12 @@ export function Header({ user }: HeaderProps) {
 
         <nav className="hidden items-center gap-1 md:flex">
           <Link
+            href="/#why-wiselista"
+            className="rounded-md px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900"
+          >
+            Why Wiselista
+          </Link>
+          <Link
             href="/#how-it-works"
             className="rounded-md px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900"
           >

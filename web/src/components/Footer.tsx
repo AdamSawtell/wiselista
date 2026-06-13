@@ -21,6 +21,9 @@ export function Footer() {
           <div>
             <h3 className="text-sm font-semibold text-slate-900">Product</h3>
             <nav className="mt-3 flex flex-col gap-2 text-sm text-slate-600">
+              <Link href="/#why-wiselista" className="transition-colors hover:text-wiselista-accent">
+                Why Wiselista
+              </Link>
               <Link href="/#how-it-works" className="transition-colors hover:text-wiselista-accent">
                 How it works
               </Link>
