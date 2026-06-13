@@ -1,8 +1,10 @@
 import React, { useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, SafeAreaView } from "react-native";
+import { View, Text, StyleSheet, SafeAreaView, ScrollView } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 import { theme } from "../theme";
+import PrimaryButton from "../components/PrimaryButton";
 
 export default function CreateJobScreen({ navigation }: { navigation: any }) {
   const { user } = useAuth();
@@ -28,53 +30,43 @@ export default function CreateJobScreen({ navigation }: { navigation: any }) {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <View style={styles.inner}>
-        <Text style={[styles.title, { color: theme.colors.textPrimary }]}>New property job</Text>
+      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+        <View style={[styles.iconWrap, { backgroundColor: theme.colors.primaryMuted }]}>
+          <Ionicons name="folder-open-outline" size={36} color={theme.colors.primary} />
+        </View>
+        <Text style={[styles.title, { color: theme.colors.textPrimary }]}>Quick job</Text>
         <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
-          Start a new photo set for a property. You can add photos next.
+          Create a blank property job and add photos manually — useful when you already have images on your phone.
         </Text>
         {error && <Text style={[styles.error, { color: theme.colors.error }]}>{error}</Text>}
-        <TouchableOpacity
-          style={[styles.button, loading && styles.buttonDisabled]}
-          onPress={handleCreate}
-          disabled={loading}
-          activeOpacity={0.9}
-        >
-          {loading ? (
-            <ActivityIndicator color={theme.colors.textOnPrimary} />
-          ) : (
-            <Text style={styles.buttonText}>Create job</Text>
-          )}
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.cancel} onPress={() => navigation.goBack()}>
-          <Text style={[styles.cancelText, { color: theme.colors.textMuted }]}>Cancel</Text>
-        </TouchableOpacity>
-      </View>
+        <PrimaryButton label="Create job" onPress={handleCreate} loading={loading} style={styles.cta} />
+        <PrimaryButton label="Cancel" onPress={() => navigation.goBack()} variant="ghost" />
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  inner: {
-    flex: 1,
+  scroll: {
+    flexGrow: 1,
     padding: theme.spacing.xl,
     justifyContent: "center",
-    maxWidth: 400,
+    maxWidth: 420,
     alignSelf: "center",
     width: "100%",
   },
-  title: { ...theme.typography.title, marginBottom: theme.spacing.sm },
-  subtitle: { ...theme.typography.body, marginBottom: theme.spacing.xl },
-  error: { ...theme.typography.caption, marginBottom: theme.spacing.md },
-  button: {
-    backgroundColor: theme.colors.primary,
-    padding: theme.spacing.md,
-    borderRadius: theme.radius.sm,
+  iconWrap: {
+    width: 72,
+    height: 72,
+    borderRadius: theme.radius.lg,
     alignItems: "center",
+    justifyContent: "center",
+    marginBottom: theme.spacing.lg,
+    alignSelf: "center",
   },
-  buttonDisabled: { opacity: 0.7 },
-  buttonText: { color: theme.colors.textOnPrimary, ...theme.typography.bodyMedium },
-  cancel: { marginTop: theme.spacing.md, alignItems: "center" },
-  cancelText: { ...theme.typography.captionMedium },
+  title: { ...theme.typography.titleLarge, textAlign: "center", marginBottom: theme.spacing.sm },
+  subtitle: { ...theme.typography.body, textAlign: "center", marginBottom: theme.spacing.xl },
+  error: { ...theme.typography.caption, textAlign: "center", marginBottom: theme.spacing.md },
+  cta: { marginBottom: theme.spacing.xs },
 });

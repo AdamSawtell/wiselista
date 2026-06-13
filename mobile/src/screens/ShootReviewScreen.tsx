@@ -3,13 +3,13 @@ import {
   View,
   Text,
   ScrollView,
-  TouchableOpacity,
   StyleSheet,
   SafeAreaView,
   ActivityIndicator,
   Image,
   Alert,
   Linking,
+  Dimensions,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { supabase, APP_URL } from "../lib/supabase";
@@ -17,6 +17,12 @@ import { useAuth } from "../contexts/AuthContext";
 import { theme } from "../theme";
 import type { Photo } from "../types";
 import { ROOM_LABELS } from "../types";
+import PrimaryButton from "../components/PrimaryButton";
+
+const GRID_GAP = 8;
+const GRID_PAD = theme.spacing.lg;
+const COLS = 2;
+const TILE_W = (Dimensions.get("window").width - GRID_PAD * 2 - GRID_GAP) / COLS;
 
 export default function ShootReviewScreen({
   navigation,
@@ -109,81 +115,59 @@ export default function ShootReviewScreen({
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <View style={[styles.header, { backgroundColor: theme.colors.surface, borderBottomColor: theme.colors.border }]}>
-        <Text style={[styles.headerTitle, { color: theme.colors.textPrimary }]}>Review shoot</Text>
+        <Text style={[styles.headerKicker, { color: theme.colors.primary }]}>Review</Text>
+        <Text style={[styles.headerTitle, { color: theme.colors.textPrimary }]} numberOfLines={1}>
+          {propertyName ?? "Your property"}
+        </Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={[styles.title, { color: theme.colors.textPrimary }]}>
-          {propertyName ?? "Your property"}
-        </Text>
         <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
-          {photos.length} photo{photos.length === 1 ? "" : "s"} ready to enhance. Submit when you&apos;re happy.
+          {photos.length} photo{photos.length === 1 ? "" : "s"} ready for enhancement.
         </Text>
 
         {photos.length === 0 ? (
-          <View style={[styles.emptyCard, { backgroundColor: theme.colors.surface }]}>
+          <View style={[styles.emptyBox, { borderColor: theme.colors.border }]}>
             <Text style={[styles.emptyText, { color: theme.colors.textMuted }]}>
-              No photos yet. Go back and capture at least one room.
+              No photos captured yet.
             </Text>
-            <TouchableOpacity
-              style={[styles.backShootBtn, { backgroundColor: theme.colors.primary }]}
-              onPress={() =>
-                navigation.replace("GuidedShoot", { jobId, propertyName, stepIndex: 0 })
-              }
-            >
-              <Text style={styles.backShootBtnText}>Continue shooting</Text>
-            </TouchableOpacity>
+            <PrimaryButton
+              label="Continue shooting"
+              onPress={() => navigation.replace("GuidedShoot", { jobId, propertyName, stepIndex: 0 })}
+              style={{ marginTop: theme.spacing.lg }}
+            />
           </View>
         ) : (
-          photos.map((p) => (
-            <View
-              key={p.id}
-              style={[styles.photoRow, { backgroundColor: theme.colors.surface }, theme.shadow]}
-            >
-              {signedUrls[p.id] ? (
-                <Image source={{ uri: signedUrls[p.id] }} style={styles.thumb} resizeMode="cover" />
-              ) : (
-                <View style={[styles.thumb, { backgroundColor: theme.colors.surfaceMuted }]} />
-              )}
-              <View style={styles.photoMeta}>
-                <Text style={[styles.photoRoom, { color: theme.colors.textPrimary }]}>
+          <View style={styles.grid}>
+            {photos.map((p) => (
+              <View key={p.id} style={[styles.tile, { width: TILE_W, borderColor: theme.colors.border }]}>
+                {signedUrls[p.id] ? (
+                  <Image source={{ uri: signedUrls[p.id] }} style={styles.tileImage} resizeMode="cover" />
+                ) : (
+                  <View style={[styles.tileImage, { backgroundColor: theme.colors.surfaceMuted }]} />
+                )}
+                <Text style={[styles.tileLabel, { color: theme.colors.textPrimary }]} numberOfLines={1}>
                   {ROOM_LABELS[p.room_type]}
                 </Text>
-                <Text style={[styles.photoSeq, { color: theme.colors.textMuted }]}>
-                  Photo {p.sequence + 1}
-                </Text>
               </View>
-            </View>
-          ))
+            ))}
+          </View>
         )}
-
-        {photos.length > 0 && (
-          <>
-            <TouchableOpacity
-              style={[styles.submitBtn, { backgroundColor: theme.colors.primary }, submitting && styles.btnDisabled]}
-              onPress={handleSubmit}
-              disabled={submitting}
-              activeOpacity={0.9}
-            >
-              {submitting ? (
-                <ActivityIndicator color={theme.colors.textOnPrimary} />
-              ) : (
-                <Text style={styles.submitBtnText}>Submit for edit</Text>
-              )}
-            </TouchableOpacity>
-            <Text style={[styles.hint, { color: theme.colors.textMuted }]}>
-              Enhancement takes about 20 seconds per photo.
-            </Text>
-          </>
-        )}
-
-        <TouchableOpacity
-          style={styles.linkBtn}
-          onPress={() => navigation.navigate("JobDetail", { jobId })}
-        >
-          <Text style={[styles.linkBtnText, { color: theme.colors.primary }]}>Open full job details</Text>
-        </TouchableOpacity>
       </ScrollView>
+
+      {photos.length > 0 && (
+        <View style={[styles.bottomBar, { backgroundColor: theme.colors.surface, borderTopColor: theme.colors.border }]}>
+          <PrimaryButton label="Submit for edit" onPress={handleSubmit} loading={submitting} />
+          <Text style={[styles.hint, { color: theme.colors.textMuted }]}>
+            ~20 seconds per photo to enhance
+          </Text>
+          <PrimaryButton
+            label="View shoot details"
+            onPress={() => navigation.navigate("JobDetail", { jobId })}
+            variant="ghost"
+          />
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -191,36 +175,43 @@ export default function ShootReviewScreen({
 const styles = StyleSheet.create({
   container: { flex: 1 },
   centered: { flex: 1, justifyContent: "center", alignItems: "center" },
-  header: { padding: theme.spacing.md, borderBottomWidth: 1 },
-  headerTitle: { ...theme.typography.titleSmall },
-  content: { padding: theme.spacing.xl, paddingBottom: theme.spacing.xxl },
-  title: { ...theme.typography.title, marginBottom: theme.spacing.xs },
-  subtitle: { ...theme.typography.body, marginBottom: theme.spacing.lg },
-  emptyCard: { padding: theme.spacing.xl, borderRadius: theme.radius.md, alignItems: "center" },
-  emptyText: { ...theme.typography.body, textAlign: "center", marginBottom: theme.spacing.lg },
-  backShootBtn: { padding: theme.spacing.md, borderRadius: theme.radius.sm },
-  backShootBtnText: { color: theme.colors.textOnPrimary, ...theme.typography.bodyMedium },
-  photoRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: theme.spacing.sm,
-    borderRadius: theme.radius.md,
-    marginBottom: theme.spacing.sm,
-    gap: theme.spacing.md,
+  header: {
+    paddingHorizontal: theme.spacing.lg,
+    paddingVertical: theme.spacing.md,
+    borderBottomWidth: 1,
   },
-  thumb: { width: 72, height: 54, borderRadius: theme.radius.sm },
-  photoMeta: { flex: 1 },
-  photoRoom: { ...theme.typography.bodyMedium },
-  photoSeq: { ...theme.typography.caption },
-  submitBtn: {
-    marginTop: theme.spacing.lg,
-    padding: theme.spacing.md,
+  headerKicker: { ...theme.typography.label, marginBottom: 4 },
+  headerTitle: { ...theme.typography.title },
+  content: { padding: GRID_PAD, paddingBottom: 180 },
+  subtitle: { ...theme.typography.body, marginBottom: theme.spacing.lg },
+  emptyBox: {
+    padding: theme.spacing.xl,
+    borderWidth: 1,
     borderRadius: theme.radius.sm,
     alignItems: "center",
   },
-  btnDisabled: { opacity: 0.7 },
-  submitBtnText: { color: theme.colors.textOnPrimary, ...theme.typography.bodyMedium },
+  emptyText: { ...theme.typography.body, textAlign: "center" },
+  grid: { flexDirection: "row", flexWrap: "wrap", gap: GRID_GAP },
+  tile: {
+    borderWidth: 1,
+    borderRadius: theme.radius.sm,
+    overflow: "hidden",
+    backgroundColor: theme.colors.surface,
+  },
+  tileImage: { width: "100%", height: TILE_W * 0.75 },
+  tileLabel: {
+    ...theme.typography.captionMedium,
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: theme.spacing.sm,
+  },
+  bottomBar: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: theme.spacing.md,
+    paddingBottom: theme.spacing.lg,
+    borderTopWidth: 1,
+  },
   hint: { ...theme.typography.caption, textAlign: "center", marginTop: theme.spacing.sm },
-  linkBtn: { marginTop: theme.spacing.lg, alignItems: "center" },
-  linkBtnText: { ...theme.typography.captionMedium },
 });

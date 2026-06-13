@@ -22,6 +22,7 @@ export default function PrimaryButton({
   const isPrimary = variant === "primary";
   const isSecondary = variant === "secondary";
   const isOutline = variant === "outline";
+  const isDisabled = disabled || loading;
 
   return (
     <TouchableOpacity
@@ -31,11 +32,11 @@ export default function PrimaryButton({
         isSecondary && styles.secondary,
         isOutline && styles.outline,
         variant === "ghost" && styles.ghost,
-        (disabled || loading) && styles.disabled,
+        isDisabled && styles.disabled,
         style,
       ]}
       onPress={onPress}
-      disabled={disabled || loading}
+      disabled={isDisabled}
       activeOpacity={0.88}
     >
       {loading ? (

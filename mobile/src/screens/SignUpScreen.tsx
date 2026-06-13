@@ -3,14 +3,14 @@ import {
   View,
   Text,
   TextInput,
-  TouchableOpacity,
   StyleSheet,
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
 } from "react-native";
 import { useAuth } from "../contexts/AuthContext";
 import { theme } from "../theme";
+import PrimaryButton from "../components/PrimaryButton";
 
 export default function SignUpScreen({ navigation }: { navigation: { navigate: (name: string) => void } }) {
   const [email, setEmail] = useState("");
@@ -40,14 +40,15 @@ export default function SignUpScreen({ navigation }: { navigation: { navigate: (
   if (success) {
     return (
       <View style={[styles.container, { backgroundColor: theme.colors.surface }]}>
-        <View style={styles.form}>
+        <View style={styles.scroll}>
+          <View style={styles.brandBlock}>
+            <Text style={[styles.brand, { color: theme.colors.primary }]}>wiselista</Text>
+          </View>
           <Text style={[styles.title, { color: theme.colors.textPrimary }]}>Check your email</Text>
           <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
             We sent a confirmation link to {email}
           </Text>
-          <TouchableOpacity style={styles.button} onPress={() => navigation.navigate("Login")}>
-            <Text style={styles.buttonText}>Back to sign in</Text>
-          </TouchableOpacity>
+          <PrimaryButton label="Back to sign in" onPress={() => navigation.navigate("Login")} style={styles.cta} />
         </View>
       </View>
     );
@@ -56,79 +57,70 @@ export default function SignUpScreen({ navigation }: { navigation: { navigate: (
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
-      style={[styles.container, { backgroundColor: theme.colors.background }]}
+      style={[styles.container, { backgroundColor: theme.colors.surface }]}
     >
-      <View style={styles.form}>
-        <Text style={[styles.title, { color: theme.colors.textPrimary }]}>Create account</Text>
-        <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
-          Sign up for Wiselista — property photos, AI-edited.
-        </Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Email"
-          placeholderTextColor={theme.colors.textMuted}
-          value={email}
-          onChangeText={setEmail}
-          autoCapitalize="none"
-          keyboardType="email-address"
-          autoComplete="email"
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Password (min 6 characters)"
-          placeholderTextColor={theme.colors.textMuted}
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-          autoComplete="password"
-        />
-        {error && <Text style={styles.error}>{error}</Text>}
-        <TouchableOpacity
-          style={[styles.button, loading && styles.buttonDisabled]}
-          onPress={handleSignUp}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator color={theme.colors.textOnPrimary} />
-          ) : (
-            <Text style={styles.buttonText}>Sign up</Text>
-          )}
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => navigation.navigate("Login")} style={styles.link}>
-          <Text style={[styles.linkText, { color: theme.colors.primary }]}>
-            Already have an account? Sign in
-          </Text>
-        </TouchableOpacity>
-      </View>
+      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+        <View style={styles.brandBlock}>
+          <Text style={[styles.brand, { color: theme.colors.primary }]}>wiselista</Text>
+          <Text style={[styles.tagline, { color: theme.colors.textSecondary }]}>Create your account</Text>
+        </View>
+
+        <View style={styles.form}>
+          <Text style={[styles.fieldLabel, { color: theme.colors.textMuted }]}>Email</Text>
+          <TextInput
+            style={[styles.input, { color: theme.colors.textPrimary, borderColor: theme.colors.border }]}
+            placeholder="you@agency.com"
+            placeholderTextColor={theme.colors.textMuted}
+            value={email}
+            onChangeText={setEmail}
+            autoCapitalize="none"
+            keyboardType="email-address"
+            autoComplete="email"
+          />
+          <Text style={[styles.fieldLabel, { color: theme.colors.textMuted }]}>Password</Text>
+          <TextInput
+            style={[styles.input, { color: theme.colors.textPrimary, borderColor: theme.colors.border }]}
+            placeholder="Min 6 characters"
+            placeholderTextColor={theme.colors.textMuted}
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+            autoComplete="password-new"
+          />
+          {error && <Text style={[styles.error, { color: theme.colors.error }]}>{error}</Text>}
+          <PrimaryButton label="Sign up" onPress={handleSignUp} loading={loading} style={styles.cta} />
+          <PrimaryButton label="Already have an account? Sign in" onPress={() => navigation.navigate("Login")} variant="ghost" />
+        </View>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: "center", padding: theme.spacing.xl },
-  form: { maxWidth: 400, width: "100%", alignSelf: "center" },
-  title: { ...theme.typography.titleLarge, marginBottom: theme.spacing.xs },
+  container: { flex: 1 },
+  scroll: {
+    flexGrow: 1,
+    justifyContent: "center",
+    padding: theme.spacing.xl,
+    maxWidth: 420,
+    alignSelf: "center",
+    width: "100%",
+  },
+  brandBlock: { marginBottom: theme.spacing.xxl },
+  brand: { fontSize: 32, fontWeight: "700", letterSpacing: -1, marginBottom: theme.spacing.xs },
+  tagline: { ...theme.typography.body },
+  title: { ...theme.typography.titleLarge, marginBottom: theme.spacing.sm },
   subtitle: { ...theme.typography.body, marginBottom: theme.spacing.xl },
+  form: {},
+  fieldLabel: { ...theme.typography.captionMedium, marginBottom: 6 },
   input: {
     borderWidth: 1,
-    borderColor: theme.colors.border,
     borderRadius: theme.radius.sm,
-    padding: theme.spacing.md,
+    padding: 14,
     fontSize: 16,
     marginBottom: theme.spacing.md,
-    backgroundColor: theme.colors.surfaceMuted,
-    color: theme.colors.textPrimary,
+    backgroundColor: theme.colors.background,
   },
-  error: { color: theme.colors.error, marginBottom: theme.spacing.md, fontSize: 14 },
-  button: {
-    backgroundColor: theme.colors.primary,
-    padding: theme.spacing.md,
-    borderRadius: theme.radius.sm,
-    alignItems: "center",
-    marginTop: theme.spacing.sm,
-  },
-  buttonDisabled: { opacity: 0.7 },
-  buttonText: { color: theme.colors.textOnPrimary, ...theme.typography.bodyMedium },
-  link: { marginTop: theme.spacing.lg, alignItems: "center" },
-  linkText: { ...theme.typography.captionMedium },
+  error: { marginBottom: theme.spacing.md, fontSize: 14 },
+  cta: { marginTop: theme.spacing.sm, marginBottom: theme.spacing.xs },
 });

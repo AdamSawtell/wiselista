@@ -14,21 +14,22 @@ import {
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import * as ImagePicker from "expo-image-picker";
-import { supabase } from "../lib/supabase";
-import { APP_URL } from "../lib/supabase";
+import { supabase, APP_URL } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 import { theme } from "../theme";
-import type { Job, Photo } from "../types";
+import type { Job, JobStatus, Photo } from "../types";
 import { ROOM_LABELS, ROOM_TYPES, type RoomType } from "../types";
+import StatusBadge from "../components/StatusBadge";
+import PrimaryButton from "../components/PrimaryButton";
+import { downloadJobZip, downloadPhoto } from "../lib/downloadPhotos";
 
-const STATUS_LABELS: Record<string, string> = {
-  draft: "Draft",
-  submitted: "Submitted",
-  payment_pending: "Payment pending",
-  processing: "Processing",
-  ready: "Ready",
-  failed: "Failed",
-};
+function jobTitle(job: Job): string {
+  if (job.name?.trim()) return job.name.trim();
+  return `Property shoot · ${new Date(job.created_at).toLocaleDateString(undefined, {
+    day: "numeric",
+    month: "short",
+  })}`;
+}
 
 export default function JobDetailScreen({
   navigation,
@@ -45,6 +46,8 @@ export default function JobDetailScreen({
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [downloadingZip, setDownloadingZip] = useState(false);
+  const [downloadingPhotoId, setDownloadingPhotoId] = useState<string | null>(null);
   const [pendingLibrary, setPendingLibrary] = useState<{
     assets: ImagePicker.ImagePickerAsset[];
     roomType: RoomType;
@@ -66,8 +69,6 @@ export default function JobDetailScreen({
         .single();
       if (jobErr || !jobData) {
         setJob(null);
-        setLoading(false);
-        setRefreshing(false);
         return;
       }
       setJob(jobData as Job);
@@ -110,17 +111,11 @@ export default function JobDetailScreen({
     fetchJob();
   }, [jobId, user?.id]);
 
-  // Refetch when screen gains focus (e.g. return from Camera or after add) so new photos show without leaving the job
   useFocusEffect(
     useCallback(() => {
       if (user?.id && jobId) fetchJob();
     }, [jobId, user?.id])
   );
-
-  const onRefresh = () => {
-    setRefreshing(true);
-    fetchJob();
-  };
 
   async function handleChooseFromLibrary() {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -160,87 +155,37 @@ export default function JobDetailScreen({
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
           Alert.alert("Upload failed", (data as { error?: string }).error ?? "Could not add photo");
-          setAddingFromLibrary(false);
           return;
         }
       }
-      const added = pendingLibrary.assets.length;
       setPendingLibrary(null);
       await fetchJob();
-      Alert.alert("Photos added", `${added} photo${added === 1 ? "" : "s"} added. They should appear in Storage and in this job.`);
     } catch {
-      Alert.alert("Error", "Network error. Check your connection and that the app URL is correct.");
+      Alert.alert("Error", "Network error. Check your connection.");
     } finally {
       setAddingFromLibrary(false);
     }
   }
 
-  function genRequestId(): string {
-    return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
-  }
-
   async function handleDeletePhoto(photoId: string) {
-    if (!session?.access_token) {
-      Alert.alert("Error", "Not signed in. Sign out and sign in again, then try Remove.");
-      return;
-    }
-    const baseUrl = APP_URL || "https://wiselista.com";
-    const deleteUrl = `${baseUrl.replace(/\/$/, "")}/api/jobs/${jobId}/photos/${photoId}`;
-    const rid = genRequestId();
-    Alert.alert("Remove photo", "Remove this photo from the job?", [
+    if (!session?.access_token) return;
+    const deleteUrl = `${APP_URL.replace(/\/$/, "")}/api/jobs/${jobId}/photos/${photoId}`;
+    Alert.alert("Remove photo", "Remove this photo from the shoot?", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Remove",
         style: "destructive",
         onPress: async () => {
           setRemovingPhotoId(photoId);
-          const start = Date.now();
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 20000);
-          let res: Response | null = null;
-          let bodyText = "";
           try {
-            res = await fetch(deleteUrl, {
+            const res = await fetch(deleteUrl, {
               method: "DELETE",
-              headers: {
-                Authorization: `Bearer ${session.access_token}`,
-                "X-Request-Id": rid,
-              },
-              signal: controller.signal,
+              headers: { Authorization: `Bearer ${session.access_token}` },
             });
-            bodyText = await res.text();
-            clearTimeout(timeoutId);
-            if (res.ok) {
-              let parsed: { ok?: boolean } = {};
-              try {
-                parsed = bodyText ? JSON.parse(bodyText) : {};
-              } catch {
-                // ignore
-              }
-              if (parsed.ok === true) {
-                setPhotos((prev) => prev.filter((p) => p.id !== photoId));
-                setSignedUrls((prev) => {
-                  const next = { ...prev };
-                  delete next[photoId];
-                  return next;
-                });
-              }
-              await fetchJob();
-            } else {
-              let parsed: { error?: string; rid?: string } = {};
-              try {
-                parsed = bodyText ? JSON.parse(bodyText) : {};
-              } catch {
-                // leave parsed {}
-              }
-              const msg = parsed.error ?? `Server error ${res.status}`;
-              Alert.alert("Could not remove photo", `${msg} (rid: ${parsed.rid ?? rid})`);
-            }
-          } catch (e) {
-            clearTimeout(timeoutId);
-            const errMsg = e instanceof Error ? e.message : String(e);
-            const withBody = bodyText ? `${errMsg} | response: ${bodyText}` : errMsg;
-            Alert.alert("Remove failed", withBody);
+            if (res.ok) await fetchJob();
+            else Alert.alert("Could not remove photo", `Error ${res.status}`);
+          } catch {
+            Alert.alert("Remove failed", "Network error");
           } finally {
             setRemovingPhotoId(null);
           }
@@ -250,53 +195,49 @@ export default function JobDetailScreen({
   }
 
   async function handleSubmit() {
-    if (!job || job.status !== "draft" || photos.length < 1) return;
-    const token = session?.access_token;
-    if (!token) {
-      Alert.alert("Error", "Not signed in");
-      return;
-    }
-    const url = `${APP_URL}/api/jobs/${jobId}/submit`;
+    if (!job || job.status !== "draft" || photos.length < 1 || !session?.access_token) return;
     setSubmitting(true);
     try {
-      const res = await fetch(url, {
+      const res = await fetch(`${APP_URL}/api/jobs/${jobId}/submit`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${session.access_token}` },
       });
-      let data: { error?: string; url?: string } = {};
-      try {
-        const text = await res.text();
-        data = text ? JSON.parse(text) : {};
-      } catch {
-        // Non-JSON response (e.g. HTML error page)
-        if (!res.ok) {
-          Alert.alert("Submit failed", `Server error ${res.status}. Check that the app URL is correct.`);
-          return;
-        }
-      }
+      const text = await res.text();
+      const data = text ? JSON.parse(text) : {};
       if (!res.ok) {
         Alert.alert("Submit failed", data.error ?? `Error ${res.status}`);
         return;
       }
       if (data.url) {
         await fetchJob();
-        const opened = await Linking.openURL(data.url);
-        if (!opened) {
-          Alert.alert("Payment", "Open the payment link in your browser to complete checkout.");
-        }
+        await Linking.openURL(data.url);
         return;
       }
       await fetchJob();
-      Alert.alert("Submitted", "Job submitted for editing. Status will update to Processing, then Ready.");
+      Alert.alert("Submitted", "Photos are being enhanced. Pull down to refresh status.");
     } catch (e) {
-      const message = e instanceof Error ? e.message : "Network error";
-      Alert.alert(
-        "Submit failed",
-        `${message}. If using a device or simulator, set EXPO_PUBLIC_APP_URL to your deployed URL (e.g. https://wiselista.com).`
-      );
+      Alert.alert("Submit failed", e instanceof Error ? e.message : "Network error");
     } finally {
       setSubmitting(false);
     }
+  }
+
+  async function handleDownloadZip() {
+    if (!session?.access_token || !job) return;
+    setDownloadingZip(true);
+    const result = await downloadJobZip(jobId, session.access_token, job.name ?? undefined);
+    setDownloadingZip(false);
+    if (!result.ok) Alert.alert("Download failed", result.error ?? "Could not download ZIP");
+  }
+
+  async function handleDownloadPhoto(photo: Photo) {
+    const urls = signedUrls[photo.id];
+    const url = job?.status === "ready" && urls?.edited ? urls.edited : urls?.original;
+    if (!url) return;
+    setDownloadingPhotoId(photo.id);
+    const result = await downloadPhoto(url, `wiselista-${photo.room_type}-${photo.sequence + 1}.jpg`);
+    setDownloadingPhotoId(null);
+    if (!result.ok) Alert.alert("Download failed", result.error ?? "Could not save photo");
   }
 
   if (loading) {
@@ -306,132 +247,147 @@ export default function JobDetailScreen({
       </View>
     );
   }
+
   if (!job) {
     return (
       <View style={[styles.centered, { backgroundColor: theme.colors.background }]}>
-        <Text style={{ color: theme.colors.textSecondary }}>
-          {loadError ?? "Job not found"}
-        </Text>
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          style={[styles.button, { backgroundColor: theme.colors.primary }]}
-        >
-          <Text style={styles.buttonText}>Back</Text>
-        </TouchableOpacity>
-        {loadError && (
-          <TouchableOpacity
-            onPress={() => { setLoadError(null); setLoading(true); fetchJob(); }}
-            style={[styles.button, { backgroundColor: theme.colors.surface, marginTop: theme.spacing.sm }]}
-          >
-            <Text style={[styles.buttonText, { color: theme.colors.textPrimary }]}>Try again</Text>
-          </TouchableOpacity>
-        )}
+        <Text style={{ color: theme.colors.textSecondary }}>{loadError ?? "Shoot not found"}</Text>
+        <PrimaryButton label="Back" onPress={() => navigation.goBack()} style={{ marginTop: theme.spacing.lg }} />
       </View>
     );
   }
 
-  const canSubmit = job.status === "draft" && photos.length >= 1;
+  const isDraft = job.status === "draft";
+  const isReady = job.status === "ready";
+  const isProcessing = job.status === "processing" || job.status === "submitted";
+  const canSubmit = isDraft && photos.length >= 1;
+  const editedCount = photos.filter((p) => p.edited_key).length;
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <View style={[styles.header, { backgroundColor: theme.colors.surface, borderBottomColor: theme.colors.border }]}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={[styles.back, { color: theme.colors.primary }]}>← Back</Text>
+          <Text style={[styles.back, { color: theme.colors.primary }]}>Back</Text>
         </TouchableOpacity>
-        <Text style={[styles.title, { color: theme.colors.textPrimary }]}>Job</Text>
+        <Text style={[styles.headerTitle, { color: theme.colors.textPrimary }]} numberOfLines={1}>
+          {jobTitle(job)}
+        </Text>
       </View>
+
       <ScrollView
-        style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[theme.colors.primary]} />
+          <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchJob(); }} tintColor={theme.colors.primary} />
         }
       >
-        <View style={[styles.card, { backgroundColor: theme.colors.surface }, theme.shadow]}>
-          <Text style={[styles.status, { color: theme.colors.textPrimary }]}>
-            {STATUS_LABELS[job.status] ?? job.status}
-          </Text>
-          <Text style={[styles.date, { color: theme.colors.textMuted }]}>
-            {new Date(job.created_at).toLocaleString(undefined, {
-              day: "numeric",
-              month: "short",
-              year: "numeric",
-              hour: "2-digit",
-              minute: "2-digit",
-            })}
-          </Text>
+        <View style={[styles.metaCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+          <View style={styles.metaRow}>
+            <StatusBadge status={job.status as JobStatus} />
+            <Text style={[styles.metaDate, { color: theme.colors.textMuted }]}>
+              {new Date(job.created_at).toLocaleString(undefined, {
+                day: "numeric",
+                month: "short",
+                year: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </Text>
+          </View>
+          {isProcessing && (
+            <Text style={[styles.processingNote, { color: theme.colors.textSecondary }]}>
+              Enhancing your photos — usually ~20 seconds per image. Pull to refresh.
+            </Text>
+          )}
           {job.status === "failed" && (
-            <View style={[styles.failedCard, { backgroundColor: theme.colors.error + "20", borderColor: theme.colors.error }]}>
+            <View style={[styles.failedBox, { borderColor: theme.colors.error }]}>
               <Text style={[styles.failedTitle, { color: theme.colors.error }]}>Enhancement failed</Text>
               {job.failure_message ? (
-                <Text style={[styles.failedMessage, { color: theme.colors.textPrimary }]}>{job.failure_message}</Text>
+                <Text style={[styles.failedMsg, { color: theme.colors.textPrimary }]}>{job.failure_message}</Text>
               ) : null}
-              <Text style={[styles.failedHint, { color: theme.colors.textMuted }]}>
-                You can delete this job and try again, or contact support with the job ID.
-              </Text>
             </View>
           )}
         </View>
-        <View style={[styles.section, { backgroundColor: theme.colors.surface }, theme.shadow]}>
-          <Text style={[styles.sectionTitle, { color: theme.colors.textPrimary }]}>
-            Photos ({photos.length})
-          </Text>
-          {job.status === "draft" && photos.length > 0 && (
-            <Text style={[styles.hint, { color: theme.colors.textMuted, marginBottom: theme.spacing.sm }]}>
-              These will be enhanced. Remove any you don&apos;t want before submitting.
-            </Text>
-          )}
-          {photos.map((p) => (
-            <View
-              key={p.id}
-              style={[styles.photoRow, { borderBottomColor: theme.colors.borderLight }]}
-            >
-              {signedUrls[p.id]?.original && !failedThumbnails[p.id] ? (
-                <Image
-                  source={{ uri: signedUrls[p.id].original }}
-                  style={styles.thumbnail}
-                  resizeMode="cover"
-                  onError={() => setFailedThumbnails((prev) => ({ ...prev, [p.id]: true }))}
-                />
-              ) : (
-                <View style={[styles.thumbnailPlaceholder, { backgroundColor: theme.colors.borderLight }]} />
-              )}
-              <View style={styles.photoInfo}>
-                <Text style={[styles.photoRoom, { color: theme.colors.textPrimary }]}>
-                  {ROOM_LABELS[p.room_type]}
-                </Text>
-                <Text style={[styles.photoSeq, { color: theme.colors.textMuted }]}>#{p.sequence + 1}</Text>
-              </View>
-              {job.status === "draft" && (
-                <TouchableOpacity
-                  onPress={() => handleDeletePhoto(p.id)}
-                  disabled={removingPhotoId === p.id}
-                  style={[styles.removeBtn, { borderColor: theme.colors.error }, removingPhotoId === p.id && { opacity: 0.6 }]}
-                >
-                  {removingPhotoId === p.id ? (
-                    <ActivityIndicator size="small" color={theme.colors.error} />
-                  ) : (
-                    <Text style={[styles.removeBtnText, { color: theme.colors.error }]}>Remove</Text>
+
+        <Text style={[styles.sectionLabel, { color: theme.colors.textMuted }]}>
+          Photos · {photos.length}
+          {isReady && editedCount > 0 ? ` · ${editedCount} enhanced` : ""}
+        </Text>
+
+        {photos.length === 0 ? (
+          <Text style={[styles.emptyPhotos, { color: theme.colors.textMuted }]}>No photos yet.</Text>
+        ) : (
+          photos.map((p) => {
+            const urls = signedUrls[p.id];
+            const showEdited = isReady && urls?.edited;
+            const thumbUri = showEdited ? urls.edited : urls?.original;
+            return (
+              <View
+                key={p.id}
+                style={[styles.photoRow, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}
+              >
+                {thumbUri && !failedThumbnails[p.id] ? (
+                  <Image
+                    source={{ uri: thumbUri }}
+                    style={styles.thumb}
+                    resizeMode="cover"
+                    onError={() => setFailedThumbnails((prev) => ({ ...prev, [p.id]: true }))}
+                  />
+                ) : (
+                  <View style={[styles.thumb, { backgroundColor: theme.colors.surfaceMuted }]} />
+                )}
+                <View style={styles.photoInfo}>
+                  <Text style={[styles.photoRoom, { color: theme.colors.textPrimary }]}>{ROOM_LABELS[p.room_type]}</Text>
+                  <Text style={[styles.photoSeq, { color: theme.colors.textMuted }]}>
+                    Photo {p.sequence + 1}
+                    {showEdited ? " · Enhanced" : isDraft ? " · Original" : ""}
+                  </Text>
+                </View>
+                <View style={styles.photoActions}>
+                  {(isReady || (urls?.edited && job.status !== "draft")) && thumbUri && (
+                    <TouchableOpacity
+                      onPress={() => handleDownloadPhoto(p)}
+                      disabled={downloadingPhotoId === p.id}
+                      style={styles.iconAction}
+                    >
+                      {downloadingPhotoId === p.id ? (
+                        <ActivityIndicator size="small" color={theme.colors.primary} />
+                      ) : (
+                        <Text style={[styles.iconActionText, { color: theme.colors.primary }]}>Save</Text>
+                      )}
+                    </TouchableOpacity>
                   )}
-                </TouchableOpacity>
-              )}
-            </View>
-          ))}
-        </View>
+                  {isDraft && (
+                    <TouchableOpacity
+                      onPress={() => handleDeletePhoto(p.id)}
+                      disabled={removingPhotoId === p.id}
+                      style={styles.iconAction}
+                    >
+                      {removingPhotoId === p.id ? (
+                        <ActivityIndicator size="small" color={theme.colors.error} />
+                      ) : (
+                        <Text style={[styles.iconActionText, { color: theme.colors.error }]}>Remove</Text>
+                      )}
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </View>
+            );
+          })
+        )}
+
         {pendingLibrary && (
-          <View style={[styles.card, { backgroundColor: theme.colors.surfaceMuted }, theme.shadow]}>
-            <Text style={[styles.sectionTitle, { color: theme.colors.textPrimary }]}>
-              {pendingLibrary.assets.length} photo(s) from library
+          <View style={[styles.pendingBox, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+            <Text style={[styles.pendingTitle, { color: theme.colors.textPrimary }]}>
+              {pendingLibrary.assets.length} selected from library
             </Text>
-            <Text style={[styles.label, { color: theme.colors.textMuted }]}>Room type for all</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.roomScroll}>
               {ROOM_TYPES.map((r) => (
                 <TouchableOpacity
                   key={r}
                   style={[
                     styles.roomChip,
-                    { backgroundColor: theme.colors.surface },
-                    pendingLibrary.roomType === r && { backgroundColor: theme.colors.primary },
+                    { borderColor: theme.colors.border },
+                    pendingLibrary.roomType === r && { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary },
                   ]}
                   onPress={() => setPendingLibrary((prev) => (prev ? { ...prev, roomType: r } : null))}
                 >
@@ -447,168 +403,117 @@ export default function JobDetailScreen({
                 </TouchableOpacity>
               ))}
             </ScrollView>
-            <View style={styles.pendingActions}>
-              <TouchableOpacity
-                style={[styles.addPendingBtn, { backgroundColor: theme.colors.primary }]}
-                onPress={handleAddPendingToJob}
-                disabled={addingFromLibrary}
-              >
-                {addingFromLibrary ? (
-                  <ActivityIndicator color={theme.colors.textOnPrimary} />
-                ) : (
-                  <Text style={[styles.addPendingBtnText, { color: theme.colors.textOnPrimary }]}>
-                    Add to job
-                  </Text>
-                )}
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.cancelPendingBtn}
-                onPress={() => setPendingLibrary(null)}
-                disabled={addingFromLibrary}
-              >
-                <Text style={[styles.cancelPendingText, { color: theme.colors.textMuted }]}>Cancel</Text>
-              </TouchableOpacity>
-            </View>
+            <PrimaryButton label="Add to shoot" onPress={handleAddPendingToJob} loading={addingFromLibrary} />
+            <PrimaryButton label="Cancel" onPress={() => setPendingLibrary(null)} variant="ghost" />
           </View>
         )}
-        {job.status === "draft" && !pendingLibrary && (
+      </ScrollView>
+
+      <View style={[styles.bottomBar, { backgroundColor: theme.colors.surface, borderTopColor: theme.colors.border }]}>
+        {isDraft && !pendingLibrary && (
           <>
-            <View style={styles.addPhotoRow}>
-              <TouchableOpacity
-                style={[styles.addPhoto, { backgroundColor: theme.colors.surfaceMuted }]}
+            <View style={styles.draftActions}>
+              <PrimaryButton
+                label="Take photo"
                 onPress={() => navigation.navigate("Camera", { jobId, startSequence: photos.length })}
-                activeOpacity={0.8}
-              >
-                <Text style={[styles.addPhotoText, { color: theme.colors.textSecondary }]}>Take photo</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.addPhoto, { backgroundColor: theme.colors.surfaceMuted }]}
-                onPress={handleChooseFromLibrary}
-                activeOpacity={0.8}
-              >
-                <Text style={[styles.addPhotoText, { color: theme.colors.textSecondary }]}>
-                  Choose from library
-                </Text>
-              </TouchableOpacity>
+                variant="secondary"
+                style={styles.halfBtn}
+              />
+              <PrimaryButton label="Library" onPress={handleChooseFromLibrary} variant="secondary" style={styles.halfBtn} />
             </View>
-            <TouchableOpacity
-              style={[
-                styles.submit,
-                { backgroundColor: theme.colors.primary },
-                (!canSubmit || submitting) && styles.submitDisabled,
-              ]}
+            <PrimaryButton
+              label="Submit for edit"
               onPress={handleSubmit}
-              disabled={!canSubmit || submitting}
-              activeOpacity={0.9}
-            >
-              {submitting ? (
-                <ActivityIndicator color={theme.colors.textOnPrimary} />
-              ) : (
-                <Text style={styles.submitText}>Submit for edit</Text>
-              )}
-            </TouchableOpacity>
+              loading={submitting}
+              disabled={!canSubmit}
+            />
             {photos.length < 1 && (
-              <Text style={[styles.hint, { color: theme.colors.textMuted }]}>
-                Add at least one photo to submit.
-              </Text>
+              <Text style={[styles.bottomHint, { color: theme.colors.textMuted }]}>Add at least one photo to submit.</Text>
             )}
           </>
         )}
-      </ScrollView>
+        {isReady && editedCount > 0 && (
+          <PrimaryButton
+            label={`Download all (${editedCount})`}
+            onPress={handleDownloadZip}
+            loading={downloadingZip}
+          />
+        )}
+      </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  centered: { flex: 1, justifyContent: "center", alignItems: "center" },
+  centered: { flex: 1, justifyContent: "center", alignItems: "center", padding: theme.spacing.xl },
   header: {
     flexDirection: "row",
     alignItems: "center",
-    padding: theme.spacing.md,
+    paddingHorizontal: theme.spacing.lg,
+    paddingVertical: theme.spacing.md,
     borderBottomWidth: 1,
+    gap: theme.spacing.md,
   },
-  back: { ...theme.typography.body, marginRight: theme.spacing.md },
-  title: { ...theme.typography.titleSmall },
-  scroll: { flex: 1 },
-  scrollContent: { padding: theme.spacing.md, paddingBottom: theme.spacing.xxl },
-  card: {
-    marginBottom: theme.spacing.md,
-    padding: theme.spacing.md,
-    borderRadius: theme.radius.md,
-  },
-  status: { ...theme.typography.bodyMedium },
-  date: { ...theme.typography.caption, marginTop: theme.spacing.xs },
-  failedCard: {
-    marginTop: theme.spacing.md,
-    padding: theme.spacing.md,
+  back: { ...theme.typography.captionMedium, minWidth: 40 },
+  headerTitle: { ...theme.typography.bodyMedium, flex: 1, fontSize: 17 },
+  scrollContent: { padding: theme.spacing.lg, paddingBottom: 160 },
+  metaCard: {
+    padding: theme.spacing.lg,
     borderRadius: theme.radius.sm,
     borderWidth: 1,
+    marginBottom: theme.spacing.lg,
   },
-  failedTitle: { ...theme.typography.bodyMedium },
-  failedMessage: { ...theme.typography.caption, marginTop: theme.spacing.xs },
-  failedHint: { ...theme.typography.caption, marginTop: theme.spacing.sm },
-  section: {
-    marginBottom: theme.spacing.md,
-    padding: theme.spacing.md,
-    borderRadius: theme.radius.md,
-  },
-  sectionTitle: { ...theme.typography.bodyMedium, marginBottom: theme.spacing.md },
-  label: { ...theme.typography.caption, marginBottom: theme.spacing.xs },
+  metaRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  metaDate: { ...theme.typography.caption },
+  processingNote: { ...theme.typography.caption, marginTop: theme.spacing.md },
+  failedBox: { marginTop: theme.spacing.md, padding: theme.spacing.md, borderWidth: 1, borderRadius: theme.radius.sm },
+  failedTitle: { ...theme.typography.captionMedium },
+  failedMsg: { ...theme.typography.caption, marginTop: 4 },
+  sectionLabel: { ...theme.typography.label, marginBottom: theme.spacing.sm },
+  emptyPhotos: { ...theme.typography.body, marginBottom: theme.spacing.lg },
   photoRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: theme.spacing.sm,
-    borderBottomWidth: 1,
+    padding: theme.spacing.sm,
+    borderWidth: 1,
+    borderRadius: theme.radius.sm,
+    marginBottom: theme.spacing.sm,
     gap: theme.spacing.sm,
   },
-  thumbnail: { width: 56, height: 56, borderRadius: theme.radius.sm },
-  thumbnailPlaceholder: { width: 56, height: 56, borderRadius: theme.radius.sm },
+  thumb: { width: 64, height: 48, borderRadius: theme.radius.sm },
   photoInfo: { flex: 1 },
-  photoRoom: { ...theme.typography.captionMedium },
-  photoSeq: { ...theme.typography.caption },
-  removeBtn: {
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: theme.spacing.xs,
-    borderRadius: theme.radius.sm,
+  photoRoom: { ...theme.typography.bodyMedium },
+  photoSeq: { ...theme.typography.caption, marginTop: 2 },
+  photoActions: { alignItems: "flex-end", gap: 4 },
+  iconAction: { paddingVertical: 4, paddingHorizontal: 2 },
+  iconActionText: { ...theme.typography.captionMedium },
+  pendingBox: {
+    marginTop: theme.spacing.md,
+    padding: theme.spacing.lg,
     borderWidth: 1,
+    borderRadius: theme.radius.sm,
   },
-  removeBtnText: { ...theme.typography.captionMedium },
-  roomScroll: { marginBottom: theme.spacing.sm },
+  pendingTitle: { ...theme.typography.bodyMedium, marginBottom: theme.spacing.sm },
+  roomScroll: { marginBottom: theme.spacing.md },
   roomChip: {
     paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-    borderRadius: theme.radius.full,
+    paddingVertical: 8,
+    borderRadius: theme.radius.sm,
+    borderWidth: 1,
     marginRight: theme.spacing.sm,
   },
   roomChipText: { ...theme.typography.captionMedium },
-  pendingActions: { flexDirection: "row", gap: theme.spacing.sm, marginTop: theme.spacing.sm },
-  addPendingBtn: {
-    flex: 1,
+  bottomBar: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
     padding: theme.spacing.md,
-    borderRadius: theme.radius.sm,
-    alignItems: "center",
+    paddingBottom: theme.spacing.lg,
+    borderTopWidth: 1,
   },
-  addPendingBtnText: { ...theme.typography.bodyMedium },
-  cancelPendingBtn: { padding: theme.spacing.md, alignItems: "center" },
-  cancelPendingText: { ...theme.typography.body },
-  addPhotoRow: { flexDirection: "row", gap: theme.spacing.sm, marginBottom: theme.spacing.md },
-  addPhoto: {
-    marginBottom: theme.spacing.md,
-    padding: theme.spacing.md,
-    borderRadius: theme.radius.sm,
-    alignItems: "center",
-  },
-  addPhotoText: { ...theme.typography.body },
-  submit: {
-    marginBottom: theme.spacing.sm,
-    padding: theme.spacing.md,
-    borderRadius: theme.radius.sm,
-    alignItems: "center",
-  },
-  submitDisabled: { opacity: 0.6 },
-  submitText: { color: theme.colors.textOnPrimary, ...theme.typography.bodyMedium },
-  button: { marginTop: theme.spacing.md, padding: theme.spacing.md, borderRadius: theme.radius.sm },
-  buttonText: { color: theme.colors.textOnPrimary, ...theme.typography.bodyMedium },
-  hint: { ...theme.typography.caption, textAlign: "center" },
+  draftActions: { flexDirection: "row", gap: theme.spacing.sm, marginBottom: theme.spacing.sm },
+  halfBtn: { flex: 1 },
+  bottomHint: { ...theme.typography.caption, textAlign: "center", marginTop: theme.spacing.sm },
 });

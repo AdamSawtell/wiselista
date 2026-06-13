@@ -3,7 +3,6 @@ import {
   View,
   Text,
   Image,
-  TouchableOpacity,
   StyleSheet,
   SafeAreaView,
   ActivityIndicator,
@@ -14,6 +13,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { theme } from "../theme";
 import { ROOM_LABELS, type RoomType } from "../types";
 import { GUIDED_SHOOT_SEQUENCE } from "../lib/captureTips";
+import PrimaryButton from "../components/PrimaryButton";
 
 export default function CapturePreviewScreen({
   navigation,
@@ -34,6 +34,7 @@ export default function CapturePreviewScreen({
   const { session } = useAuth();
   const { jobId, photoId, previewUri, roomType, stepIndex, propertyName } = route.params;
   const [removing, setRemoving] = useState(false);
+  const isLast = stepIndex >= GUIDED_SHOOT_SEQUENCE.length - 1;
 
   async function handleRetake() {
     if (!session?.access_token) return;
@@ -58,100 +59,74 @@ export default function CapturePreviewScreen({
     }
   }
 
-  function handleAddAnother() {
-    navigation.replace("Camera", {
-      jobId,
-      roomType,
-      guided: true,
-      stepIndex,
-      propertyName,
-    });
-  }
-
-  function handleNextRoom() {
-    const isLast = stepIndex >= GUIDED_SHOOT_SEQUENCE.length - 1;
-    if (isLast) {
-      navigation.replace("ShootReview", { jobId, propertyName });
-      return;
-    }
-    navigation.replace("GuidedShoot", {
-      jobId,
-      propertyName,
-      stepIndex: stepIndex + 1,
-    });
-  }
-
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <Text style={[styles.title, { color: theme.colors.textPrimary }]}>Photo captured</Text>
-      <Text style={[styles.subtitle, { color: theme.colors.textMuted }]}>
-        {ROOM_LABELS[roomType]} — does this look good?
-      </Text>
+      <View style={[styles.header, { backgroundColor: theme.colors.surface, borderBottomColor: theme.colors.border }]}>
+        <Text style={[styles.kicker, { color: theme.colors.primary }]}>Preview</Text>
+        <Text style={[styles.title, { color: theme.colors.textPrimary }]}>{ROOM_LABELS[roomType]}</Text>
+      </View>
 
-      <Image source={{ uri: previewUri }} style={styles.preview} resizeMode="cover" />
-
-      <TouchableOpacity
-        style={[styles.primaryBtn, { backgroundColor: theme.colors.primary }]}
-        onPress={handleNextRoom}
-        activeOpacity={0.9}
-      >
-        <Text style={styles.primaryBtnText}>
-          {stepIndex >= GUIDED_SHOOT_SEQUENCE.length - 1 ? "Review shoot" : "Next room"}
+      <View style={styles.body}>
+        <Image source={{ uri: previewUri }} style={[styles.preview, { borderColor: theme.colors.border }]} resizeMode="cover" />
+        <Text style={[styles.hint, { color: theme.colors.textSecondary }]}>
+          Check framing and lighting before continuing.
         </Text>
-      </TouchableOpacity>
 
-      <TouchableOpacity
-        style={[styles.secondaryBtn, { borderColor: theme.colors.border }]}
-        onPress={handleAddAnother}
-        activeOpacity={0.8}
-      >
-        <Text style={[styles.secondaryBtnText, { color: theme.colors.textPrimary }]}>
-          Add another {ROOM_LABELS[roomType].toLowerCase()} photo
-        </Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={styles.retakeBtn}
-        onPress={handleRetake}
-        disabled={removing}
-        activeOpacity={0.8}
-      >
+        <PrimaryButton
+          label={isLast ? "Review shoot" : "Next room"}
+          onPress={() => {
+            if (isLast) {
+              navigation.replace("ShootReview", { jobId, propertyName });
+              return;
+            }
+            navigation.replace("GuidedShoot", {
+              jobId,
+              propertyName,
+              stepIndex: stepIndex + 1,
+            });
+          }}
+        />
+        <PrimaryButton
+          label={`Add another ${ROOM_LABELS[roomType].toLowerCase()} photo`}
+          onPress={() =>
+            navigation.replace("Camera", {
+              jobId,
+              roomType,
+              guided: true,
+              stepIndex,
+              propertyName,
+            })
+          }
+          variant="secondary"
+        />
         {removing ? (
-          <ActivityIndicator color={theme.colors.error} />
+          <ActivityIndicator color={theme.colors.error} style={styles.retakeLoader} />
         ) : (
-          <Text style={[styles.retakeBtnText, { color: theme.colors.error }]}>Retake</Text>
+          <PrimaryButton label="Retake" onPress={handleRetake} variant="ghost" />
         )}
-      </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: theme.spacing.xl },
-  title: { ...theme.typography.title, marginBottom: theme.spacing.xs },
-  subtitle: { ...theme.typography.body, marginBottom: theme.spacing.lg },
+  container: { flex: 1 },
+  header: {
+    paddingHorizontal: theme.spacing.lg,
+    paddingVertical: theme.spacing.md,
+    borderBottomWidth: 1,
+  },
+  kicker: { ...theme.typography.label, marginBottom: 4 },
+  title: { ...theme.typography.title },
+  body: { flex: 1, padding: theme.spacing.lg },
   preview: {
     width: "100%",
     aspectRatio: 4 / 3,
-    borderRadius: theme.radius.md,
-    marginBottom: theme.spacing.xl,
-    backgroundColor: theme.colors.surfaceMuted,
-  },
-  primaryBtn: {
-    padding: theme.spacing.md,
     borderRadius: theme.radius.sm,
-    alignItems: "center",
-    marginBottom: theme.spacing.md,
-  },
-  primaryBtnText: { color: theme.colors.textOnPrimary, ...theme.typography.bodyMedium },
-  secondaryBtn: {
-    padding: theme.spacing.md,
-    borderRadius: theme.radius.sm,
-    alignItems: "center",
     borderWidth: 1,
     marginBottom: theme.spacing.md,
+    backgroundColor: theme.colors.surfaceMuted,
   },
-  secondaryBtnText: { ...theme.typography.bodyMedium },
-  retakeBtn: { alignItems: "center", padding: theme.spacing.md },
-  retakeBtnText: { ...theme.typography.bodyMedium },
+  hint: { ...theme.typography.body, marginBottom: theme.spacing.lg },
+  retakeLoader: { marginTop: theme.spacing.md },
 });

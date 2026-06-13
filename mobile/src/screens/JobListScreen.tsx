@@ -8,14 +8,17 @@ import {
   ActivityIndicator,
   RefreshControl,
   SafeAreaView,
+  Image,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
+import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 import { theme } from "../theme";
 import type { Job } from "../types";
 import StatusBadge from "../components/StatusBadge";
 import PrimaryButton from "../components/PrimaryButton";
+import { fetchJobThumbnailUrls } from "../lib/photoThumbnails";
 
 function jobTitle(job: Job): string {
   if (job.name?.trim()) return job.name.trim();
@@ -28,6 +31,7 @@ function jobTitle(job: Job): string {
 export default function JobListScreen({ navigation }: { navigation: any }) {
   const { user } = useAuth();
   const [jobs, setJobs] = useState<Job[]>([]);
+  const [thumbnails, setThumbnails] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -39,9 +43,15 @@ export default function JobListScreen({ navigation }: { navigation: any }) {
         .select("id, status, created_at, updated_at, name")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
-      if (!error) setJobs((data ?? []) as Job[]);
+      if (!error) {
+        const list = (data ?? []) as Job[];
+        setJobs(list);
+        const thumbs = await fetchJobThumbnailUrls(list);
+        setThumbnails(thumbs);
+      }
     } catch {
       setJobs([]);
+      setThumbnails({});
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -90,40 +100,49 @@ export default function JobListScreen({ navigation }: { navigation: any }) {
         }
         ListEmptyComponent={
           <View style={styles.empty}>
+            <View style={[styles.emptyIcon, { backgroundColor: theme.colors.surfaceMuted }]}>
+              <Ionicons name="camera-outline" size={32} color={theme.colors.textMuted} />
+            </View>
             <Text style={[styles.emptyTitle, { color: theme.colors.textPrimary }]}>No shoots yet</Text>
             <Text style={[styles.emptySub, { color: theme.colors.textMuted }]}>
               Start a guided property shoot. We enhance every photo for your listing.
             </Text>
           </View>
         }
-        renderItem={({ item, index }) => (
-          <TouchableOpacity
-            style={[
-              styles.row,
-              { backgroundColor: theme.colors.surface, borderBottomColor: theme.colors.borderLight },
-              index === 0 && styles.rowFirst,
-            ]}
-            onPress={() => navigation.navigate("JobDetail", { jobId: item.id })}
-            activeOpacity={0.7}
-          >
-            <View style={styles.rowMain}>
-              <Text style={[styles.rowTitle, { color: theme.colors.textPrimary }]} numberOfLines={1}>
-                {jobTitle(item)}
-              </Text>
-              <View style={styles.rowMeta}>
-                <StatusBadge status={item.status} />
-                <Text style={[styles.rowDate, { color: theme.colors.textMuted }]}>
-                  {new Date(item.created_at).toLocaleDateString(undefined, {
-                    day: "numeric",
-                    month: "short",
-                    year: "numeric",
-                  })}
-                </Text>
+        renderItem={({ item }) => {
+          const thumb = thumbnails[item.id];
+          return (
+            <TouchableOpacity
+              style={[styles.card, { backgroundColor: theme.colors.surface, borderColor: theme.colors.borderLight }]}
+              onPress={() => navigation.navigate("JobDetail", { jobId: item.id })}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.thumbWrap, { backgroundColor: theme.colors.surfaceMuted }]}>
+                {thumb ? (
+                  <Image source={{ uri: thumb }} style={styles.thumb} resizeMode="cover" />
+                ) : (
+                  <Ionicons name="home-outline" size={28} color={theme.colors.textMuted} />
+                )}
               </View>
-            </View>
-            <Text style={[styles.chevron, { color: theme.colors.textMuted }]}>›</Text>
-          </TouchableOpacity>
-        )}
+              <View style={styles.cardBody}>
+                <Text style={[styles.rowTitle, { color: theme.colors.textPrimary }]} numberOfLines={2}>
+                  {jobTitle(item)}
+                </Text>
+                <View style={styles.rowMeta}>
+                  <StatusBadge status={item.status} />
+                  <Text style={[styles.rowDate, { color: theme.colors.textMuted }]}>
+                    {new Date(item.created_at).toLocaleDateString(undefined, {
+                      day: "numeric",
+                      month: "short",
+                      year: "numeric",
+                    })}
+                  </Text>
+                </View>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={theme.colors.textMuted} />
+            </TouchableOpacity>
+          );
+        }}
       />
 
       <View style={[styles.bottomBar, { backgroundColor: theme.colors.surface, borderTopColor: theme.colors.border }]}>
@@ -152,24 +171,40 @@ const styles = StyleSheet.create({
   },
   brand: { ...theme.typography.label, marginBottom: theme.spacing.xs },
   title: { ...theme.typography.titleLarge },
-  list: { paddingBottom: 120 },
+  list: { padding: theme.spacing.md, paddingBottom: 120, gap: theme.spacing.sm },
   emptyList: { flexGrow: 1, paddingBottom: 120 },
-  empty: { padding: theme.spacing.xl, paddingTop: 48 },
+  empty: { padding: theme.spacing.xl, paddingTop: 48, alignItems: "center" },
+  emptyIcon: {
+    width: 72,
+    height: 72,
+    borderRadius: theme.radius.lg,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: theme.spacing.md,
+  },
   emptyTitle: { ...theme.typography.titleSmall, marginBottom: theme.spacing.sm },
-  emptySub: { ...theme.typography.body },
-  row: {
+  emptySub: { ...theme.typography.body, textAlign: "center" },
+  card: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: theme.spacing.md,
-    paddingHorizontal: theme.spacing.lg,
-    borderBottomWidth: 1,
+    padding: theme.spacing.md,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    gap: theme.spacing.md,
   },
-  rowFirst: { marginTop: theme.spacing.sm },
-  rowMain: { flex: 1, paddingRight: theme.spacing.sm },
+  thumbWrap: {
+    width: 64,
+    height: 64,
+    borderRadius: theme.radius.sm,
+    overflow: "hidden",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  thumb: { width: "100%", height: "100%" },
+  cardBody: { flex: 1 },
   rowTitle: { ...theme.typography.bodyMedium, marginBottom: 6 },
-  rowMeta: { flexDirection: "row", alignItems: "center", gap: theme.spacing.sm },
+  rowMeta: { flexDirection: "row", alignItems: "center", gap: theme.spacing.sm, flexWrap: "wrap" },
   rowDate: { ...theme.typography.caption },
-  chevron: { fontSize: 24, fontWeight: "300", lineHeight: 24 },
   bottomBar: {
     position: "absolute",
     bottom: 0,
