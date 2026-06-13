@@ -51,8 +51,8 @@ export default function Home() {
               <span className="block">sell the property</span>
             </h1>
             <p className="mt-5 max-w-xl text-lg text-slate-200">
-              Capture on your phone, submit for AI editing, and download pro-quality images in
-              minutes — ready for realestate.com.au, Domain, and your agency portal.
+              Capture on your phone, submit for AI editing, and download pro-quality images —
+              ready for realestate.com.au, Domain, and your agency portal.
             </p>
           </div>
 
@@ -78,7 +78,7 @@ export default function Home() {
                   Your next listing
                 </p>
                 <p className="mt-0.5 text-base font-medium text-slate-800">
-                  Upload photos by room — get edited results back in ~15 minutes
+                  Upload photos by room — get listing-ready edits in your dashboard
                 </p>
               </div>
               <Link
@@ -97,11 +97,10 @@ export default function Home() {
 
       {/* Trust strip */}
       <section className="border-b border-wiselista-border bg-slate-50">
-        <div className="mx-auto grid max-w-7xl grid-cols-2 gap-6 px-4 py-8 sm:grid-cols-4 sm:px-6 lg:px-8">
+        <div className="mx-auto grid max-w-7xl grid-cols-1 gap-6 px-4 py-8 sm:grid-cols-3 sm:px-6 lg:px-8">
           {[
-            { value: "~15 minutes", label: "Typical turnaround" },
             { value: "AUD $29", label: "Per job, all photos" },
-            { value: "Guided capture", label: "6 rooms on site" },
+            { value: "Guided capture", label: "Room-by-room on site" },
             { value: "AI + HDR", label: "Pro enhancement" },
           ].map((stat) => (
             <div key={stat.label} className="text-center sm:text-left">
@@ -201,7 +200,7 @@ export default function Home() {
               {
                 step: "3",
                 title: "Download & list",
-                body: "Edited photos land in your dashboard in minutes. Download individually or as a batch for your CRM or portal.",
+                body: "Edited photos land in your dashboard when ready. Download individually or as a batch for your CRM or portal.",
               },
             ].map((item) => (
               <div key={item.step} className="card p-6">

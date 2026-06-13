@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Wiselista — Property photos, AI-edited",
-  description: "Capture property photos, submit for AI editing, get pro-quality listings in minutes. For rental managers, agents & homeowners.",
+  description: "Capture property photos, submit for AI editing, get pro-quality listings. For rental managers, agents & homeowners.",
 };
 
 export default async function RootLayout({
