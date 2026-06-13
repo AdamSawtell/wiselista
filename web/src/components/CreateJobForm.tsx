@@ -21,6 +21,10 @@ export function CreateJobForm({ compact = false }: CreateJobFormProps) {
 
   async function handleCreate(e?: React.FormEvent) {
     e?.preventDefault();
+    if (planTier === "pro" && customerCapture && !name.trim()) {
+      setError("Add a project name when sending the link to your customer to capture photos.");
+      return;
+    }
     setLoading(true);
     setError(null);
     try {

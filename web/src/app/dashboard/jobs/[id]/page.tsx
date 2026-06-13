@@ -213,11 +213,22 @@ export default async function JobDetailPage({
       )}
 
       <div className="mt-6">
+        <PropertyContextForm
+          jobId={id}
+          initialAddress={jobRow.property_address ?? null}
+          initialListingType={jobRow.listing_type ?? null}
+          initialPortal={jobRow.target_portal ?? null}
+        />
+      </div>
+
+      <div className="mt-6">
         <CustomerCapturePanel
           jobId={id}
           planTier={planTier}
           isDraft={isDraft}
           initialEnabled={Boolean(jobRow.capture_enabled)}
+          jobName={jobRow.name}
+          propertyAddress={jobRow.property_address}
         />
       </div>
 
@@ -228,15 +239,6 @@ export default async function JobDetailPage({
           photoCount={photoCount}
           editable={isDraft}
           expiresAt={jobRow.expires_at ?? null}
-        />
-      </div>
-
-      <div className="mt-6">
-        <PropertyContextForm
-          jobId={id}
-          initialAddress={jobRow.property_address ?? null}
-          initialListingType={jobRow.listing_type ?? null}
-          initialPortal={jobRow.target_portal ?? null}
         />
       </div>
 

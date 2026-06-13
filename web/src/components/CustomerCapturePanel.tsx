@@ -7,6 +7,8 @@ import {
   type CaptureStatus,
 } from "@/lib/capture-shared";
 
+import { isDefaultProjectName } from "@/lib/jobs";
+
 type CaptureEvent = {
   id: string;
   event_type: string;
@@ -32,9 +34,18 @@ type Props = {
   planTier: string;
   isDraft: boolean;
   initialEnabled?: boolean;
+  jobName?: string | null;
+  propertyAddress?: string | null;
 };
 
-export function CustomerCapturePanel({ jobId, planTier, isDraft, initialEnabled }: Props) {
+export function CustomerCapturePanel({
+  jobId,
+  planTier,
+  isDraft,
+  initialEnabled,
+  jobName,
+  propertyAddress,
+}: Props) {
   const [state, setState] = useState<CaptureState | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -128,6 +139,9 @@ export function CustomerCapturePanel({ jobId, planTier, isDraft, initialEnabled 
 
   const status = normalizeCaptureStatus(state?.capture_status);
   const enabled = state?.capture_enabled || initialEnabled;
+  const hasProjectName = !isDefaultProjectName(jobName, jobId);
+  const hasAddress = Boolean(propertyAddress?.trim());
+  const setupReady = hasProjectName;
 
   return (
     <section className="rounded-xl border border-wiselista-border bg-white p-5 shadow-sm">
@@ -135,8 +149,8 @@ export function CustomerCapturePanel({ jobId, planTier, isDraft, initialEnabled 
         <div>
           <h2 className="font-semibold text-slate-900">Send to customer to capture</h2>
           <p className="mt-1 text-sm text-slate-500">
-            Your customer opens a link on their phone, follows room-by-room steps, and sends photos straight to
-            this project. No login required.
+            Your customer opens a link on their phone, follows room-by-room steps with tips, and sends photos
+            straight to this project. No login required.
           </p>
         </div>
         {enabled && (
@@ -146,11 +160,32 @@ export function CustomerCapturePanel({ jobId, planTier, isDraft, initialEnabled 
         )}
       </div>
 
+      {isDraft && !enabled && (
+        <ul className="mt-4 space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm">
+          <li className={hasProjectName ? "text-emerald-800" : "text-slate-600"}>
+            {hasProjectName ? "✓" : "○"} Project name — so your customer knows which property (rename at the top)
+          </li>
+          <li className={hasAddress ? "text-emerald-800" : "text-slate-500"}>
+            {hasAddress ? "✓" : "○"} Property address — recommended, shown on the customer&apos;s phone
+          </li>
+        </ul>
+      )}
+
       {!enabled && isDraft && (
         <div className="mt-4">
-          <button type="button" onClick={() => void enableCapture()} disabled={busy} className="btn-primary">
+          <button
+            type="button"
+            onClick={() => void enableCapture()}
+            disabled={busy || !setupReady}
+            className="btn-primary disabled:cursor-not-allowed disabled:opacity-50"
+          >
             {busy ? "Creating link…" : "Create capture link"}
           </button>
+          {!setupReady && (
+            <p className="mt-2 text-sm text-amber-800">
+              Add a project name before sending the link — your customer will see it on their phone.
+            </p>
+          )}
         </div>
       )}
 

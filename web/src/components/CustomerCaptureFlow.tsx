@@ -3,10 +3,16 @@
 import { useEffect, useRef, useState } from "react";
 import {
   CAPTURE_TIPS,
+  CAPTURE_WELCOME_TIPS,
   GUIDED_CAPTURE_SEQUENCE,
   roomLabel,
   type CaptureSession,
 } from "@/lib/capture-shared";
+import {
+  estimateBrightnessFromFile,
+  getBrightnessHint,
+  getBrightnessStatus,
+} from "@/lib/capture-coaching";
 
 type Props = {
   token: string;
@@ -15,10 +21,12 @@ type Props = {
 
 export function CustomerCaptureFlow({ token, initialSession }: Props) {
   const [session, setSession] = useState(initialSession);
+  const [started, setStarted] = useState(false);
   const [stepIndex, setStepIndex] = useState(0);
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [photoHint, setPhotoHint] = useState<string | null>(null);
   const [done, setDone] = useState(initialSession.alreadySubmitted);
   const [customerName, setCustomerName] = useState("");
   const [uploadedRooms, setUploadedRooms] = useState<Set<string>>(new Set());
@@ -44,6 +52,14 @@ export function CustomerCaptureFlow({ token, initialSession }: Props) {
     if (!room) return;
     setUploading(true);
     setError(null);
+    setPhotoHint(null);
+
+    const luma = await estimateBrightnessFromFile(file);
+    if (luma !== null) {
+      const hint = getBrightnessHint(getBrightnessStatus(luma));
+      if (hint) setPhotoHint(hint);
+    }
+
     try {
       const body = new FormData();
       body.append("file", file);
@@ -116,21 +132,51 @@ export function CustomerCaptureFlow({ token, initialSession }: Props) {
         </p>
       </header>
 
-      {stepIndex < GUIDED_CAPTURE_SEQUENCE.length ? (
+      {!started ? (
+        <section className="rounded-2xl border border-wiselista-border bg-white p-6 shadow-sm">
+          <h2 className="text-xl font-semibold text-slate-900">Before you start</h2>
+          <p className="mt-2 text-sm text-slate-600">
+            We&apos;ll guide you room by room. Each step includes tips to help you get listing-quality photos on
+            your phone.
+          </p>
+          <ol className="mt-5 space-y-3">
+            {CAPTURE_WELCOME_TIPS.map((tip, i) => (
+              <li key={tip} className="flex gap-3 text-sm text-slate-700">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-sky-100 text-xs font-bold text-sky-800">
+                  {i + 1}
+                </span>
+                {tip}
+              </li>
+            ))}
+          </ol>
+          <button type="button" onClick={() => setStarted(true)} className="btn-primary mt-6 w-full">
+            Start photographing
+          </button>
+        </section>
+      ) : stepIndex < GUIDED_CAPTURE_SEQUENCE.length ? (
         <section className="rounded-2xl border border-wiselista-border bg-white p-6 shadow-sm">
           <p className="text-xs font-semibold uppercase tracking-wide text-wiselista-accent">
             Room {stepIndex + 1} of {GUIDED_CAPTURE_SEQUENCE.length}
           </p>
           <h2 className="mt-1 text-xl font-semibold text-slate-900">{roomLabel(room)}</h2>
 
-          <ul className="mt-4 space-y-2">
-            {tips.map((tip) => (
-              <li key={tip} className="flex items-start gap-2 text-sm text-slate-600">
-                <span className="mt-0.5 text-wiselista-accent">•</span>
-                {tip}
-              </li>
-            ))}
-          </ul>
+          <div className="mt-4 rounded-lg bg-sky-50 p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-sky-800">Tips for this room</p>
+            <ul className="mt-3 space-y-2">
+              {tips.map((tip) => (
+                <li key={tip} className="flex items-start gap-2 text-sm text-slate-700">
+                  <span className="mt-0.5 text-wiselista-accent">✓</span>
+                  {tip}
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {room === "exterior" && (
+            <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+              Tip: rotate your phone sideways (landscape) for front-of-house shots.
+            </p>
+          )}
 
           <div className="mt-6">
             <input
@@ -152,21 +198,33 @@ export function CustomerCaptureFlow({ token, initialSession }: Props) {
             >
               {uploading ? "Uploading…" : uploadedRooms.has(room) ? "Retake photo" : "Take photo"}
             </button>
-            {uploadedRooms.has(room) && (
+            {uploadedRooms.has(room) && !photoHint && (
               <p className="mt-2 text-center text-xs text-emerald-600">Photo saved for this room</p>
+            )}
+            {photoHint && (
+              <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-center text-xs text-amber-900">
+                {photoHint}
+              </p>
             )}
           </div>
 
           <div className="mt-4 flex gap-2">
             <button
               type="button"
-              onClick={() => setStepIndex((i) => i + 1)}
+              onClick={() => {
+                setPhotoHint(null);
+                setStepIndex((i) => i + 1);
+              }}
               className="btn-secondary flex-1 text-sm"
             >
               {uploadedRooms.has(room) ? "Next room" : "Skip room"}
             </button>
             {stepIndex === GUIDED_CAPTURE_SEQUENCE.length - 1 && session.photoCount > 0 && (
-              <button type="button" onClick={() => setStepIndex(GUIDED_CAPTURE_SEQUENCE.length)} className="btn-primary flex-1 text-sm">
+              <button
+                type="button"
+                onClick={() => setStepIndex(GUIDED_CAPTURE_SEQUENCE.length)}
+                className="btn-primary flex-1 text-sm"
+              >
                 Finish
               </button>
             )}
@@ -202,7 +260,10 @@ export function CustomerCaptureFlow({ token, initialSession }: Props) {
 
           <button
             type="button"
-            onClick={() => setStepIndex(0)}
+            onClick={() => {
+              setStarted(true);
+              setStepIndex(0);
+            }}
             className="mt-3 w-full text-sm text-slate-500 hover:text-wiselista-accent"
           >
             Add more photos

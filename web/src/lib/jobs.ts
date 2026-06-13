@@ -13,6 +13,13 @@ export function getJobDisplayName(job: { name?: string | null; id: string }): st
   return `Project ${job.id.slice(0, 8)}`;
 }
 
+/** True when the agent has not renamed the auto-generated project title. */
+export function isDefaultProjectName(name: string | null | undefined, jobId: string): boolean {
+  const trimmed = name?.trim();
+  if (!trimmed) return true;
+  return trimmed === `Project ${jobId.slice(0, 8)}`;
+}
+
 export function formatJobDate(iso: string): string {
   return new Date(iso).toLocaleString(undefined, {
     dateStyle: "medium",

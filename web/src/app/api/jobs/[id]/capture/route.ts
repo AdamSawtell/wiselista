@@ -7,6 +7,7 @@ import {
   logCaptureEvent,
 } from "@/lib/capture";
 import { getPlanConfig } from "@/lib/plans";
+import { isDefaultProjectName } from "@/lib/jobs";
 import { NextResponse } from "next/server";
 
 /** Enable customer capture and return magic link (Pro, draft only). */
@@ -23,7 +24,7 @@ export async function POST(
 
   const { data: job } = await supabase
     .from("jobs")
-    .select("id, status, plan_tier, capture_token")
+    .select("id, status, plan_tier, capture_token, name")
     .eq("id", id)
     .eq("user_id", user.id)
     .single();
@@ -31,6 +32,12 @@ export async function POST(
   if (!job) return NextResponse.json({ error: "Not found" }, { status: 404 });
   if (job.status !== "draft") {
     return NextResponse.json({ error: "Customer capture is only available on draft projects" }, { status: 400 });
+  }
+  if (isDefaultProjectName(job.name, job.id)) {
+    return NextResponse.json(
+      { error: "Add a project name before creating a capture link — your customer will see it on their phone." },
+      { status: 400 }
+    );
   }
   if (!getPlanConfig(job.plan_tier).captureEnabled) {
     return NextResponse.json(
