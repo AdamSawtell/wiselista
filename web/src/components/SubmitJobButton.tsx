@@ -53,7 +53,7 @@ export function SubmitJobButton({ jobId, photoCount }: SubmitJobButtonProps) {
         disabled={loading || photoCount < 1}
         className="btn-primary"
       >
-        {loading ? "Submitting…" : "Submit for edit"}
+        {loading ? "Enhancing photos…" : "Submit for edit"}
       </button>
       {error && (
         <p className="mt-2 text-sm text-red-600">{error}</p>

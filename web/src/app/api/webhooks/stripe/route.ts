@@ -1,6 +1,6 @@
 import { createServiceClient } from "@/lib/supabase/server";
 import { getStripe } from "@/lib/stripe";
-import { triggerJobProcessing } from "@/lib/trigger-job-processing";
+import { runJobProcessing } from "@/lib/trigger-job-processing";
 import { NextResponse } from "next/server";
 import type Stripe from "stripe";
 
@@ -89,7 +89,7 @@ export async function POST(request: Request) {
       jobId,
       sessionId: session.id,
     });
-    triggerJobProcessing(jobId);
+    await runJobProcessing(jobId);
   }
 
   return NextResponse.json({ received: true });

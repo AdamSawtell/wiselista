@@ -2,8 +2,11 @@ import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { getApiUser } from "@/lib/api-auth";
 import { getStripe, isStripePaymentEnabled, JOB_PRICE_CENTS } from "@/lib/stripe";
-import { triggerJobProcessing } from "@/lib/trigger-job-processing";
+import { runJobProcessing } from "@/lib/trigger-job-processing";
 import { NextResponse } from "next/server";
+
+/** Claid can take ~20s per photo; allow enough time on serverless. */
+export const maxDuration = 300;
 
 export async function POST(
   request: Request,
@@ -61,7 +64,7 @@ export async function POST(
       userId: user.id,
       photoCount: photos.length,
     });
-    triggerJobProcessing(jobId);
+    await runJobProcessing(jobId);
 
     return NextResponse.json({ skippedPayment: true });
   }

@@ -143,10 +143,17 @@ async function callClaidEdit(inputUrl: string, roomType: RoomType): Promise<stri
 
 /**
  * Process job with Claid: for each photo, call Claid edit → download result → upload to storage → set edited_key → mark job ready.
- * Call without await from the submit route so the HTTP response returns immediately (fire-and-forget).
+ * Must be awaited from the submit route (serverless kills fire-and-forget when the HTTP response returns).
  */
 export async function processJobWithRealAI(jobId: string): Promise<void> {
-  const supabase = createServiceClient();
+  let supabase;
+  try {
+    supabase = createServiceClient();
+  } catch {
+    throw new Error(
+      "AI processing requires SUPABASE_SERVICE_ROLE_KEY on the server (set in Amplify env vars)"
+    );
+  }
 
   const { data: job } = await supabase
     .from("jobs")
