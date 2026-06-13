@@ -9,6 +9,7 @@ export const PLANS = {
     maxPhotos: 15,
     retentionDays: 60,
     shareEnabled: false,
+    captureEnabled: false,
   },
   pro: {
     id: "pro" as const,
@@ -17,6 +18,7 @@ export const PLANS = {
     maxPhotos: 25,
     retentionDays: 90,
     shareEnabled: true,
+    captureEnabled: true,
   },
 } as const;
 

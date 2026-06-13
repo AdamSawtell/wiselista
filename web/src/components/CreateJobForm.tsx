@@ -15,6 +15,7 @@ export function CreateJobForm({ compact = false }: CreateJobFormProps) {
   const [error, setError] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [planTier, setPlanTier] = useState<PlanTier>("core");
+  const [customerCapture, setCustomerCapture] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const router = useRouter();
 
@@ -26,7 +27,11 @@ export function CreateJobForm({ compact = false }: CreateJobFormProps) {
       const res = await fetch("/api/jobs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim() || undefined, plan_tier: planTier }),
+        body: JSON.stringify({
+          name: name.trim() || undefined,
+          plan_tier: planTier,
+          customer_capture: planTier === "pro" && customerCapture,
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -106,9 +111,30 @@ export function CreateJobForm({ compact = false }: CreateJobFormProps) {
 
       <div>
         <p className="mb-3 text-sm font-medium text-slate-700">Choose a plan</p>
-        <PlanSelector value={planTier} onChange={setPlanTier} />
+        <PlanSelector value={planTier} onChange={(tier) => {
+          setPlanTier(tier);
+          if (tier !== "pro") setCustomerCapture(false);
+        }} />
         <p className="mt-2 text-xs text-slate-500">You can upgrade to Pro at any time before you submit.</p>
       </div>
+
+      {planTier === "pro" && (
+        <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-wiselista-border bg-sky-50/50 p-4">
+          <input
+            type="checkbox"
+            checked={customerCapture}
+            onChange={(e) => setCustomerCapture(e.target.checked)}
+            className="mt-1 text-wiselista-accent focus:ring-wiselista-accent"
+          />
+          <span>
+            <span className="block text-sm font-medium text-slate-900">Customer will capture photos</span>
+            <span className="mt-0.5 block text-xs text-slate-600">
+              Send a link to your vendor or tenant — they photograph the property on their phone (no account
+              needed) and photos appear in this project.
+            </span>
+          </span>
+        </label>
+      )}
 
       <button type="submit" disabled={loading} className="btn-primary shrink-0 self-start">
         {loading ? "Creating…" : "Create project"}

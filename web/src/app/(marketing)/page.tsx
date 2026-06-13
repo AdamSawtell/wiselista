@@ -374,6 +374,7 @@ export default function Home() {
                   "Up to 25 photos per project",
                   "Project available for 90 days",
                   "Share with client link",
+                  "Send to customer to capture photos",
                   "More Pro features coming soon",
                 ].map((feature) => (
                   <li key={feature} className="flex items-start gap-2">

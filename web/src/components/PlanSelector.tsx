@@ -21,6 +21,7 @@ const PRO_FEATURES = [
   "Up to 25 photos per project",
   "Project available for 90 days",
   "Share with client link",
+  "Send to customer to capture photos",
 ];
 
 export function PlanSelector({ value, onChange, disabled, compact }: PlanSelectorProps) {

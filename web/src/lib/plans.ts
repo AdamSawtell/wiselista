@@ -9,6 +9,7 @@ export type PlanConfig = {
   maxPhotos: number;
   retentionDays: number;
   shareEnabled: boolean;
+  captureEnabled: boolean;
 };
 
 export const PLANS: Record<PlanTier, PlanConfig> = {
@@ -20,6 +21,7 @@ export const PLANS: Record<PlanTier, PlanConfig> = {
     maxPhotos: 15,
     retentionDays: 60,
     shareEnabled: false,
+    captureEnabled: false,
   },
   pro: {
     id: "pro",
@@ -29,6 +31,7 @@ export const PLANS: Record<PlanTier, PlanConfig> = {
     maxPhotos: 25,
     retentionDays: 90,
     shareEnabled: true,
+    captureEnabled: true,
   },
 };
 

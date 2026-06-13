@@ -18,6 +18,7 @@ import { ShareLinkButton } from "@/components/ShareLinkButton";
 import { getSignedUrlsForPhotos } from "@/lib/storage";
 import { formatJobDate } from "@/lib/jobs";
 import { getPlanConfig, normalizePlanTier } from "@/lib/plans";
+import { CustomerCapturePanel } from "@/components/CustomerCapturePanel";
 import { JobPlanEditor } from "@/components/JobPlanEditor";
 import { LISTING_TYPE_LABELS } from "@/lib/enhancement";
 
@@ -36,6 +37,8 @@ type JobRow = {
   processing_started_at?: string | null;
   plan_tier?: string | null;
   expires_at?: string | null;
+  capture_enabled?: boolean | null;
+  capture_status?: string | null;
 };
 
 export default async function JobDetailPage({
@@ -208,6 +211,15 @@ export default async function JobDetailPage({
           )}
         </div>
       )}
+
+      <div className="mt-6">
+        <CustomerCapturePanel
+          jobId={id}
+          planTier={planTier}
+          isDraft={isDraft}
+          initialEnabled={Boolean(jobRow.capture_enabled)}
+        />
+      </div>
 
       <div className="mt-6">
         <JobPlanEditor
