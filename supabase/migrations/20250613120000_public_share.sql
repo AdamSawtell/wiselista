@@ -63,7 +63,7 @@ $$;
 REVOKE ALL ON FUNCTION public.get_public_share(TEXT) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.get_public_share(TEXT) TO anon, authenticated;
 
--- Anon clients opening share links can sign URLs for photos on shared ready jobs only.
+-- Anon clients opening share links can read objects on shared ready jobs (backup path).
 DROP POLICY IF EXISTS "wiselista_photos_select_shared" ON storage.objects;
 CREATE POLICY "wiselista_photos_select_shared"
 ON storage.objects FOR SELECT
@@ -76,6 +76,6 @@ USING (
     INNER JOIN public.jobs j ON j.id = p.job_id
     WHERE j.status = 'ready'
       AND j.share_token IS NOT NULL
-      AND (storage.objects.name = p.edited_key OR storage.objects.name = p.original_key)
+      AND (p.edited_key = name OR p.original_key = name)
   )
 );

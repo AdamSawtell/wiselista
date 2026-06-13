@@ -63,14 +63,25 @@ function createAnonClient(): SupabaseClient | null {
   return createSupabaseClient(supabaseUrl, supabaseAnonKey);
 }
 
-async function signPhotoUrls(
-  supabase: SupabaseClient,
-  photos: RpcPhoto[]
-): Promise<SharePhoto[]> {
+/** Signed URLs must use service role — anon storage policy is not reliable for createSignedUrl. */
+function signingClient(): SupabaseClient | null {
+  return getServiceClientOrNull();
+}
+
+async function signPhotoUrls(photos: RpcPhoto[]): Promise<SharePhoto[]> {
+  const supabase = signingClient();
+  if (!supabase) {
+    console.error("[share] SUPABASE_SERVICE_ROLE_KEY missing — cannot sign photo URLs");
+    return [];
+  }
+
   const signed = await Promise.all(
     photos.map(async (photo) => {
       const key = photo.edited_key ?? photo.original_key;
-      const { data } = await supabase.storage.from(BUCKET).createSignedUrl(key, SIGNED_EXPIRY);
+      const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(key, SIGNED_EXPIRY);
+      if (error) {
+        console.error("[share] createSignedUrl failed:", error.message, key);
+      }
       return {
         id: photo.id,
         roomType: photo.room_type,
@@ -83,7 +94,7 @@ async function signPhotoUrls(
   return signed.filter((p) => p.imageUrl);
 }
 
-async function getSharePageDataViaRpc(token: string): Promise<SharePageData | null> {
+async function loadSharePayloadViaRpc(token: string): Promise<RpcSharePayload | null> {
   const supabase = createAnonClient();
   if (!supabase) return null;
 
@@ -93,26 +104,10 @@ async function getSharePageDataViaRpc(token: string): Promise<SharePageData | nu
     return null;
   }
   if (!data) return null;
-
-  const payload = data as RpcSharePayload;
-  const listingType = payload.listing_type as ListingType | null;
-  const photos = Array.isArray(payload.photos) ? payload.photos : [];
-
-  return {
-    propertyName: getJobDisplayName({
-      id: payload.job_id,
-      name: payload.property_name,
-    }),
-    propertyAddress: payload.property_address ?? null,
-    listingTypeLabel: listingType ? LISTING_TYPE_LABELS[listingType] : null,
-    agentName: agentDisplayName(payload.agent_email, payload.agent_meta ?? undefined),
-    agentEmail: payload.agent_email ?? null,
-    completedAt: payload.completed_at ?? null,
-    photos: await signPhotoUrls(supabase, photos),
-  };
+  return data as RpcSharePayload;
 }
 
-async function getSharePageDataViaService(token: string): Promise<SharePageData | null> {
+async function loadSharePayloadViaService(token: string): Promise<RpcSharePayload | null> {
   const supabase = getServiceClientOrNull();
   if (!supabase) return null;
 
@@ -124,16 +119,13 @@ async function getSharePageDataViaService(token: string): Promise<SharePageData 
 
   if (!job || job.status !== "ready") return null;
 
-  let agentName = "Your agent";
   let agentEmail: string | null = null;
+  let agentMeta: Record<string, unknown> | null = null;
   if (job.user_id) {
     const { data: authData } = await supabase.auth.admin.getUserById(job.user_id);
     if (authData?.user) {
       agentEmail = authData.user.email ?? null;
-      agentName = agentDisplayName(
-        agentEmail,
-        authData.user.user_metadata as Record<string, unknown> | undefined
-      );
+      agentMeta = (authData.user.user_metadata as Record<string, unknown>) ?? null;
     }
   }
 
@@ -144,30 +136,47 @@ async function getSharePageDataViaService(token: string): Promise<SharePageData 
     .not("edited_key", "is", null)
     .order("sequence");
 
-  const rpcPhotos: RpcPhoto[] = (photos ?? []).map((p) => ({
-    id: p.id,
-    room_type: p.room_type,
-    sequence: p.sequence,
-    edited_key: p.edited_key,
-    original_key: p.original_key,
-  }));
-
-  const listingType = job.listing_type as ListingType | null;
-
   return {
-    propertyName: getJobDisplayName(job),
-    propertyAddress: job.property_address ?? null,
-    listingTypeLabel: listingType ? LISTING_TYPE_LABELS[listingType] : null,
-    agentName,
-    agentEmail,
-    completedAt: job.completed_at ?? null,
-    photos: await signPhotoUrls(supabase, rpcPhotos),
+    job_id: job.id,
+    property_name: job.name,
+    property_address: job.property_address ?? null,
+    listing_type: job.listing_type ?? null,
+    completed_at: job.completed_at ?? null,
+    agent_email: agentEmail,
+    agent_meta: agentMeta,
+    photos: (photos ?? []).map((p) => ({
+      id: p.id,
+      room_type: p.room_type,
+      sequence: p.sequence,
+      edited_key: p.edited_key,
+      original_key: p.original_key,
+    })),
   };
 }
 
-/** Load public share page data by token (RPC + anon key, or service role). */
+function payloadToSharePageData(payload: RpcSharePayload, photos: SharePhoto[]): SharePageData {
+  const listingType = payload.listing_type as ListingType | null;
+  return {
+    propertyName: getJobDisplayName({
+      id: payload.job_id,
+      name: payload.property_name,
+    }),
+    propertyAddress: payload.property_address ?? null,
+    listingTypeLabel: listingType ? LISTING_TYPE_LABELS[listingType] : null,
+    agentName: agentDisplayName(payload.agent_email, payload.agent_meta ?? undefined),
+    agentEmail: payload.agent_email ?? null,
+    completedAt: payload.completed_at ?? null,
+    photos,
+  };
+}
+
+/** Load public share page data by token. */
 export async function getSharePageData(token: string): Promise<SharePageData | null> {
-  const viaService = await getSharePageDataViaService(token);
-  if (viaService) return viaService;
-  return getSharePageDataViaRpc(token);
+  const payload =
+    (await loadSharePayloadViaService(token)) ?? (await loadSharePayloadViaRpc(token));
+  if (!payload) return null;
+
+  const photos = Array.isArray(payload.photos) ? payload.photos : [];
+  const signedPhotos = await signPhotoUrls(photos);
+  return payloadToSharePageData(payload, signedPhotos);
 }
