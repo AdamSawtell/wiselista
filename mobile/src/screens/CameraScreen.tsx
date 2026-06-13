@@ -7,12 +7,15 @@ import {
   ActivityIndicator,
   ScrollView,
   Dimensions,
+  Platform,
 } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
-import { supabase } from "../lib/supabase";
+import * as ImagePicker from "expo-image-picker";
 import { useAuth } from "../contexts/AuthContext";
 import { theme } from "../theme";
-import { ROOM_TYPES, ROOM_LABELS, type RoomType } from "../types";
+import { ROOM_LABELS, ROOM_TYPES, type RoomType } from "../types";
+import { CAPTURE_TIPS } from "../lib/captureTips";
+import { uploadJobPhoto } from "../lib/uploadPhoto";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const FRAME_PADDING = 24;
@@ -22,25 +25,65 @@ export default function CameraScreen({
   route,
 }: {
   navigation: any;
-  route: { params: { jobId: string; startSequence?: number } };
+  route: {
+    params: {
+      jobId: string;
+      startSequence?: number;
+      roomType?: RoomType;
+      guided?: boolean;
+      stepIndex?: number;
+      propertyName?: string;
+    };
+  };
 }) {
   const { user } = useAuth();
   const jobId = route.params.jobId;
-  const startSequence = route.params.startSequence ?? 0;
-  const [roomType, setRoomType] = useState<RoomType>("living_room");
+  const guided = route.params.guided ?? false;
+  const fixedRoom = route.params.roomType;
+  const stepIndex = route.params.stepIndex ?? 0;
+  const propertyName = route.params.propertyName;
+
+  const [roomType, setRoomType] = useState<RoomType>(fixedRoom ?? "living_room");
   const [permission, requestPermission] = useCameraPermissions();
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const cameraRef = useRef<CameraView>(null);
 
   useEffect(() => {
+    if (fixedRoom) setRoomType(fixedRoom);
+  }, [fixedRoom]);
+
+  useEffect(() => {
     if (!permission?.granted && permission?.canAskAgain) requestPermission();
   }, [permission]);
 
-  async function handleCapture() {
-    if (!cameraRef.current || !user || uploading) return;
+  async function processCapture(uri: string) {
+    if (!user) return;
     setUploading(true);
     setError(null);
+    try {
+      const result = await uploadJobPhoto(user.id, jobId, uri, roomType);
+      if (guided) {
+        navigation.replace("CapturePreview", {
+          jobId,
+          photoId: result.photoId,
+          previewUri: uri,
+          roomType,
+          stepIndex,
+          propertyName,
+        });
+        return;
+      }
+      navigation.goBack();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function handleCapture() {
+    if (!cameraRef.current || uploading) return;
     try {
       const photo = await cameraRef.current.takePictureAsync({
         quality: 0.9,
@@ -49,52 +92,32 @@ export default function CameraScreen({
       });
       if (!photo?.uri) {
         setError("Failed to capture");
-        setUploading(false);
         return;
       }
-      const ext = "jpg";
-      const key = `${user.id}/${jobId}/${crypto.randomUUID()}.${ext}`;
-
-      const response = await fetch(photo.uri);
-      const blob = await response.blob();
-      const { error: uploadError } = await supabase.storage
-        .from("wiselista-photos")
-        .upload(key, blob, { contentType: "image/jpeg", upsert: false });
-
-      if (uploadError) {
-        setError(uploadError.message);
-        setUploading(false);
-        return;
-      }
-
-      const { data: existingPhotos } = await supabase
-        .from("photos")
-        .select("sequence")
-        .eq("job_id", jobId)
-        .order("sequence", { ascending: false })
-        .limit(1);
-      const nextSeq = (existingPhotos?.[0]?.sequence ?? -1) + 1;
-
-      const { error: insertError } = await supabase.from("photos").insert({
-        job_id: jobId,
-        room_type: roomType,
-        sequence: nextSeq,
-        original_key: key,
-      });
-
-      if (insertError) {
-        setError(insertError.message);
-        setUploading(false);
-        return;
-      }
-      navigation.goBack();
+      await processCapture(photo.uri);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Upload failed");
+      setError(e instanceof Error ? e.message : "Capture failed");
     }
-    setUploading(false);
   }
 
-  if (!permission) {
+  async function handlePickFromLibrary() {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") {
+      setError("Photo library permission required");
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.9,
+    });
+    if (result.canceled || !result.assets?.[0]?.uri) return;
+    await processCapture(result.assets[0].uri);
+  }
+
+  const useWebFallback = Platform.OS === "web";
+  const tips = CAPTURE_TIPS[roomType].slice(0, 2);
+
+  if (!useWebFallback && !permission) {
     return (
       <View style={[styles.centered, { backgroundColor: theme.colors.cameraBar }]}>
         <Text style={[styles.permissionText, { color: theme.colors.cameraBarText }]}>
@@ -103,7 +126,8 @@ export default function CameraScreen({
       </View>
     );
   }
-  if (!permission.granted) {
+
+  if (!useWebFallback && !permission?.granted) {
     return (
       <View style={[styles.centered, { backgroundColor: theme.colors.cameraBar }]}>
         <Text style={[styles.permissionText, { color: theme.colors.cameraBarText }]}>
@@ -126,55 +150,92 @@ export default function CameraScreen({
 
   return (
     <View style={styles.container}>
-      <CameraView ref={cameraRef} style={styles.camera} />
+      {useWebFallback ? (
+        <View style={[styles.webFallback, { backgroundColor: theme.colors.cameraBar }]}>
+          <Text style={[styles.webFallbackTitle, { color: theme.colors.cameraBarText }]}>
+            Camera preview unavailable on web
+          </Text>
+          <Text style={[styles.webFallbackSub, { color: theme.colors.cameraBarMuted }]}>
+            Choose a photo from your library to continue the guided shoot.
+          </Text>
+        </View>
+      ) : (
+        <CameraView ref={cameraRef} style={styles.camera} />
+      )}
+
       <View style={styles.overlay} pointerEvents="none">
         <View style={[styles.frame, { width: frameWidth, height: frameWidth * 0.75 }]}>
           <Text style={styles.frameLabel}>{ROOM_LABELS[roomType]}</Text>
           <View style={styles.frameGuide} />
         </View>
       </View>
+
       <View style={[styles.controls, { backgroundColor: theme.colors.cameraBar }]}>
-        <Text style={[styles.roomLabel, { color: theme.colors.cameraBarMuted }]}>Room type</Text>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.roomRow}
-        >
-          {ROOM_TYPES.map((r) => (
-            <TouchableOpacity
-              key={r}
-              style={[
-                styles.roomChip,
-                roomType === r && { backgroundColor: theme.colors.primary },
-              ]}
-              onPress={() => setRoomType(r)}
-              activeOpacity={0.8}
-            >
-              <Text
-                style={[
-                  styles.roomChipText,
-                  { color: theme.colors.cameraBarText },
-                  roomType === r && { color: theme.colors.primary, fontWeight: "600" },
-                ]}
-              >
-                {ROOM_LABELS[r]}
+        {guided && (
+          <View style={styles.tipsRow}>
+            {tips.map((tip) => (
+              <Text key={tip} style={[styles.tipLine, { color: theme.colors.cameraBarMuted }]}>
+                • {tip}
               </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+            ))}
+          </View>
+        )}
+
+        {!guided && (
+          <>
+            <Text style={[styles.roomLabel, { color: theme.colors.cameraBarMuted }]}>Room type</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.roomRow}>
+              {ROOM_TYPES.map((r) => (
+                <TouchableOpacity
+                  key={r}
+                  style={[styles.roomChip, roomType === r && { backgroundColor: theme.colors.primary }]}
+                  onPress={() => setRoomType(r)}
+                  activeOpacity={0.8}
+                >
+                  <Text
+                    style={[
+                      styles.roomChipText,
+                      { color: theme.colors.cameraBarText },
+                      roomType === r && { color: theme.colors.textOnPrimary, fontWeight: "600" },
+                    ]}
+                  >
+                    {ROOM_LABELS[r]}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </>
+        )}
+
         {error && <Text style={[styles.error, { color: theme.colors.error }]}>{error}</Text>}
-        <TouchableOpacity
-          style={[styles.capture, { backgroundColor: theme.colors.primary }, uploading && styles.captureDisabled]}
-          onPress={handleCapture}
-          disabled={uploading}
-          activeOpacity={0.9}
-        >
-          {uploading ? (
-            <ActivityIndicator color={theme.colors.textOnPrimary} />
-          ) : (
-            <Text style={[styles.captureText, { color: theme.colors.textOnPrimary }]}>Capture</Text>
-          )}
-        </TouchableOpacity>
+
+        {useWebFallback ? (
+          <TouchableOpacity
+            style={[styles.capture, { backgroundColor: theme.colors.primary }, uploading && styles.captureDisabled]}
+            onPress={handlePickFromLibrary}
+            disabled={uploading}
+          >
+            {uploading ? (
+              <ActivityIndicator color={theme.colors.textOnPrimary} />
+            ) : (
+              <Text style={[styles.captureText, { color: theme.colors.textOnPrimary }]}>Choose photo</Text>
+            )}
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={[styles.capture, { backgroundColor: theme.colors.primary }, uploading && styles.captureDisabled]}
+            onPress={handleCapture}
+            disabled={uploading}
+            activeOpacity={0.9}
+          >
+            {uploading ? (
+              <ActivityIndicator color={theme.colors.textOnPrimary} />
+            ) : (
+              <Text style={[styles.captureText, { color: theme.colors.textOnPrimary }]}>Capture</Text>
+            )}
+          </TouchableOpacity>
+        )}
+
         <TouchableOpacity style={styles.back} onPress={() => navigation.goBack()}>
           <Text style={[styles.backText, { color: theme.colors.cameraBarMuted }]}>Cancel</Text>
         </TouchableOpacity>
@@ -187,6 +248,9 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#000" },
   centered: { flex: 1, justifyContent: "center", alignItems: "center", padding: theme.spacing.xl },
   camera: { flex: 1 },
+  webFallback: { flex: 1, justifyContent: "center", alignItems: "center", padding: theme.spacing.xl },
+  webFallbackTitle: { ...theme.typography.titleSmall, textAlign: "center", marginBottom: theme.spacing.sm },
+  webFallbackSub: { ...theme.typography.body, textAlign: "center" },
   overlay: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: "center",
@@ -217,6 +281,8 @@ const styles = StyleSheet.create({
     padding: theme.spacing.md,
     paddingBottom: theme.spacing.xxl,
   },
+  tipsRow: { marginBottom: theme.spacing.md },
+  tipLine: { ...theme.typography.caption, marginBottom: theme.spacing.xs },
   roomLabel: { ...theme.typography.label, marginBottom: theme.spacing.sm },
   roomRow: { flexDirection: "row", gap: theme.spacing.sm, marginBottom: theme.spacing.md },
   roomChip: {

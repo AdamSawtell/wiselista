@@ -112,10 +112,17 @@ export default function JobListScreen({ navigation }: { navigation: any }) {
       />
       <TouchableOpacity
         style={[styles.fab, { backgroundColor: theme.colors.primary }]}
-        onPress={() => navigation.navigate("CreateJob")}
+        onPress={() => navigation.navigate("ShootStart")}
         activeOpacity={0.9}
       >
-        <Text style={styles.fabText}>+ New job</Text>
+        <Text style={styles.fabText}>Shoot property</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={[styles.fabSecondary, { borderColor: theme.colors.border }]}
+        onPress={() => navigation.navigate("CreateJob")}
+        activeOpacity={0.8}
+      >
+        <Text style={[styles.fabSecondaryText, { color: theme.colors.textSecondary }]}>+ Quick job</Text>
       </TouchableOpacity>
     </SafeAreaView>
   );
@@ -154,4 +161,15 @@ const styles = StyleSheet.create({
     borderRadius: theme.radius.sm,
   },
   fabText: { color: theme.colors.textOnPrimary, ...theme.typography.bodyMedium },
+  fabSecondary: {
+    position: "absolute",
+    bottom: theme.spacing.xl + 52,
+    right: theme.spacing.xl,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    borderRadius: theme.radius.sm,
+    borderWidth: 1,
+    backgroundColor: theme.colors.surface,
+  },
+  fabSecondaryText: { ...theme.typography.captionMedium },
 });

@@ -67,7 +67,20 @@ Then:
 3. Sign in. You should land on the Jobs list.
 4. Sign out from the Jobs header; you should return to the login screen.
 
-### Jobs and photos
+### Guided property shoot (recommended)
+
+1. Sign in. Tap **Shoot property** on the jobs list.
+2. Enter an optional property name → **Start guided shoot**.
+3. For each room (Living room → Kitchen → … → Exterior):
+   - Read the capture tips
+   - Tap **Take photo** → capture (or **Choose photo** on web)
+   - On the preview: **Next room**, **Add another**, or **Retake**
+4. Tap **Finish shoot** or complete all rooms → **Review shoot**.
+5. Tap **Submit for edit** — same API as web (~20 seconds per photo).
+
+**Quick capture:** Tap **+ Quick job** for the original flow without room-by-room guidance.
+
+### Jobs and photos (quick mode)
 
 1. Sign in. Tap **+ New job**.
 2. Create a job. You should navigate to the job detail screen.

@@ -12,7 +12,12 @@ import JobListScreen from "./src/screens/JobListScreen";
 import JobDetailScreen from "./src/screens/JobDetailScreen";
 import CreateJobScreen from "./src/screens/CreateJobScreen";
 import CameraScreen from "./src/screens/CameraScreen";
+import ShootStartScreen from "./src/screens/ShootStartScreen";
+import GuidedShootScreen from "./src/screens/GuidedShootScreen";
+import ShootReviewScreen from "./src/screens/ShootReviewScreen";
+import CapturePreviewScreen from "./src/screens/CapturePreviewScreen";
 import AccountScreen from "./src/screens/AccountScreen";
+import type { RoomType } from "./src/types";
 
 class ErrorBoundary extends Component<
   { children: ReactNode },
@@ -55,7 +60,25 @@ export type AppStackParamList = {
   JobList: undefined;
   JobDetail: { jobId: string };
   CreateJob: undefined;
-  Camera: { jobId: string };
+  ShootStart: undefined;
+  GuidedShoot: { jobId: string; propertyName?: string; stepIndex?: number };
+  ShootReview: { jobId: string; propertyName?: string };
+  CapturePreview: {
+    jobId: string;
+    photoId: string;
+    previewUri: string;
+    roomType: RoomType;
+    stepIndex: number;
+    propertyName?: string;
+  };
+  Camera: {
+    jobId: string;
+    startSequence?: number;
+    roomType?: RoomType;
+    guided?: boolean;
+    stepIndex?: number;
+    propertyName?: string;
+  };
 };
 
 const Stack = createNativeStackNavigator<AppStackParamList>();
@@ -66,6 +89,10 @@ function JobsStack() {
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="JobList" component={JobListScreen} />
       <Stack.Screen name="JobDetail" component={JobDetailScreen as React.ComponentType<any>} />
+      <Stack.Screen name="ShootStart" component={ShootStartScreen} />
+      <Stack.Screen name="GuidedShoot" component={GuidedShootScreen as React.ComponentType<any>} />
+      <Stack.Screen name="ShootReview" component={ShootReviewScreen as React.ComponentType<any>} />
+      <Stack.Screen name="CapturePreview" component={CapturePreviewScreen as React.ComponentType<any>} />
       <Stack.Screen name="CreateJob" component={CreateJobScreen} />
       <Stack.Screen name="Camera" component={CameraScreen as React.ComponentType<any>} />
     </Stack.Navigator>
