@@ -53,21 +53,6 @@ export default function JobDetailScreen({
   const [removingPhotoId, setRemovingPhotoId] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [failedThumbnails, setFailedThumbnails] = useState<Record<string, boolean>>({});
-  const [lastDelete, setLastDelete] = useState<{
-    rid: string;
-    url: string;
-    status: number | null;
-    body: string;
-    durationMs: number | null;
-    error: string | null;
-  } | null>(null);
-  const [healthResult, setHealthResult] = useState<{
-    ok: boolean;
-    status: number;
-    body: string;
-    durationMs: number;
-    error?: string;
-  } | null>(null);
 
   async function fetchJob() {
     setLoadError(null);
@@ -194,31 +179,6 @@ export default function JobDetailScreen({
     return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
   }
 
-  async function handleTestApi() {
-    const baseUrl = APP_URL || "https://wiselista.com";
-    const url = `${baseUrl.replace(/\/$/, "")}/api/health`;
-    const start = Date.now();
-    try {
-      const res = await fetch(url);
-      const body = await res.text();
-      setHealthResult({
-        ok: res.ok,
-        status: res.status,
-        body,
-        durationMs: Date.now() - start,
-      });
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      setHealthResult({
-        ok: false,
-        status: 0,
-        body: "",
-        durationMs: Date.now() - start,
-        error: msg,
-      });
-    }
-  }
-
   async function handleDeletePhoto(photoId: string) {
     if (!session?.access_token) {
       Alert.alert("Error", "Not signed in. Sign out and sign in again, then try Remove.");
@@ -250,15 +210,6 @@ export default function JobDetailScreen({
             });
             bodyText = await res.text();
             clearTimeout(timeoutId);
-            const durationMs = Date.now() - start;
-            setLastDelete({
-              rid,
-              url: deleteUrl,
-              status: res.status,
-              body: bodyText,
-              durationMs,
-              error: null,
-            });
             if (res.ok) {
               let parsed: { ok?: boolean } = {};
               try {
@@ -287,17 +238,8 @@ export default function JobDetailScreen({
             }
           } catch (e) {
             clearTimeout(timeoutId);
-            const durationMs = Date.now() - start;
             const errMsg = e instanceof Error ? e.message : String(e);
             const withBody = bodyText ? `${errMsg} | response: ${bodyText}` : errMsg;
-            setLastDelete({
-              rid,
-              url: deleteUrl,
-              status: res?.status ?? null,
-              body: bodyText,
-              durationMs,
-              error: withBody,
-            });
             Alert.alert("Remove failed", withBody);
           } finally {
             setRemovingPhotoId(null);
@@ -572,53 +514,6 @@ export default function JobDetailScreen({
             )}
           </>
         )}
-        <View style={[styles.card, { backgroundColor: theme.colors.surfaceMuted }, theme.shadow]}>
-          <Text style={[styles.sectionTitle, { color: theme.colors.textPrimary }]}>Debug (e2e)</Text>
-          <Text style={[styles.debugLabel, { color: theme.colors.textMuted }]}>APP_URL</Text>
-          <Text style={[styles.debugValue, { color: theme.colors.textPrimary }]} selectable>
-            {APP_URL || "(empty)"}
-          </Text>
-          <Text style={[styles.debugLabel, { color: theme.colors.textMuted }]}>Delete URL (last)</Text>
-          <Text style={[styles.debugValue, { color: theme.colors.textPrimary }]} selectable numberOfLines={2}>
-            {lastDelete?.url ?? `${(APP_URL || "https://wiselista.com").replace(/\/$/, "")}/api/jobs/.../photos/...`}
-          </Text>
-          {lastDelete && (
-            <>
-              <Text style={[styles.debugLabel, { color: theme.colors.textMuted }]}>Last delete</Text>
-              <Text style={[styles.debugValue, { color: theme.colors.textPrimary }]} selectable>
-                rid: {lastDelete.rid}
-              </Text>
-              <Text style={[styles.debugValue, { color: theme.colors.textPrimary }]}>
-                status: {lastDelete.status ?? "—"} | duration: {lastDelete.durationMs ?? "—"} ms
-              </Text>
-              <Text style={[styles.debugValue, { color: theme.colors.textPrimary }]} selectable numberOfLines={3}>
-                body: {lastDelete.body || "—"}
-              </Text>
-              {lastDelete.error != null && (
-                <Text style={[styles.debugValue, { color: theme.colors.error }]} selectable numberOfLines={5}>
-                  error: {lastDelete.error}
-                </Text>
-              )}
-            </>
-          )}
-          <TouchableOpacity
-            style={[styles.testApiBtn, { backgroundColor: theme.colors.primary }]}
-            onPress={handleTestApi}
-          >
-            <Text style={[styles.testApiBtnText, { color: theme.colors.textOnPrimary }]}>Test API</Text>
-          </TouchableOpacity>
-          {healthResult && (
-            <>
-              <Text style={[styles.debugLabel, { color: theme.colors.textMuted }]}>Health</Text>
-              <Text style={[styles.debugValue, { color: theme.colors.textPrimary }]}>
-                ok: {String(healthResult.ok)} | status: {healthResult.status} | {healthResult.durationMs} ms
-              </Text>
-              <Text style={[styles.debugValue, { color: theme.colors.textPrimary }]} selectable numberOfLines={2}>
-                {healthResult.error ?? (healthResult.body || "—")}
-              </Text>
-            </>
-          )}
-        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -716,8 +611,4 @@ const styles = StyleSheet.create({
   button: { marginTop: theme.spacing.md, padding: theme.spacing.md, borderRadius: theme.radius.sm },
   buttonText: { color: theme.colors.textOnPrimary, ...theme.typography.bodyMedium },
   hint: { ...theme.typography.caption, textAlign: "center" },
-  debugLabel: { ...theme.typography.caption, marginTop: theme.spacing.sm },
-  debugValue: { ...theme.typography.caption, marginBottom: theme.spacing.xs },
-  testApiBtn: { marginTop: theme.spacing.md, padding: theme.spacing.sm, borderRadius: theme.radius.sm, alignItems: "center" },
-  testApiBtnText: { ...theme.typography.bodyMedium },
 });

@@ -15,7 +15,14 @@ import { useAuth } from "../contexts/AuthContext";
 import { theme } from "../theme";
 import { ROOM_LABELS, ROOM_TYPES, type RoomType } from "../types";
 import { CAPTURE_TIPS } from "../lib/captureTips";
+import {
+  estimateBrightnessFromBase64,
+  getBrightnessHint,
+  getBrightnessStatus,
+} from "../lib/captureCoaching";
 import { uploadJobPhoto } from "../lib/uploadPhoto";
+import { useCaptureCoaching } from "../hooks/useCaptureCoaching";
+import CaptureCoachingOverlay from "../components/CaptureCoachingOverlay";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const FRAME_PADDING = 24;
@@ -47,7 +54,10 @@ export default function CameraScreen({
   const [permission, requestPermission] = useCameraPermissions();
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [brightnessHint, setBrightnessHint] = useState<string | null>(null);
   const cameraRef = useRef<CameraView>(null);
+  const useWebFallback = Platform.OS === "web";
+  const coaching = useCaptureCoaching(guided && !useWebFallback);
 
   useEffect(() => {
     if (fixedRoom) setRoomType(fixedRoom);
@@ -109,12 +119,19 @@ export default function CameraScreen({
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       quality: 0.9,
+      base64: true,
     });
     if (result.canceled || !result.assets?.[0]?.uri) return;
-    await processCapture(result.assets[0].uri);
+    const asset = result.assets[0];
+    if (asset.base64) {
+      const luma = estimateBrightnessFromBase64(asset.base64);
+      if (luma != null) {
+        setBrightnessHint(getBrightnessHint(getBrightnessStatus(luma)));
+      }
+    }
+    await processCapture(asset.uri);
   }
 
-  const useWebFallback = Platform.OS === "web";
   const tips = CAPTURE_TIPS[roomType].slice(0, 2);
 
   if (!useWebFallback && !permission) {
@@ -160,7 +177,17 @@ export default function CameraScreen({
           </Text>
         </View>
       ) : (
-        <CameraView ref={cameraRef} style={styles.camera} />
+        <>
+          <CameraView ref={cameraRef} style={styles.camera} />
+          {guided && (
+            <CaptureCoachingOverlay
+              rollDegrees={coaching.rollDegrees}
+              tiltHint={coaching.tiltHint}
+              isLevel={coaching.isLevel}
+              sensorsAvailable={coaching.sensorsAvailable}
+            />
+          )}
+        </>
       )}
 
       <View style={styles.overlay} pointerEvents="none">
@@ -173,6 +200,16 @@ export default function CameraScreen({
       <View style={[styles.controls, { backgroundColor: theme.colors.cameraBar }]}>
         {guided && (
           <View style={styles.tipsRow}>
+            {!useWebFallback && !coaching.isLevel && coaching.tiltHint && (
+              <Text style={[styles.coachingLine, { color: theme.colors.warning }]}>
+                {coaching.tiltHint}
+              </Text>
+            )}
+            {brightnessHint && (
+              <Text style={[styles.coachingLine, { color: theme.colors.warning }]}>
+                {brightnessHint}
+              </Text>
+            )}
             {tips.map((tip) => (
               <Text key={tip} style={[styles.tipLine, { color: theme.colors.cameraBarMuted }]}>
                 • {tip}
@@ -282,6 +319,7 @@ const styles = StyleSheet.create({
     paddingBottom: theme.spacing.xxl,
   },
   tipsRow: { marginBottom: theme.spacing.md },
+  coachingLine: { ...theme.typography.captionMedium, marginBottom: theme.spacing.xs },
   tipLine: { ...theme.typography.caption, marginBottom: theme.spacing.xs },
   roomLabel: { ...theme.typography.label, marginBottom: theme.spacing.sm },
   roomRow: { flexDirection: "row", gap: theme.spacing.sm, marginBottom: theme.spacing.md },
