@@ -8,6 +8,7 @@ import { NextResponse } from "next/server";
 
 /** Claid can take ~20s per photo; allow enough time on serverless. */
 export const maxDuration = 300;
+export const runtime = "nodejs";
 
 export async function POST(
   request: Request,

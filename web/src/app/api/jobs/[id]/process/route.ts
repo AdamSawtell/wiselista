@@ -6,6 +6,9 @@ import { NextResponse } from "next/server";
 /** Claid can take ~20s per photo; allow enough time on serverless. */
 export const maxDuration = 300;
 
+/** Node runtime required for CLAID_API_KEY + SUPABASE_SERVICE_ROLE_KEY on Amplify. */
+export const runtime = "nodejs";
+
 /**
  * Run (or resume) AI processing for a job. Called from the dashboard while the user
  * waits — avoids relying on the Stripe webhook Lambda timeout on Amplify.
@@ -48,12 +51,24 @@ export async function POST(
   }
 
   console.info("[Process] starting/resuming", { jobId, userId: user.id, pending, total: photos.length });
-  await runJobProcessing(jobId);
+  const result = await runJobProcessing(jobId);
 
   const { data: updated } = await supabase.from("jobs").select("status, failure_message").eq("id", jobId).single();
+
+  if (!result.ok) {
+    return NextResponse.json(
+      {
+        status: updated?.status ?? "failed",
+        failure_message: updated?.failure_message ?? result.error ?? "Processing failed",
+        mode: result.mode,
+      },
+      { status: 500 }
+    );
+  }
 
   return NextResponse.json({
     status: updated?.status ?? "processing",
     failure_message: updated?.failure_message ?? null,
+    mode: result.mode,
   });
 }

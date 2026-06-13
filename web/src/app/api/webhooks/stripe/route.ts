@@ -4,6 +4,8 @@ import { NextResponse } from "next/server";
 import type Stripe from "stripe";
 
 /** Stripe only needs a fast 200; processing runs when the agent opens the job page. */
+export const runtime = "nodejs";
+
 export async function POST(request: Request) {
   const stripe = getStripe();
   if (!stripe) {

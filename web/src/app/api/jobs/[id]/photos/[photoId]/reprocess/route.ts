@@ -1,9 +1,10 @@
-import { createClient } from "@/lib/supabase/server";
+import { createClientForRequest } from "@/lib/supabase/server";
 import { getApiUser } from "@/lib/api-auth";
 import { reprocessPhotoWithClaid } from "@/lib/ai-adapter";
 import { NextResponse } from "next/server";
 
 export const maxDuration = 120;
+export const runtime = "nodejs";
 
 /** Re-enhance a single photo on a ready project. */
 export async function POST(
@@ -14,7 +15,7 @@ export async function POST(
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id: jobId, photoId } = await params;
-  const supabase = await createClient();
+  const supabase = await createClientForRequest(request);
   if (!supabase) return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
 
   const { data: job } = await supabase

@@ -22,7 +22,8 @@ async function markJobFailed(jobId: string, message: string): Promise<void> {
  * Run AI processing to completion. Must be awaited in API routes — fire-and-forget
  * is killed on Amplify/serverless when the HTTP response returns.
  */
-export async function runJobProcessing(jobId: string): Promise<void> {
+export async function runJobProcessing(jobId: string): Promise<{ ok: boolean; error?: string; mode?: string }> {
+  const mode = process.env.CLAID_API_KEY ? "claid" : "mock";
   try {
     if (process.env.CLAID_API_KEY) {
       console.info("[ProcessJob] running Claid", { jobId });
@@ -31,9 +32,11 @@ export async function runJobProcessing(jobId: string): Promise<void> {
       console.info("[ProcessJob] running mock AI", { jobId });
       await submitJobToMockAI(jobId);
     }
+    return { ok: true, mode };
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     console.error("[ProcessJob] failed", { jobId, error: message });
     await markJobFailed(jobId, message);
+    return { ok: false, error: message, mode };
   }
 }

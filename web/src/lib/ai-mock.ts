@@ -14,7 +14,9 @@ export async function submitJobToMockAI(jobId: string): Promise<void> {
     .eq("id", jobId)
     .single();
 
-  if (!job) return;
+  if (!job) {
+    throw new Error(`Mock AI: job ${jobId} not found`);
+  }
 
   const { data: photos } = await supabase
     .from("photos")

@@ -23,7 +23,7 @@ async function markJobReady(
   const { data: job } = await supabase.from("jobs").select("plan_tier").eq("id", jobId).single();
   const expiresAt = computeExpiresAt(completedAt, normalizePlanTier(job?.plan_tier));
 
-  await supabase
+  const { error } = await supabase
     .from("jobs")
     .update({
       status: "ready",
@@ -35,6 +35,8 @@ async function markJobReady(
       processing_started_at: null,
     })
     .eq("id", jobId);
+
+  if (error) throw new Error(`Could not mark job ready: ${error.message}`);
 }
 const SIGNED_URL_EXPIRY_AI = 3600; // 1 hour for AI partner to fetch
 
@@ -247,7 +249,9 @@ export async function processJobWithRealAI(jobId: string): Promise<void> {
     .eq("id", jobId)
     .single();
 
-  if (!job?.user_id) return;
+  if (!job?.user_id) {
+    throw new Error(`Claid: job ${jobId} not found or missing user_id`);
+  }
 
   const requests = await buildAIRequests(jobId);
   if (!requests.length) {
