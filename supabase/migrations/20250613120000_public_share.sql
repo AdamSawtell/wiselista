@@ -64,6 +64,7 @@ REVOKE ALL ON FUNCTION public.get_public_share(TEXT) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.get_public_share(TEXT) TO anon, authenticated;
 
 -- Anon clients opening share links can sign URLs for photos on shared ready jobs only.
+DROP POLICY IF EXISTS "wiselista_photos_select_shared" ON storage.objects;
 CREATE POLICY "wiselista_photos_select_shared"
 ON storage.objects FOR SELECT
 TO anon
