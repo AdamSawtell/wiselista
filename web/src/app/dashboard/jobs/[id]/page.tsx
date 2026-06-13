@@ -5,13 +5,34 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { AddPhotoForm } from "@/components/AddPhotoForm";
 import { SubmitJobButton } from "@/components/SubmitJobButton";
 import { DownloadAllButton } from "@/components/DownloadAllButton";
+import { DownloadZipButton } from "@/components/DownloadZipButton";
 import { DeleteJobButton } from "@/components/DeleteJobButton";
 import { JobNameEditor } from "@/components/JobNameEditor";
 import { PhotoGallery } from "@/components/PhotoGallery";
+import { PropertyContextForm } from "@/components/PropertyContextForm";
+import { ProcessingProgress } from "@/components/ProcessingProgress";
+import { EnhancementSummary } from "@/components/EnhancementSummary";
+import { ListingReadyChecklist } from "@/components/ListingReadyChecklist";
+import { TimeSavedCallout } from "@/components/TimeSavedCallout";
+import { ShareLinkButton } from "@/components/ShareLinkButton";
 import { getSignedUrlsForPhotos } from "@/lib/storage";
 import { formatJobDate } from "@/lib/jobs";
+import { LISTING_TYPE_LABELS } from "@/lib/enhancement";
 
 export const dynamic = "force-dynamic";
+
+type JobRow = {
+  id: string;
+  status: string;
+  name: string | null;
+  created_at: string;
+  completed_at: string | null;
+  failure_message?: string | null;
+  property_address?: string | null;
+  listing_type?: string | null;
+  target_portal?: string | null;
+  processing_started_at?: string | null;
+};
 
 export default async function JobDetailPage({
   params,
@@ -35,6 +56,8 @@ export default async function JobDetailPage({
 
   if (!job) notFound();
 
+  const jobRow = job as JobRow;
+
   const { data: photos } = await supabase
     .from("photos")
     .select("id, room_type, sequence, original_key, edited_key")
@@ -56,10 +79,13 @@ export default async function JobDetailPage({
     photos?.map((p, i) => ({
       id: p.id,
       room_type: p.room_type,
+      sequence: p.sequence,
       originalUrl: signedUrls[i]?.originalUrl ?? null,
       editedUrl: signedUrls[i]?.editedUrl ?? null,
       hasEdited: Boolean(p.edited_key),
     })) ?? [];
+
+  const editedCount = galleryPhotos.filter((p) => p.hasEdited).length;
 
   const downloadAllEdited: { filename: string; url: string }[] =
     photos?.length && signedUrls.length === photos.length
@@ -77,7 +103,9 @@ export default async function JobDetailPage({
           }))
       : [];
 
-  const isDraft = job.status === "draft";
+  const isDraft = jobRow.status === "draft";
+  const isReady = jobRow.status === "ready";
+  const isProcessing = jobRow.status === "processing";
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
@@ -91,27 +119,37 @@ export default async function JobDetailPage({
       <header className="mt-5 rounded-xl border border-wiselista-border bg-white p-5 shadow-sm sm:p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
-            <JobNameEditor jobId={id} initialName={job.name ?? null} />
+            <JobNameEditor jobId={id} initialName={jobRow.name ?? null} />
             <p className="mt-2 text-sm text-slate-500">
-              Created {formatJobDate(job.created_at)}
+              Created {formatJobDate(jobRow.created_at)}
+              {jobRow.property_address && (
+                <span className="ml-2 text-slate-600">· {jobRow.property_address}</span>
+              )}
+              {jobRow.listing_type && (
+                <span className="ml-2 rounded bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
+                  {LISTING_TYPE_LABELS[jobRow.listing_type as keyof typeof LISTING_TYPE_LABELS] ??
+                    jobRow.listing_type}
+                </span>
+              )}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            <StatusBadge status={job.status} />
-            {job.status === "ready" && downloadAllEdited.length > 0 && (
-              <DownloadAllButton items={downloadAllEdited} />
+            <StatusBadge status={jobRow.status} />
+            {isReady && downloadAllEdited.length > 0 && (
+              <>
+                <DownloadZipButton jobId={id} photoCount={downloadAllEdited.length} />
+                <DownloadAllButton items={downloadAllEdited} />
+              </>
             )}
             <DeleteJobButton jobId={id} redirectAfter="/dashboard" />
           </div>
         </div>
 
-        {job.status === "failed" && (
+        {jobRow.status === "failed" && (
           <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-4">
             <p className="font-medium text-red-800">Enhancement failed</p>
-            {(job as { failure_message?: string }).failure_message && (
-              <p className="mt-1 text-sm text-red-700">
-                {(job as { failure_message?: string }).failure_message}
-              </p>
+            {jobRow.failure_message && (
+              <p className="mt-1 text-sm text-red-700">{jobRow.failure_message}</p>
             )}
             <p className="mt-2 text-xs text-red-600">
               Delete this project and try again, or contact support with the project ID.
@@ -119,6 +157,49 @@ export default async function JobDetailPage({
           </div>
         )}
       </header>
+
+      {isProcessing && (
+        <ProcessingProgress
+          jobId={id}
+          photoCount={photos?.length ?? 0}
+          initialStatus={jobRow.status}
+        />
+      )}
+
+      {isReady && (
+        <div className="mt-6 space-y-6">
+          <TimeSavedCallout
+            photoCount={photos?.length ?? 0}
+            processingStartedAt={jobRow.processing_started_at ?? null}
+            completedAt={jobRow.completed_at}
+          />
+          <ListingReadyChecklist
+            photoCount={photos?.length ?? 0}
+            editedCount={editedCount}
+            targetPortal={jobRow.target_portal ?? null}
+            propertyAddress={jobRow.property_address ?? null}
+          />
+          <EnhancementSummary photos={photos ?? []} />
+          <section className="rounded-xl border border-wiselista-border bg-white p-5 shadow-sm">
+            <h2 className="font-semibold text-slate-900">Share with your client</h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Send a view-only link so vendors or property managers can approve before you list.
+            </p>
+            <div className="mt-4">
+              <ShareLinkButton jobId={id} />
+            </div>
+          </section>
+        </div>
+      )}
+
+      <div className="mt-6">
+        <PropertyContextForm
+          jobId={id}
+          initialAddress={jobRow.property_address ?? null}
+          initialListingType={jobRow.listing_type ?? null}
+          initialPortal={jobRow.target_portal ?? null}
+        />
+      </div>
 
       {isDraft && (
         <section className="mt-6 space-y-4">
@@ -149,11 +230,7 @@ export default async function JobDetailPage({
             )}
           </div>
         </div>
-        <PhotoGallery
-          jobId={id}
-          jobStatus={job.status}
-          photos={galleryPhotos}
-        />
+        <PhotoGallery jobId={id} jobStatus={jobRow.status} photos={galleryPhotos} />
       </section>
     </div>
   );

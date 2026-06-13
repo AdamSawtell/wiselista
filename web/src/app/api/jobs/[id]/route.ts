@@ -1,5 +1,5 @@
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
-import { createClient, getServiceClientOrNull } from "@/lib/supabase/server";
+import { createClient, createClientForRequest, getServiceClientOrNull } from "@/lib/supabase/server";
 import { getApiUser } from "@/lib/api-auth";
 import { getCurrentUser } from "@/lib/auth";
 import { NextResponse } from "next/server";
@@ -35,40 +35,71 @@ export async function GET(
   return NextResponse.json({ ...job, photos: photos ?? [] });
 }
 
-/** Update job metadata (e.g. project name). User must own the job. */
+/** Update job metadata (name, property context). User must own the job. */
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const user = await getCurrentUser();
+  const user = await getApiUser(request);
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
-  let body: { name?: string };
+  let body: {
+    name?: string;
+    property_address?: string | null;
+    listing_type?: string | null;
+    target_portal?: string | null;
+  };
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  if (body.name === undefined) {
+  const updates: Record<string, string | null> = { updated_at: new Date().toISOString() };
+
+  if (body.name !== undefined) {
+    const trimmed = typeof body.name === "string" ? body.name.trim() : "";
+    if (trimmed.length > 120) {
+      return NextResponse.json({ error: "Name must be 120 characters or fewer" }, { status: 400 });
+    }
+    updates.name = trimmed || null;
+  }
+
+  if (body.property_address !== undefined) {
+    const addr = typeof body.property_address === "string" ? body.property_address.trim() : "";
+    if (addr.length > 200) {
+      return NextResponse.json({ error: "Address must be 200 characters or fewer" }, { status: 400 });
+    }
+    updates.property_address = addr || null;
+  }
+
+  if (body.listing_type !== undefined) {
+    const lt = body.listing_type;
+    if (lt !== null && lt !== "rent" && lt !== "sale" && lt !== "") {
+      return NextResponse.json({ error: "listing_type must be rent or sale" }, { status: 400 });
+    }
+    updates.listing_type = lt === "" || lt === null ? null : lt;
+  }
+
+  if (body.target_portal !== undefined) {
+    const portal = typeof body.target_portal === "string" ? body.target_portal.trim() : "";
+    updates.target_portal = portal || null;
+  }
+
+  if (Object.keys(updates).length === 1) {
     return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
   }
 
-  const trimmed = typeof body.name === "string" ? body.name.trim() : "";
-  if (trimmed.length > 120) {
-    return NextResponse.json({ error: "Name must be 120 characters or fewer" }, { status: 400 });
-  }
-
-  const supabase = await createClient();
+  const supabase = await createClientForRequest(request);
   if (!supabase) return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
 
   const { data, error } = await supabase
     .from("jobs")
-    .update({ name: trimmed || null, updated_at: new Date().toISOString() })
+    .update(updates)
     .eq("id", id)
     .eq("user_id", user.id)
-    .select("id, name, status, created_at, updated_at")
+    .select("id, name, property_address, listing_type, target_portal, status, created_at, updated_at")
     .single();
 
   if (error || !data) return NextResponse.json({ error: "Not found" }, { status: 404 });

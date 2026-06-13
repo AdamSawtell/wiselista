@@ -2,7 +2,27 @@ import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
-export async function createClient(): Promise<Awaited<ReturnType<typeof createServerClient>> | null> {
+export type SupabaseClient = Awaited<ReturnType<typeof createServerClient>>;
+
+/** Cookie session (web) or Bearer token (scripts/mobile). */
+export async function createClientForRequest(request?: Request): Promise<SupabaseClient | null> {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!supabaseUrl || !supabaseAnonKey) return null;
+
+  const authHeader = request?.headers.get("authorization");
+  const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+
+  if (token) {
+    return createSupabaseClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: `Bearer ${token}` } },
+    });
+  }
+
+  return createClient();
+}
+
+export async function createClient(): Promise<SupabaseClient | null> {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!supabaseUrl || !supabaseAnonKey) {

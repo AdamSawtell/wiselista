@@ -141,6 +141,68 @@ async function callClaidEdit(inputUrl: string, roomType: RoomType): Promise<stri
   return tmpUrl;
 }
 
+async function uploadClaidResult(
+  supabase: Awaited<ReturnType<typeof createServiceClient>>,
+  userId: string,
+  jobId: string,
+  photoId: string,
+  roomType: RoomType,
+  originalUrl: string
+): Promise<void> {
+  const tmpUrl = await callClaidEdit(originalUrl, roomType);
+  const imageRes = await fetch(tmpUrl);
+  if (!imageRes.ok) throw new Error(`Failed to download Claid result: ${imageRes.status}`);
+  const buffer = await imageRes.arrayBuffer();
+
+  const editedKey = `${userId}/${jobId}/edited/${photoId}.jpg`;
+  const { error: uploadError } = await supabase.storage
+    .from(BUCKET)
+    .upload(editedKey, buffer, { contentType: "image/jpeg", upsert: true });
+
+  if (uploadError) throw uploadError;
+  await supabase.from("photos").update({ edited_key: editedKey }).eq("id", photoId);
+}
+
+/** Re-enhance a single photo (job stays ready). */
+export async function reprocessPhotoWithClaid(
+  jobId: string,
+  photoId: string
+): Promise<void> {
+  const supabase = createServiceClient();
+  const { data: job } = await supabase
+    .from("jobs")
+    .select("id, user_id, status")
+    .eq("id", jobId)
+    .single();
+
+  if (!job?.user_id) throw new Error("Job not found");
+  if (job.status !== "ready") throw new Error("Can only re-enhance photos on ready projects");
+
+  const { data: photo } = await supabase
+    .from("photos")
+    .select("id, original_key, room_type")
+    .eq("id", photoId)
+    .eq("job_id", jobId)
+    .single();
+
+  if (!photo) throw new Error("Photo not found");
+
+  const { data: signed } = await supabase.storage
+    .from(BUCKET)
+    .createSignedUrl(photo.original_key, SIGNED_URL_EXPIRY_AI);
+
+  if (!signed?.signedUrl) throw new Error("Could not sign photo URL");
+
+  await uploadClaidResult(
+    supabase,
+    job.user_id,
+    jobId,
+    photoId,
+    photo.room_type as RoomType,
+    signed.signedUrl
+  );
+}
+
 /**
  * Process job with Claid: for each photo, call Claid edit → download result → upload to storage → set edited_key → mark job ready.
  * Must be awaited from the submit route (serverless kills fire-and-forget when the HTTP response returns).
@@ -167,43 +229,53 @@ export async function processJobWithRealAI(jobId: string): Promise<void> {
   if (!requests.length) {
     await supabase
       .from("jobs")
-      .update({ status: "ready", completed_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+      .update({
+        status: "ready",
+        completed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        processing_photo_index: null,
+        processing_photo_total: null,
+        processing_started_at: null,
+      })
       .eq("id", jobId);
     return;
   }
 
   const userId = job.user_id as string;
+  const startedAt = new Date().toISOString();
 
-  for (const r of requests) {
+  await supabase
+    .from("jobs")
+    .update({
+      processing_photo_total: requests.length,
+      processing_photo_index: 0,
+      processing_started_at: startedAt,
+      updated_at: startedAt,
+    })
+    .eq("id", jobId);
+
+  for (let i = 0; i < requests.length; i++) {
+    const r = requests[i];
+    await supabase
+      .from("jobs")
+      .update({ processing_photo_index: i + 1, updated_at: new Date().toISOString() })
+      .eq("id", jobId);
+
     try {
-      const tmpUrl = await callClaidEdit(r.originalUrl, r.roomType);
-      const imageRes = await fetch(tmpUrl);
-      if (!imageRes.ok) throw new Error(`Failed to download Claid result: ${imageRes.status}`);
-      const buffer = await imageRes.arrayBuffer();
-
-      const editedKey = `${userId}/${jobId}/edited/${r.photoId}.jpg`;
-      const { error: uploadError } = await supabase.storage
-        .from(BUCKET)
-        .upload(editedKey, buffer, { contentType: "image/jpeg", upsert: true });
-
-      if (uploadError) throw uploadError;
-
-      await supabase.from("photos").update({ edited_key: editedKey }).eq("id", r.photoId);
+      await uploadClaidResult(supabase, userId, jobId, r.photoId, r.roomType, r.originalUrl);
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       const failureMessage = `Photo ${r.photoId.slice(0, 8)}: ${message}`.slice(0, 500);
-      console.error("[Claid]", {
-        jobId,
-        userId,
-        photoId: r.photoId,
-        error: message,
-      });
+      console.error("[Claid]", { jobId, userId, photoId: r.photoId, error: message });
       await supabase
         .from("jobs")
         .update({
           status: "failed",
           failure_message: failureMessage,
           updated_at: new Date().toISOString(),
+          processing_photo_index: null,
+          processing_photo_total: null,
+          processing_started_at: null,
         })
         .eq("id", jobId);
       return;
@@ -216,6 +288,8 @@ export async function processJobWithRealAI(jobId: string): Promise<void> {
       status: "ready",
       completed_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
+      processing_photo_index: null,
+      processing_photo_total: null,
     })
     .eq("id", jobId);
 }
