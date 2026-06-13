@@ -49,9 +49,9 @@ export default function Home() {
             <p className="text-sm font-semibold uppercase tracking-wider text-sky-200">
               Built for Australian &amp; NZ property professionals
             </p>
-            <h1 className="mt-3 text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl">
+            <h1 className="mt-3 text-4xl font-bold tracking-tight text-white sm:text-5xl lg:text-6xl">
               Listing photos that
-              <span className="block text-white">sell the property</span>
+              <span className="block">sell the property</span>
             </h1>
             <p className="mt-5 max-w-xl text-lg text-slate-200">
               Capture on your phone, submit for AI editing, and download pro-quality images in
@@ -92,7 +92,7 @@ export default function Home() {
               </Link>
             </div>
             <p className="px-2 pb-1 pt-2 text-center text-xs text-slate-500">
-              From NZD $29 per job · Secure Stripe payment · No subscription
+              From AUD $29 per job · Secure Stripe payment · No subscription
             </p>
           </div>
         </div>
@@ -103,7 +103,7 @@ export default function Home() {
         <div className="mx-auto grid max-w-7xl grid-cols-2 gap-6 px-4 py-8 sm:grid-cols-4 sm:px-6 lg:px-8">
           {[
             { value: "~15 min", label: "Typical turnaround" },
-            { value: "NZD $29", label: "Per job, all photos" },
+            { value: "AUD $29", label: "Per job, all photos" },
             { value: "6 rooms", label: "Guided capture types" },
             { value: "AI + HDR", label: "Pro enhancement" },
           ].map((stat) => (
@@ -235,7 +235,7 @@ export default function Home() {
                 <p className="text-sm font-medium uppercase tracking-wide text-sky-200">Per job</p>
                 <p className="mt-2 text-5xl font-bold">
                   $29
-                  <span className="text-lg font-medium text-slate-300"> NZD</span>
+                  <span className="text-lg font-medium text-slate-300"> AUD</span>
                 </p>
                 <p className="mt-2 text-sm text-slate-300">All photos in the job · Unlimited rooms</p>
               </div>

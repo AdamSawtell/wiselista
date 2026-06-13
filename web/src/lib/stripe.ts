@@ -1,6 +1,6 @@
 import Stripe from "stripe";
 
-/** NZD $29 per job — fixed per-job pricing for V1 pilot. */
+/** AUD $29 per job — fixed per-job pricing for V1 pilot. */
 export const JOB_PRICE_CENTS = 2900;
 
 let stripeClient: Stripe | null = null;

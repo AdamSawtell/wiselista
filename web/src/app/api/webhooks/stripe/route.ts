@@ -77,7 +77,7 @@ export async function POST(request: Request) {
       job_id: jobId,
       stripe_payment_intent_id: paymentIntentId,
       amount_cents: session.amount_total ?? 0,
-      currency: (session.currency ?? "nzd").toUpperCase(),
+      currency: (session.currency ?? "aud").toUpperCase(),
       status: "succeeded",
     });
 

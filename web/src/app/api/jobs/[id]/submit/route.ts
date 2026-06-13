@@ -63,7 +63,7 @@ export async function POST(
       line_items: [
         {
           price_data: {
-            currency: "nzd",
+            currency: "aud",
             unit_amount: JOB_PRICE_CENTS,
             product_data: { name: "Wiselista — Photo edit (this job)" },
           },
