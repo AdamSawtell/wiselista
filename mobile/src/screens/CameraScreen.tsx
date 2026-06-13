@@ -201,12 +201,12 @@ export default function CameraScreen({
         {guided && (
           <View style={styles.tipsRow}>
             {!useWebFallback && !coaching.isLevel && coaching.tiltHint && (
-              <Text style={[styles.coachingLine, { color: theme.colors.warning }]}>
+              <Text style={[styles.coachingLine, { color: theme.colors.primaryLight }]}>
                 {coaching.tiltHint}
               </Text>
             )}
             {brightnessHint && (
-              <Text style={[styles.coachingLine, { color: theme.colors.warning }]}>
+              <Text style={[styles.coachingLine, { color: theme.colors.primaryLight }]}>
                 {brightnessHint}
               </Text>
             )}

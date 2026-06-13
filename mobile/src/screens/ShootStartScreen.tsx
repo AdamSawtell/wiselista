@@ -13,10 +13,10 @@ import { useAuth } from "../contexts/AuthContext";
 import { theme } from "../theme";
 import PrimaryButton from "../components/PrimaryButton";
 
-const FEATURES = [
-  { icon: "🏠", text: "Room-by-room walkthrough" },
-  { icon: "💡", text: "Pro framing tips as you shoot" },
-  { icon: "✨", text: "AI enhancement when you submit" },
+const STEPS = [
+  "Walk through each room with pro framing tips",
+  "Capture photos on site with your phone",
+  "Submit for AI enhancement — ready in ~20 seconds per photo",
 ];
 
 export default function ShootStartScreen({ navigation }: { navigation: any }) {
@@ -54,26 +54,25 @@ export default function ShootStartScreen({ navigation }: { navigation: any }) {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <ScrollView contentContainerStyle={styles.scroll}>
-        <View style={[styles.heroCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
-          <Text style={styles.heroEmoji}>📸</Text>
-          <Text style={[styles.kicker, { color: theme.colors.primaryLight }]}>Guided shoot</Text>
-          <Text style={[styles.title, { color: theme.colors.textPrimary }]}>Shoot this property</Text>
-          <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
-            Like having a photographer in your pocket — we coach you through every room.
-          </Text>
+        <Text style={[styles.brand, { color: theme.colors.primary }]}>Guided shoot</Text>
+        <Text style={[styles.title, { color: theme.colors.textPrimary }]}>Shoot this property</Text>
+        <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
+          Room-by-room guidance for listing-ready photos.
+        </Text>
+
+        <View style={[styles.stepsBox, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+          {STEPS.map((step, i) => (
+            <View key={step} style={[styles.stepRow, i < STEPS.length - 1 && { borderBottomColor: theme.colors.borderLight, borderBottomWidth: 1 }]}>
+              <Text style={[styles.stepNum, { color: theme.colors.primary }]}>{String(i + 1).padStart(2, "0")}</Text>
+              <Text style={[styles.stepText, { color: theme.colors.textPrimary }]}>{step}</Text>
+            </View>
+          ))}
         </View>
 
-        {FEATURES.map((f) => (
-          <View key={f.text} style={[styles.featureRow, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
-            <Text style={styles.featureIcon}>{f.icon}</Text>
-            <Text style={[styles.featureText, { color: theme.colors.textPrimary }]}>{f.text}</Text>
-          </View>
-        ))}
-
-        <Text style={[styles.label, { color: theme.colors.textMuted }]}>Property name (optional)</Text>
+        <Text style={[styles.label, { color: theme.colors.textMuted }]}>Property address or name</Text>
         <TextInput
           style={[styles.input, { backgroundColor: theme.colors.surface, color: theme.colors.textPrimary, borderColor: theme.colors.border }]}
-          placeholder="e.g. 12 Oak Street"
+          placeholder="12 Oak Street"
           placeholderTextColor={theme.colors.textMuted}
           value={propertyName}
           onChangeText={setPropertyName}
@@ -86,9 +85,9 @@ export default function ShootStartScreen({ navigation }: { navigation: any }) {
           <ActivityIndicator color={theme.colors.primary} style={styles.loader} />
         ) : (
           <>
-            <PrimaryButton label="Start guided shoot" onPress={startGuidedShoot} style={styles.cta} />
+            <PrimaryButton label="Start shoot" onPress={startGuidedShoot} style={styles.cta} />
             <PrimaryButton
-              label="Quick capture (no guide)"
+              label="Quick job without guide"
               onPress={() => navigation.navigate("CreateJob")}
               variant="secondary"
             />
@@ -102,34 +101,25 @@ export default function ShootStartScreen({ navigation }: { navigation: any }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  scroll: { padding: theme.spacing.xl, paddingBottom: theme.spacing.xxl, maxWidth: 440, alignSelf: "center", width: "100%" },
-  heroCard: {
-    alignItems: "center",
-    padding: theme.spacing.xl,
-    borderRadius: theme.radius.lg,
-    borderWidth: 1,
-    marginBottom: theme.spacing.lg,
+  scroll: {
+    padding: theme.spacing.lg,
+    paddingBottom: theme.spacing.xxl,
+    maxWidth: 480,
+    alignSelf: "center",
+    width: "100%",
   },
-  heroEmoji: { fontSize: 48, marginBottom: theme.spacing.sm },
-  kicker: { ...theme.typography.label, letterSpacing: 1, textTransform: "uppercase", marginBottom: theme.spacing.xs },
-  title: { ...theme.typography.title, marginBottom: theme.spacing.sm, textAlign: "center" },
-  subtitle: { ...theme.typography.body, textAlign: "center" },
-  featureRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: theme.spacing.md,
-    padding: theme.spacing.md,
-    borderRadius: theme.radius.md,
-    borderWidth: 1,
-    marginBottom: theme.spacing.sm,
-  },
-  featureIcon: { fontSize: 22 },
-  featureText: { ...theme.typography.bodyMedium, flex: 1 },
-  label: { ...theme.typography.caption, marginBottom: theme.spacing.xs, marginTop: theme.spacing.md },
+  brand: { ...theme.typography.label, marginBottom: theme.spacing.sm },
+  title: { ...theme.typography.titleLarge, marginBottom: theme.spacing.xs },
+  subtitle: { ...theme.typography.body, marginBottom: theme.spacing.xl },
+  stepsBox: { borderWidth: 1, borderRadius: theme.radius.sm, marginBottom: theme.spacing.xl },
+  stepRow: { flexDirection: "row", gap: theme.spacing.md, padding: theme.spacing.md },
+  stepNum: { ...theme.typography.label, width: 28 },
+  stepText: { ...theme.typography.body, flex: 1 },
+  label: { ...theme.typography.captionMedium, marginBottom: theme.spacing.xs },
   input: {
     borderWidth: 1,
-    borderRadius: theme.radius.md,
-    padding: theme.spacing.md,
+    borderRadius: theme.radius.sm,
+    padding: 14,
     marginBottom: theme.spacing.lg,
     ...theme.typography.body,
   },

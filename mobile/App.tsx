@@ -4,6 +4,7 @@ import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { StatusBar } from "expo-status-bar";
+import { Ionicons } from "@expo/vector-icons";
 import { AuthProvider, useAuth } from "./src/contexts/AuthContext";
 import { theme } from "./src/theme";
 import LoginScreen from "./src/screens/LoginScreen";
@@ -115,16 +116,16 @@ function MainTabs() {
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: theme.colors.backgroundElevated,
+          backgroundColor: theme.colors.surface,
           borderTopColor: theme.colors.border,
           borderTopWidth: 1,
-          height: 64,
-          paddingBottom: 8,
-          paddingTop: 8,
+          height: 56,
+          paddingBottom: 6,
+          paddingTop: 6,
         },
-        tabBarActiveTintColor: theme.colors.primaryLight,
+        tabBarActiveTintColor: theme.colors.primary,
         tabBarInactiveTintColor: theme.colors.textMuted,
-        tabBarLabelStyle: { fontSize: 12, fontWeight: "600" },
+        tabBarLabelStyle: { fontSize: 11, fontWeight: "700", letterSpacing: 0.3 },
       }}
     >
       <Tab.Screen
@@ -132,7 +133,7 @@ function MainTabs() {
         component={JobsStack}
         options={{
           tabBarLabel: "Shoots",
-          tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 18 }}>📋</Text>,
+          tabBarIcon: ({ color, size }) => <Ionicons name="home-outline" size={size ?? 22} color={color} />,
         }}
       />
       <Tab.Screen
@@ -140,7 +141,7 @@ function MainTabs() {
         component={AccountScreen}
         options={{
           tabBarLabel: "Account",
-          tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 18 }}>👤</Text>,
+          tabBarIcon: ({ color, size }) => <Ionicons name="person-outline" size={size ?? 22} color={color} />,
         }}
       />
     </Tab.Navigator>
@@ -165,7 +166,7 @@ export default function App() {
       <AuthProvider>
         <NavigationContainer>
           <RootNavigator />
-          <StatusBar style="light" />
+          <StatusBar style="dark" />
         </NavigationContainer>
       </AuthProvider>
     </ErrorBoundary>

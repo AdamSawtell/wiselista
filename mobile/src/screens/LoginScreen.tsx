@@ -4,7 +4,6 @@ import {
   Text,
   TextInput,
   StyleSheet,
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -35,21 +34,21 @@ export default function LoginScreen({ navigation }: { navigation: { navigate: (n
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
-      style={[styles.container, { backgroundColor: theme.colors.background }]}
+      style={[styles.container, { backgroundColor: theme.colors.surface }]}
     >
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-        <View style={[styles.brandCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
-          <Text style={styles.logoMark}>W</Text>
-          <Text style={[styles.title, { color: theme.colors.textPrimary }]}>Wiselista</Text>
+        <View style={styles.brandBlock}>
+          <Text style={[styles.brand, { color: theme.colors.primary }]}>wiselista</Text>
           <Text style={[styles.tagline, { color: theme.colors.textSecondary }]}>
-            Listing-ready property photos, enhanced with AI.
+            Listing-ready property photos
           </Text>
         </View>
 
         <View style={styles.form}>
+          <Text style={[styles.fieldLabel, { color: theme.colors.textMuted }]}>Email</Text>
           <TextInput
-            style={[styles.input, { backgroundColor: theme.colors.surface, color: theme.colors.textPrimary, borderColor: theme.colors.border }]}
-            placeholder="Email"
+            style={[styles.input, { color: theme.colors.textPrimary, borderColor: theme.colors.border }]}
+            placeholder="you@agency.com"
             placeholderTextColor={theme.colors.textMuted}
             value={email}
             onChangeText={setEmail}
@@ -57,8 +56,9 @@ export default function LoginScreen({ navigation }: { navigation: { navigate: (n
             keyboardType="email-address"
             autoComplete="email"
           />
+          <Text style={[styles.fieldLabel, { color: theme.colors.textMuted }]}>Password</Text>
           <TextInput
-            style={[styles.input, { backgroundColor: theme.colors.surface, color: theme.colors.textPrimary, borderColor: theme.colors.border }]}
+            style={[styles.input, { color: theme.colors.textPrimary, borderColor: theme.colors.border }]}
             placeholder="Password"
             placeholderTextColor={theme.colors.textMuted}
             value={password}
@@ -69,7 +69,7 @@ export default function LoginScreen({ navigation }: { navigation: { navigate: (n
           {error && <Text style={[styles.error, { color: theme.colors.error }]}>{error}</Text>}
           <PrimaryButton label="Sign in" onPress={handleLogin} loading={loading} style={styles.signIn} />
           <PrimaryButton
-            label="Create an account"
+            label="Create account"
             onPress={() => navigation.navigate("SignUp")}
             variant="ghost"
           />
@@ -89,36 +89,19 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     width: "100%",
   },
-  brandCard: {
-    alignItems: "center",
-    padding: theme.spacing.xl,
-    borderRadius: theme.radius.lg,
-    borderWidth: 1,
-    marginBottom: theme.spacing.xl,
-  },
-  logoMark: {
-    width: 56,
-    height: 56,
-    lineHeight: 56,
-    textAlign: "center",
-    borderRadius: 16,
-    backgroundColor: theme.colors.primary,
-    color: theme.colors.textOnPrimary,
-    fontSize: 28,
-    fontWeight: "700",
-    marginBottom: theme.spacing.md,
-    overflow: "hidden",
-  },
-  title: { ...theme.typography.titleLarge, marginBottom: theme.spacing.xs },
-  tagline: { ...theme.typography.body, textAlign: "center" },
-  form: { gap: 0 },
+  brandBlock: { marginBottom: theme.spacing.xxl },
+  brand: { fontSize: 32, fontWeight: "700", letterSpacing: -1, marginBottom: theme.spacing.xs },
+  tagline: { ...theme.typography.body },
+  form: {},
+  fieldLabel: { ...theme.typography.captionMedium, marginBottom: 6 },
   input: {
     borderWidth: 1,
-    borderRadius: theme.radius.md,
-    padding: theme.spacing.md,
+    borderRadius: theme.radius.sm,
+    padding: 14,
     fontSize: 16,
     marginBottom: theme.spacing.md,
+    backgroundColor: theme.colors.background,
   },
   error: { marginBottom: theme.spacing.md, fontSize: 14 },
-  signIn: { marginBottom: theme.spacing.sm },
+  signIn: { marginTop: theme.spacing.sm, marginBottom: theme.spacing.xs },
 });

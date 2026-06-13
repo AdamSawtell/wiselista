@@ -10,17 +10,17 @@ export const STATUS_LABELS: Record<JobStatus, string> = {
   failed: "Failed",
 };
 
-export function getStatusStyle(status: JobStatus): { bg: string; text: string; dot: string } {
+export function getStatusStyle(status: JobStatus): { bg: string; text: string } {
   switch (status) {
     case "ready":
-      return { bg: "rgba(34, 197, 94, 0.15)", text: theme.colors.success, dot: theme.colors.success };
+      return { bg: theme.colors.successMuted, text: theme.colors.success };
     case "processing":
     case "submitted":
     case "payment_pending":
-      return { bg: "rgba(59, 130, 246, 0.15)", text: theme.colors.primaryLight, dot: theme.colors.primary };
+      return { bg: theme.colors.primaryMuted, text: theme.colors.primary };
     case "failed":
-      return { bg: "rgba(239, 68, 68, 0.15)", text: theme.colors.error, dot: theme.colors.error };
+      return { bg: theme.colors.errorMuted, text: theme.colors.error };
     default:
-      return { bg: "rgba(148, 163, 184, 0.12)", text: theme.colors.textMuted, dot: theme.colors.textMuted };
+      return { bg: theme.colors.surfaceMuted, text: theme.colors.textMuted };
   }
 }

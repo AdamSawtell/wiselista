@@ -21,7 +21,9 @@ export default function CaptureCoachingOverlay({
     <>
       <View style={styles.hintBar}>
         <View style={[styles.hintPill, isLevel ? styles.hintOk : styles.hintWarn]}>
-          <Text style={styles.hintText}>{isLevel ? "Phone level" : tiltHint}</Text>
+          <Text style={[styles.hintText, !isLevel && styles.hintTextOnRed]}>
+            {isLevel ? "Level" : tiltHint}
+          </Text>
         </View>
       </View>
       <View
@@ -45,16 +47,17 @@ const styles = StyleSheet.create({
   },
   hintPill: {
     paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-    borderRadius: theme.radius.full,
+    paddingVertical: 6,
+    borderRadius: theme.radius.sm,
   },
-  hintOk: { backgroundColor: "rgba(34, 197, 94, 0.9)" },
-  hintWarn: { backgroundColor: "rgba(234, 179, 8, 0.95)" },
+  hintOk: { backgroundColor: "rgba(255,255,255,0.92)" },
+  hintWarn: { backgroundColor: theme.colors.primary },
   hintText: {
-    color: "#fff",
+    color: theme.colors.textPrimary,
     ...theme.typography.captionMedium,
     textAlign: "center",
   },
+  hintTextOnRed: { color: theme.colors.textOnPrimary },
   levelWrap: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: "center",
@@ -65,6 +68,6 @@ const styles = StyleSheet.create({
     height: 2,
     borderRadius: 1,
   },
-  levelLineOk: { backgroundColor: "rgba(34, 197, 94, 0.85)" },
-  levelLineWarn: { backgroundColor: "rgba(234, 179, 8, 0.9)" },
+  levelLineOk: { backgroundColor: "rgba(255,255,255,0.9)" },
+  levelLineWarn: { backgroundColor: theme.colors.primaryLight },
 });

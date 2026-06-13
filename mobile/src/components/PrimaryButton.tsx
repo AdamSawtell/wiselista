@@ -7,7 +7,7 @@ type Props = {
   onPress: () => void;
   loading?: boolean;
   disabled?: boolean;
-  variant?: "primary" | "secondary" | "ghost";
+  variant?: "primary" | "secondary" | "ghost" | "outline";
   style?: ViewStyle;
 };
 
@@ -21,6 +21,7 @@ export default function PrimaryButton({
 }: Props) {
   const isPrimary = variant === "primary";
   const isSecondary = variant === "secondary";
+  const isOutline = variant === "outline";
 
   return (
     <TouchableOpacity
@@ -28,13 +29,14 @@ export default function PrimaryButton({
         styles.base,
         isPrimary && styles.primary,
         isSecondary && styles.secondary,
+        isOutline && styles.outline,
         variant === "ghost" && styles.ghost,
         (disabled || loading) && styles.disabled,
         style,
       ]}
       onPress={onPress}
       disabled={disabled || loading}
-      activeOpacity={0.85}
+      activeOpacity={0.88}
     >
       {loading ? (
         <ActivityIndicator color={isPrimary ? theme.colors.textOnPrimary : theme.colors.primary} />
@@ -43,7 +45,7 @@ export default function PrimaryButton({
           style={[
             styles.text,
             isPrimary && styles.textPrimary,
-            isSecondary && styles.textSecondary,
+            (isSecondary || isOutline) && styles.textSecondary,
             variant === "ghost" && styles.textGhost,
           ]}
         >
@@ -56,9 +58,9 @@ export default function PrimaryButton({
 
 const styles = StyleSheet.create({
   base: {
-    paddingVertical: theme.spacing.md,
+    paddingVertical: 14,
     paddingHorizontal: theme.spacing.lg,
-    borderRadius: theme.radius.md,
+    borderRadius: theme.radius.sm,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -68,10 +70,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.colors.border,
   },
+  outline: {
+    backgroundColor: "transparent",
+    borderWidth: 1,
+    borderColor: theme.colors.primary,
+  },
   ghost: { backgroundColor: "transparent" },
-  disabled: { opacity: 0.65 },
-  text: { ...theme.typography.bodyMedium },
+  disabled: { opacity: 0.5 },
+  text: { ...theme.typography.bodyMedium, fontSize: 15 },
   textPrimary: { color: theme.colors.textOnPrimary },
   textSecondary: { color: theme.colors.textPrimary },
-  textGhost: { color: theme.colors.textMuted },
+  textGhost: { color: theme.colors.textMuted, fontWeight: "500" },
 });

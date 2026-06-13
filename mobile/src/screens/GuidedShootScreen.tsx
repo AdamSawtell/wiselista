@@ -12,10 +12,15 @@ import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 import { theme } from "../theme";
 import { ROOM_LABELS, type RoomType } from "../types";
-import { CAPTURE_TIPS, GUIDED_SHOOT_SEQUENCE, getShootProgressLabel } from "../lib/captureTips";
-import { ROOM_VISUALS } from "../lib/roomVisuals";
+import { CAPTURE_TIPS, GUIDED_SHOOT_SEQUENCE } from "../lib/captureTips";
 import StepDots from "../components/StepDots";
 import PrimaryButton from "../components/PrimaryButton";
+
+function stepLabel(index: number, total: number): string {
+  const n = String(index + 1).padStart(2, "0");
+  const t = String(total).padStart(2, "0");
+  return `${n} / ${t}`;
+}
 
 export default function GuidedShootScreen({
   navigation,
@@ -39,9 +44,7 @@ export default function GuidedShootScreen({
   const totalSteps = GUIDED_SHOOT_SEQUENCE.length;
   const currentRoom: RoomType = GUIDED_SHOOT_SEQUENCE[stepIndex] ?? "other";
   const tips = CAPTURE_TIPS[currentRoom];
-  const visual = ROOM_VISUALS[currentRoom];
   const isLastStep = stepIndex >= totalSteps - 1;
-  const progressPct = Math.round(((stepIndex + 1) / totalSteps) * 100);
 
   async function refreshPhotoCount() {
     if (!user) return;
@@ -82,57 +85,48 @@ export default function GuidedShootScreen({
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <View style={[styles.header, { borderBottomColor: theme.colors.border }]}>
+      <View style={[styles.header, { backgroundColor: theme.colors.surface, borderBottomColor: theme.colors.border }]}>
         <TouchableOpacity onPress={() => navigation.navigate("JobDetail", { jobId })}>
           <Text style={[styles.headerLink, { color: theme.colors.primary }]}>Exit</Text>
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: theme.colors.textPrimary }]} numberOfLines={1}>
           {propertyName ?? "Property shoot"}
         </Text>
-        <View style={[styles.countPill, { backgroundColor: theme.colors.surfaceMuted }]}>
-          <Text style={[styles.headerCount, { color: theme.colors.textPrimary }]}>{photoCount}</Text>
-        </View>
+        <Text style={[styles.headerCount, { color: theme.colors.textMuted }]}>{photoCount} photos</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={[styles.progressLabel, { color: theme.colors.textMuted }]}>
-          {getShootProgressLabel(stepIndex, totalSteps)}
-        </Text>
-        <StepDots total={totalSteps} current={stepIndex} accent={visual.accent} />
-        <View style={[styles.progressTrack, { backgroundColor: theme.colors.surfaceMuted }]}>
-          <View style={[styles.progressFill, { width: `${progressPct}%`, backgroundColor: visual.accent }]} />
-        </View>
+        <Text style={[styles.stepLabel, { color: theme.colors.primary }]}>{stepLabel(stepIndex, totalSteps)}</Text>
+        <StepDots total={totalSteps} current={stepIndex} />
 
-        <View style={[styles.roomHero, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
-          <View style={[styles.roomIconWrap, { backgroundColor: `${visual.accent}22` }]}>
-            <Text style={styles.roomEmoji}>{visual.emoji}</Text>
-          </View>
-          <Text style={[styles.roomTitle, { color: theme.colors.textPrimary }]}>{ROOM_LABELS[currentRoom]}</Text>
-          <Text style={[styles.roomHint, { color: theme.colors.textSecondary }]}>
-            Frame this room, then capture one or more photos.
-          </Text>
-        </View>
+        <Text style={[styles.roomTitle, { color: theme.colors.textPrimary }]}>{ROOM_LABELS[currentRoom]}</Text>
+        <Text style={[styles.roomHint, { color: theme.colors.textSecondary }]}>
+          Capture this room, then continue to the next.
+        </Text>
 
         <View style={[styles.tipsCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
-          <Text style={[styles.tipsTitle, { color: theme.colors.textPrimary }]}>Photographer tips</Text>
+          <Text style={[styles.tipsTitle, { color: theme.colors.textPrimary }]}>Before you shoot</Text>
           {tips.map((tip) => (
             <View key={tip} style={styles.tipRow}>
-              <Text style={[styles.tipCheck, { color: visual.accent }]}>✓</Text>
+              <View style={[styles.tipDash, { backgroundColor: theme.colors.primary }]} />
               <Text style={[styles.tipText, { color: theme.colors.textSecondary }]}>{tip}</Text>
             </View>
           ))}
         </View>
 
         <PrimaryButton label="Take photo" onPress={openCamera} style={styles.captureBtn} />
-
-        <PrimaryButton label={isLastStep ? "Skip and review" : "Skip this room"} onPress={skipRoom} variant="ghost" />
+        <PrimaryButton
+          label={isLastStep ? "Skip to review" : "Skip room"}
+          onPress={skipRoom}
+          variant="ghost"
+        />
 
         {photoCount > 0 && (
           <PrimaryButton
-            label={`Finish shoot · ${photoCount} photo${photoCount === 1 ? "" : "s"}`}
+            label={`Finish · ${photoCount} photo${photoCount === 1 ? "" : "s"}`}
             onPress={() => navigation.navigate("ShootReview", { jobId, propertyName })}
-            variant="secondary"
-            style={[styles.finishBtn, { borderColor: theme.colors.success }]}
+            variant="outline"
+            style={styles.finishBtn}
           />
         )}
       </ScrollView>
@@ -149,49 +143,23 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     gap: theme.spacing.sm,
   },
-  headerLink: { ...theme.typography.captionMedium },
+  headerLink: { ...theme.typography.captionMedium, minWidth: 36 },
   headerTitle: { ...theme.typography.bodyMedium, flex: 1 },
-  countPill: {
-    minWidth: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 10,
-  },
-  headerCount: { ...theme.typography.captionMedium, fontWeight: "700" },
-  content: { padding: theme.spacing.xl, paddingBottom: theme.spacing.xxl },
-  progressLabel: { ...theme.typography.caption, marginBottom: theme.spacing.sm, textAlign: "center" },
-  progressTrack: { height: 4, borderRadius: theme.radius.full, overflow: "hidden", marginBottom: theme.spacing.xl },
-  progressFill: { height: "100%", borderRadius: theme.radius.full },
-  roomHero: {
-    alignItems: "center",
-    padding: theme.spacing.xl,
-    borderRadius: theme.radius.lg,
-    borderWidth: 1,
-    marginBottom: theme.spacing.lg,
-  },
-  roomIconWrap: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: theme.spacing.md,
-  },
-  roomEmoji: { fontSize: 36 },
-  roomTitle: { ...theme.typography.title, marginBottom: theme.spacing.xs, textAlign: "center" },
-  roomHint: { ...theme.typography.body, textAlign: "center" },
+  headerCount: { ...theme.typography.caption, minWidth: 64, textAlign: "right" },
+  content: { padding: theme.spacing.lg, paddingBottom: theme.spacing.xxl },
+  stepLabel: { ...theme.typography.label, marginBottom: theme.spacing.sm },
+  roomTitle: { ...theme.typography.titleLarge, marginBottom: theme.spacing.xs },
+  roomHint: { ...theme.typography.body, marginBottom: theme.spacing.lg },
   tipsCard: {
     padding: theme.spacing.lg,
-    borderRadius: theme.radius.lg,
+    borderRadius: theme.radius.sm,
     borderWidth: 1,
     marginBottom: theme.spacing.xl,
   },
-  tipsTitle: { ...theme.typography.bodyMedium, marginBottom: theme.spacing.md },
-  tipRow: { flexDirection: "row", gap: theme.spacing.sm, marginBottom: theme.spacing.sm },
-  tipCheck: { ...theme.typography.bodyMedium, lineHeight: 22 },
-  tipText: { ...theme.typography.body, flex: 1, lineHeight: 22 },
-  captureBtn: { marginBottom: theme.spacing.sm },
+  tipsTitle: { ...theme.typography.captionMedium, marginBottom: theme.spacing.md, textTransform: "uppercase", letterSpacing: 0.8 },
+  tipRow: { flexDirection: "row", gap: theme.spacing.sm, marginBottom: theme.spacing.sm, alignItems: "flex-start" },
+  tipDash: { width: 3, height: 16, marginTop: 3, borderRadius: 1 },
+  tipText: { ...theme.typography.body, flex: 1 },
+  captureBtn: { marginBottom: theme.spacing.xs },
   finishBtn: { marginTop: theme.spacing.md },
 });
