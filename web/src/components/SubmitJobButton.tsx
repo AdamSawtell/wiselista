@@ -28,6 +28,11 @@ export function SubmitJobButton({ jobId, photoCount }: SubmitJobButtonProps) {
         setLoading(false);
         return;
       }
+      if (data.skippedPayment) {
+        router.push(`/dashboard/jobs/${jobId}?submitted=1`);
+        router.refresh();
+        return;
+      }
       if (data.url) {
         window.location.href = data.url;
         return;
@@ -48,7 +53,7 @@ export function SubmitJobButton({ jobId, photoCount }: SubmitJobButtonProps) {
         disabled={loading || photoCount < 1}
         className="btn-primary"
       >
-        {loading ? "Redirecting to payment…" : "Submit for edit"}
+        {loading ? "Submitting…" : "Submit for edit"}
       </button>
       {error && (
         <p className="mt-2 text-sm text-red-600">{error}</p>

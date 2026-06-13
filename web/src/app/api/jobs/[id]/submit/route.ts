@@ -1,7 +1,8 @@
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { getApiUser } from "@/lib/api-auth";
-import { getStripe, JOB_PRICE_CENTS } from "@/lib/stripe";
+import { getStripe, isStripePaymentEnabled, JOB_PRICE_CENTS } from "@/lib/stripe";
+import { triggerJobProcessing } from "@/lib/trigger-job-processing";
 import { NextResponse } from "next/server";
 
 export async function POST(
@@ -10,14 +11,6 @@ export async function POST(
 ) {
   const user = await getApiUser(request);
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const stripe = getStripe();
-  if (!stripe) {
-    return NextResponse.json(
-      { error: "Payment not configured. Add STRIPE_SECRET_KEY to enable submit." },
-      { status: 503 }
-    );
-  }
 
   const { id: jobId } = await params;
   const authHeader = request.headers.get("authorization");
@@ -52,6 +45,30 @@ export async function POST(
 
   if (!photos?.length) {
     return NextResponse.json({ error: "Add at least one photo" }, { status: 400 });
+  }
+
+  // Test / pilot: skip Stripe when keys are missing or WISELISTA_SKIP_PAYMENT=true
+  if (!isStripePaymentEnabled()) {
+    const { error: updateError } = await supabase
+      .from("jobs")
+      .update({ status: "processing", updated_at: new Date().toISOString() })
+      .eq("id", jobId);
+
+    if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 });
+
+    console.info("[Submit] payment skipped (test mode), starting processing", {
+      jobId,
+      userId: user.id,
+      photoCount: photos.length,
+    });
+    triggerJobProcessing(jobId);
+
+    return NextResponse.json({ skippedPayment: true });
+  }
+
+  const stripe = getStripe();
+  if (!stripe) {
+    return NextResponse.json({ error: "Stripe not available" }, { status: 503 });
   }
 
   const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
