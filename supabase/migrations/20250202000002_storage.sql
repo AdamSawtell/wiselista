@@ -1,5 +1,5 @@
 -- Wiselista storage policies (Phase 1)
--- Run after 20250202000001_schema.sql and 202502020000015_storage_bucket.sql
+-- Run after 20250202000000_storage_bucket.sql and 20250202000001_schema.sql
 
 -- Authenticated users can upload, read, and update objects in wiselista-photos
 -- (Paths in app: user_id/job_id/uuid.jpg; for stricter RLS add (storage.foldername(name))[1] = auth.uid()::text later)

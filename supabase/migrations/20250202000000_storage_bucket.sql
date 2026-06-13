@@ -1,4 +1,4 @@
--- Storage bucket for job photos (required before storage RLS policies)
+-- Storage bucket for job photos (runs before schema/storage policies)
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('wiselista-photos', 'wiselista-photos', false)
 ON CONFLICT (id) DO NOTHING;
