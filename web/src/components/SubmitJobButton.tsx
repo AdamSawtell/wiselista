@@ -2,13 +2,16 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { getPlanConfig, type PlanTier } from "@/lib/plans";
 
 type SubmitJobButtonProps = {
   jobId: string;
   photoCount: number;
+  planTier: PlanTier;
 };
 
-export function SubmitJobButton({ jobId, photoCount }: SubmitJobButtonProps) {
+export function SubmitJobButton({ jobId, photoCount, planTier }: SubmitJobButtonProps) {
+  const plan = getPlanConfig(planTier);
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -67,7 +70,7 @@ export function SubmitJobButton({ jobId, photoCount }: SubmitJobButtonProps) {
         disabled={loading || photoCount < 1}
         className="btn-primary"
       >
-        {loading ? "Enhancing photos…" : "Submit for edit"}
+        {loading ? "Enhancing photos…" : `Submit for edit — $${plan.priceAud} AUD`}
       </button>
       {loading && (
         <div className="mt-4 max-w-md">

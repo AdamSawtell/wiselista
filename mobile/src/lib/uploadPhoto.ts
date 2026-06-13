@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import { getPlanConfig, normalizePlanTier } from "./plans";
 import type { RoomType } from "../types";
 
 export type UploadPhotoResult = {
@@ -14,6 +15,26 @@ export async function uploadJobPhoto(
   imageUri: string,
   roomType: RoomType
 ): Promise<UploadPhotoResult> {
+  const { data: job } = await supabase
+    .from("jobs")
+    .select("plan_tier, status")
+    .eq("id", jobId)
+    .single();
+
+  if (!job || job.status !== "draft") {
+    throw new Error("Project not found or not editable");
+  }
+
+  const { count } = await supabase
+    .from("photos")
+    .select("id", { count: "exact", head: true })
+    .eq("job_id", jobId);
+
+  const plan = getPlanConfig(normalizePlanTier(job.plan_tier));
+  if ((count ?? 0) >= plan.maxPhotos) {
+    throw new Error(`${plan.name} allows up to ${plan.maxPhotos} photos`);
+  }
+
   const response = await fetch(imageUri);
   const blob = await response.blob();
   const storageKey = `${userId}/${jobId}/${crypto.randomUUID()}.jpg`;

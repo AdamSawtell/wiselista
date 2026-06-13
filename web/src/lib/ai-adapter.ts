@@ -10,9 +10,32 @@
  */
 
 import { createServiceClient } from "@/lib/supabase/server";
+import { computeExpiresAt, normalizePlanTier } from "@/lib/plans";
 import { getEditPrompt, type RoomType } from "@/lib/prompts";
 
 const BUCKET = "wiselista-photos";
+
+async function markJobReady(
+  supabase: Awaited<ReturnType<typeof createServiceClient>>,
+  jobId: string
+) {
+  const completedAt = new Date();
+  const { data: job } = await supabase.from("jobs").select("plan_tier").eq("id", jobId).single();
+  const expiresAt = computeExpiresAt(completedAt, normalizePlanTier(job?.plan_tier));
+
+  await supabase
+    .from("jobs")
+    .update({
+      status: "ready",
+      completed_at: completedAt.toISOString(),
+      expires_at: expiresAt,
+      updated_at: completedAt.toISOString(),
+      processing_photo_index: null,
+      processing_photo_total: null,
+      processing_started_at: null,
+    })
+    .eq("id", jobId);
+}
 const SIGNED_URL_EXPIRY_AI = 3600; // 1 hour for AI partner to fetch
 
 const CLAID_API_URL = "https://api.claid.ai/v1";
@@ -227,17 +250,7 @@ export async function processJobWithRealAI(jobId: string): Promise<void> {
 
   const requests = await buildAIRequests(jobId);
   if (!requests.length) {
-    await supabase
-      .from("jobs")
-      .update({
-        status: "ready",
-        completed_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        processing_photo_index: null,
-        processing_photo_total: null,
-        processing_started_at: null,
-      })
-      .eq("id", jobId);
+    await markJobReady(supabase, jobId);
     return;
   }
 
@@ -282,14 +295,5 @@ export async function processJobWithRealAI(jobId: string): Promise<void> {
     }
   }
 
-  await supabase
-    .from("jobs")
-    .update({
-      status: "ready",
-      completed_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      processing_photo_index: null,
-      processing_photo_total: null,
-    })
-    .eq("id", jobId);
+  await markJobReady(supabase, jobId);
 }

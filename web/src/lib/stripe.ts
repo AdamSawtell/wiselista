@@ -1,6 +1,7 @@
 import Stripe from "stripe";
+import { getPlanConfig, type PlanTier } from "@/lib/plans";
 
-/** AUD $29 per job — fixed per-job pricing for V1 pilot. */
+/** @deprecated Use getPlanConfig(tier).priceCents */
 export const JOB_PRICE_CENTS = 2900;
 
 let stripeClient: Stripe | null = null;
@@ -20,4 +21,12 @@ export function getStripe(): Stripe | null {
     stripeClient = new Stripe(key, { apiVersion: "2025-02-24.acacia" });
   }
   return stripeClient;
+}
+
+export function jobPriceCents(planTier: string | null | undefined): number {
+  return getPlanConfig(planTier).priceCents;
+}
+
+export function stripeProductName(planTier: PlanTier | string | null | undefined): string {
+  return `${getPlanConfig(planTier).name} — photo edit (this project)`;
 }

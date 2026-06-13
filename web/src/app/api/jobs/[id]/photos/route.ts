@@ -1,6 +1,7 @@
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { getApiUser } from "@/lib/api-auth";
+import { getPlanConfig } from "@/lib/plans";
 import { NextResponse } from "next/server";
 
 const ROOM_TYPES = ["living_room", "kitchen", "bedroom", "bathroom", "exterior", "other"];
@@ -25,13 +26,28 @@ export async function POST(
 
   const { data: job } = await supabase
     .from("jobs")
-    .select("id, status")
+    .select("id, status, plan_tier")
     .eq("id", jobId)
     .eq("user_id", user.id)
     .single();
 
   if (!job || job.status !== "draft") {
     return NextResponse.json({ error: "Job not found or not draft" }, { status: 404 });
+  }
+
+  const { count } = await supabase
+    .from("photos")
+    .select("id", { count: "exact", head: true })
+    .eq("job_id", jobId);
+
+  const maxPhotos = getPlanConfig(job.plan_tier).maxPhotos;
+  if ((count ?? 0) >= maxPhotos) {
+    return NextResponse.json(
+      {
+        error: `This project allows up to ${maxPhotos} photos on ${getPlanConfig(job.plan_tier).name}. Remove a photo or upgrade to Pro.`,
+      },
+      { status: 400 }
+    );
   }
 
   const formData = await request.formData();

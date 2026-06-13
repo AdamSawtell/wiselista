@@ -103,7 +103,7 @@ export default function Home() {
               </Link>
             </div>
             <p className="px-2 pb-1 pt-2 text-center text-xs text-slate-500">
-              From AUD $29 per job · Secure Stripe payment · No subscription
+              Core from AUD $29 · Pro from AUD $49 · Secure Stripe payment · No subscription
             </p>
           </div>
         </div>
@@ -113,8 +113,8 @@ export default function Home() {
       <section className="border-b border-wiselista-border bg-slate-50">
         <div className="mx-auto grid max-w-7xl grid-cols-1 gap-6 px-4 py-8 sm:grid-cols-3 sm:px-6 lg:px-8">
           {[
-            { value: "AUD $29", label: "Per job, all photos" },
-            { value: "Guided capture", label: "Room-by-room on site" },
+            { value: "From $29", label: "Core per project" },
+            { value: "Up to 25 photos", label: "On Pro projects" },
             { value: "AI + HDR", label: "Pro enhancement" },
           ].map((stat) => (
             <div key={stat.label} className="text-center sm:text-left">
@@ -195,8 +195,8 @@ export default function Home() {
                 body: "Not phone-filters — property-grade enhancement so rentals and sales look bright, sharp, and trustworthy.",
               },
               {
-                title: "One price, no tool stack",
-                body: "AUD $29 per job covers the lot. No Lightroom, no freelancer quotes, no piecing it together.",
+                title: "Two plans, one workflow",
+                body: "Core covers everyday listings. Pro adds more photos, longer access, and client share links.",
               },
             ].map((item) => (
               <div key={item.title} className="text-center sm:text-left">
@@ -322,28 +322,59 @@ export default function Home() {
       <section id="pricing" className="py-16 sm:py-20">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="mx-auto max-w-3xl text-center">
-            <h2 className="text-3xl font-bold text-slate-900">Simple, per-job pricing</h2>
+            <h2 className="text-3xl font-bold text-slate-900">Simple, per-project pricing</h2>
             <p className="mt-3 text-slate-600">
-              No subscriptions. Pay once per batch — whether it&apos;s a rental turnaround or a full sale listing.
+              No subscriptions. Choose Core or Pro when you create a project — upgrade anytime before you submit.
             </p>
           </div>
 
-          <div className="mx-auto mt-10 max-w-md">
+          <div className="mx-auto mt-10 grid max-w-4xl gap-6 md:grid-cols-2">
             <div className="card overflow-hidden">
-              <div className="bg-wiselista-navy px-6 py-8 text-center text-white">
-                <p className="text-sm font-medium uppercase tracking-wide text-sky-200">Per job</p>
+              <div className="bg-slate-800 px-6 py-8 text-center text-white">
+                <p className="text-sm font-medium uppercase tracking-wide text-slate-300">Wiselista Core</p>
                 <p className="mt-2 text-5xl font-bold">
                   $29
                   <span className="text-lg font-medium text-slate-300"> AUD</span>
                 </p>
-                <p className="mt-2 text-sm text-slate-300">All photos in the job · Unlimited rooms</p>
+                <p className="mt-2 text-sm text-slate-300">Per project · 60 days access</p>
               </div>
               <ul className="space-y-3 px-6 py-6 text-sm text-slate-600">
                 {[
-                  "AI enhancement (HDR, colour, sharpness)",
-                  "Room-type specific processing",
+                  "All AI enhancement features",
+                  "Up to 15 photos per project",
+                  "Project available for 60 days",
                   "Dashboard download when ready",
-                  "Works on web and mobile",
+                  "Web and mobile capture",
+                ].map((feature) => (
+                  <li key={feature} className="flex items-start gap-2">
+                    <span className="mt-0.5 text-wiselista-accent">✓</span>
+                    {feature}
+                  </li>
+                ))}
+              </ul>
+              <div className="border-t border-wiselista-border px-6 py-5">
+                <Link href="/login" className="btn-secondary w-full">
+                  Start with Core
+                </Link>
+              </div>
+            </div>
+
+            <div className="card overflow-hidden ring-2 ring-wiselista-accent/30">
+              <div className="bg-wiselista-navy px-6 py-8 text-center text-white">
+                <p className="text-sm font-medium uppercase tracking-wide text-sky-200">Wiselista Pro</p>
+                <p className="mt-2 text-5xl font-bold">
+                  $49
+                  <span className="text-lg font-medium text-slate-300"> AUD</span>
+                </p>
+                <p className="mt-2 text-sm text-slate-300">Per project · 90 days access</p>
+              </div>
+              <ul className="space-y-3 px-6 py-6 text-sm text-slate-600">
+                {[
+                  "Everything in Core",
+                  "Up to 25 photos per project",
+                  "Project available for 90 days",
+                  "Share with client link",
+                  "More Pro features coming soon",
                 ].map((feature) => (
                   <li key={feature} className="flex items-start gap-2">
                     <span className="mt-0.5 text-wiselista-accent">✓</span>
@@ -353,7 +384,7 @@ export default function Home() {
               </ul>
               <div className="border-t border-wiselista-border px-6 py-5">
                 <Link href="/login" className="btn-primary w-full">
-                  Get started
+                  Start with Pro
                 </Link>
               </div>
             </div>

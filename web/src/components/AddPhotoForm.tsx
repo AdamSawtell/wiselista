@@ -14,17 +14,26 @@ const ROOM_OPTIONS = [
 
 type AddPhotoFormProps = {
   jobId: string;
+  photoCount: number;
+  maxPhotos: number;
+  planName: string;
 };
 
-export function AddPhotoForm({ jobId }: AddPhotoFormProps) {
+export function AddPhotoForm({ jobId, photoCount, maxPhotos, planName }: AddPhotoFormProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
+  const atLimit = photoCount >= maxPhotos;
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
+    if (atLimit) {
+      setError(`${planName} allows up to ${maxPhotos} photos. Remove one or upgrade to Pro.`);
+      return;
+    }
     const form = e.currentTarget;
     const roomType = (new FormData(form).get("room_type") as string) || "";
     const files = fileInputRef.current?.files;
@@ -70,7 +79,7 @@ export function AddPhotoForm({ jobId }: AddPhotoFormProps) {
     <form onSubmit={handleSubmit} className="rounded-xl border border-wiselista-border bg-white p-5 shadow-sm">
       <h3 className="font-semibold text-slate-900">Add photos</h3>
       <p className="mt-1 text-sm text-slate-500">
-        Choose a room type, then upload one or more images from your device.
+        {photoCount} / {maxPhotos} photos on {planName}. Choose a room type, then upload images from your device.
       </p>
 
       <div className="mt-5 grid gap-4 sm:grid-cols-2">
@@ -112,8 +121,8 @@ export function AddPhotoForm({ jobId }: AddPhotoFormProps) {
       </div>
 
       {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
-      <button type="submit" disabled={loading} className="btn-primary mt-5">
-        {loading ? "Uploading…" : "Add photos"}
+      <button type="submit" disabled={loading || atLimit} className="btn-primary mt-5">
+        {atLimit ? "Photo limit reached" : loading ? "Uploading…" : "Add photos"}
       </button>
     </form>
   );

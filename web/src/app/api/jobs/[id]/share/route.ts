@@ -1,6 +1,7 @@
 import { randomBytes } from "crypto";
 import { createClientForRequest } from "@/lib/supabase/server";
 import { getApiUser } from "@/lib/api-auth";
+import { getPlanConfig } from "@/lib/plans";
 import { getSignedUrlsForPhotos } from "@/lib/storage";
 import { NextResponse } from "next/server";
 
@@ -20,7 +21,7 @@ export async function POST(
 
   const { data: job, error: fetchError } = await supabase
     .from("jobs")
-    .select("id, status, share_token")
+    .select("id, status, share_token, plan_tier")
     .eq("id", id)
     .eq("user_id", user.id)
     .single();
@@ -28,6 +29,12 @@ export async function POST(
   if (fetchError || !job) return NextResponse.json({ error: "Not found" }, { status: 404 });
   if (job.status !== "ready") {
     return NextResponse.json({ error: "Share links are available when photos are ready" }, { status: 400 });
+  }
+  if (!getPlanConfig(job.plan_tier).shareEnabled) {
+    return NextResponse.json(
+      { error: "Share with client is available on Wiselista Pro. Upgrade this project before submitting next time." },
+      { status: 403 }
+    );
   }
 
   const { data: photos } = await supabase

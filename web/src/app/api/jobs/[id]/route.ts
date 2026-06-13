@@ -2,6 +2,7 @@ import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { createClient, createClientForRequest, getServiceClientOrNull } from "@/lib/supabase/server";
 import { getApiUser } from "@/lib/api-auth";
 import { getCurrentUser } from "@/lib/auth";
+import { canDowngradeToCore, getPlanConfig, normalizePlanTier } from "@/lib/plans";
 import { NextResponse } from "next/server";
 
 const BUCKET = "wiselista-photos";
@@ -49,6 +50,7 @@ export async function PATCH(
     property_address?: string | null;
     listing_type?: string | null;
     target_portal?: string | null;
+    plan_tier?: string;
   };
   try {
     body = await request.json();
@@ -87,6 +89,41 @@ export async function PATCH(
     updates.target_portal = portal || null;
   }
 
+  if (body.plan_tier !== undefined) {
+    const nextTier = normalizePlanTier(body.plan_tier);
+    const supabaseCheck = await createClientForRequest(request);
+    if (!supabaseCheck) return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
+
+    const { data: job } = await supabaseCheck
+      .from("jobs")
+      .select("id, status")
+      .eq("id", id)
+      .eq("user_id", user.id)
+      .single();
+
+    if (!job) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    if (job.status !== "draft") {
+      return NextResponse.json({ error: "Plan can only be changed while the project is a draft" }, { status: 400 });
+    }
+
+    if (nextTier === "core") {
+      const { count } = await supabaseCheck
+        .from("photos")
+        .select("id", { count: "exact", head: true })
+        .eq("job_id", id);
+      if (!canDowngradeToCore(count ?? 0)) {
+        return NextResponse.json(
+          {
+            error: `Core allows up to ${getPlanConfig("core").maxPhotos} photos. Remove extras before switching plans.`,
+          },
+          { status: 400 }
+        );
+      }
+    }
+
+    updates.plan_tier = nextTier;
+  }
+
   if (Object.keys(updates).length === 1) {
     return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
   }
@@ -99,7 +136,7 @@ export async function PATCH(
     .update(updates)
     .eq("id", id)
     .eq("user_id", user.id)
-    .select("id, name, property_address, listing_type, target_portal, status, created_at, updated_at")
+    .select("id, name, property_address, listing_type, target_portal, plan_tier, status, created_at, updated_at")
     .single();
 
   if (error || !data) return NextResponse.json({ error: "Not found" }, { status: 404 });

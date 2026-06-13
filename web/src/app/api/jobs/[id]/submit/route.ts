@@ -1,7 +1,8 @@
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { getApiUser } from "@/lib/api-auth";
-import { getStripe, isStripePaymentEnabled, JOB_PRICE_CENTS } from "@/lib/stripe";
+import { getStripe, isStripePaymentEnabled, jobPriceCents, stripeProductName } from "@/lib/stripe";
+import { getPlanConfig } from "@/lib/plans";
 import { runJobProcessing } from "@/lib/trigger-job-processing";
 import { NextResponse } from "next/server";
 
@@ -31,7 +32,7 @@ export async function POST(
 
   const { data: job, error: jobError } = await supabase
     .from("jobs")
-    .select("id, status, user_id")
+    .select("id, status, user_id, plan_tier")
     .eq("id", jobId)
     .eq("user_id", user.id)
     .single();
@@ -48,6 +49,14 @@ export async function POST(
 
   if (!photos?.length) {
     return NextResponse.json({ error: "Add at least one photo" }, { status: 400 });
+  }
+
+  const plan = getPlanConfig(job.plan_tier);
+  if (photos.length > plan.maxPhotos) {
+    return NextResponse.json(
+      { error: `${plan.name} allows up to ${plan.maxPhotos} photos. Remove extras or upgrade to Pro.` },
+      { status: 400 }
+    );
   }
 
   // Test / pilot: skip Stripe when keys are missing or WISELISTA_SKIP_PAYMENT=true
@@ -84,8 +93,8 @@ export async function POST(
         {
           price_data: {
             currency: "aud",
-            unit_amount: JOB_PRICE_CENTS,
-            product_data: { name: "Wiselista — Photo edit (this job)" },
+            unit_amount: jobPriceCents(job.plan_tier),
+            product_data: { name: stripeProductName(job.plan_tier) },
           },
           quantity: 1,
         },

@@ -17,6 +17,8 @@ import { TimeSavedCallout } from "@/components/TimeSavedCallout";
 import { ShareLinkButton } from "@/components/ShareLinkButton";
 import { getSignedUrlsForPhotos } from "@/lib/storage";
 import { formatJobDate } from "@/lib/jobs";
+import { getPlanConfig, normalizePlanTier } from "@/lib/plans";
+import { JobPlanEditor } from "@/components/JobPlanEditor";
 import { LISTING_TYPE_LABELS } from "@/lib/enhancement";
 
 export const dynamic = "force-dynamic";
@@ -32,6 +34,8 @@ type JobRow = {
   listing_type?: string | null;
   target_portal?: string | null;
   processing_started_at?: string | null;
+  plan_tier?: string | null;
+  expires_at?: string | null;
 };
 
 export default async function JobDetailPage({
@@ -106,6 +110,9 @@ export default async function JobDetailPage({
   const isDraft = jobRow.status === "draft";
   const isReady = jobRow.status === "ready";
   const isProcessing = jobRow.status === "processing";
+  const planTier = normalizePlanTier(jobRow.plan_tier);
+  const plan = getPlanConfig(planTier);
+  const photoCount = photos?.length ?? 0;
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
@@ -180,17 +187,37 @@ export default async function JobDetailPage({
             propertyAddress={jobRow.property_address ?? null}
           />
           <EnhancementSummary photos={photos ?? []} />
-          <section className="rounded-xl border border-wiselista-border bg-white p-5 shadow-sm">
-            <h2 className="font-semibold text-slate-900">Share with your client</h2>
-            <p className="mt-1 text-sm text-slate-500">
-              Send a view-only link so vendors or property managers can approve before you list.
-            </p>
-            <div className="mt-4">
-              <ShareLinkButton jobId={id} />
-            </div>
-          </section>
+          {plan.shareEnabled ? (
+            <section className="rounded-xl border border-wiselista-border bg-white p-5 shadow-sm">
+              <h2 className="font-semibold text-slate-900">Share with your client</h2>
+              <p className="mt-1 text-sm text-slate-500">
+                Send a view-only link so vendors or property managers can approve before you list.
+              </p>
+              <div className="mt-4">
+                <ShareLinkButton jobId={id} />
+              </div>
+            </section>
+          ) : (
+            <section className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-5">
+              <h2 className="font-semibold text-slate-900">Share with your client</h2>
+              <p className="mt-1 text-sm text-slate-600">
+                Client share links are included on Wiselista Pro. This project is on Core — upgrade before
+                submitting your next listing to unlock share.
+              </p>
+            </section>
+          )}
         </div>
       )}
+
+      <div className="mt-6">
+        <JobPlanEditor
+          jobId={id}
+          initialTier={planTier}
+          photoCount={photoCount}
+          editable={isDraft}
+          expiresAt={jobRow.expires_at ?? null}
+        />
+      </div>
 
       <div className="mt-6">
         <PropertyContextForm
@@ -203,14 +230,15 @@ export default async function JobDetailPage({
 
       {isDraft && (
         <section className="mt-6 space-y-4">
-          <AddPhotoForm jobId={id} />
+          <AddPhotoForm jobId={id} photoCount={photoCount} maxPhotos={plan.maxPhotos} planName={plan.name} />
           <div className="rounded-xl border border-wiselista-border bg-white p-5 shadow-sm">
             <h2 className="font-semibold text-slate-900">Ready to enhance?</h2>
             <p className="mt-1 text-sm text-slate-500">
-              Submit when you&apos;ve added all the photos you want edited.
+              Submit when you&apos;ve added all the photos you want edited ({photoCount} / {plan.maxPhotos}{" "}
+              on {plan.name}).
             </p>
             <div className="mt-4">
-              <SubmitJobButton jobId={id} photoCount={photos?.length ?? 0} />
+              <SubmitJobButton jobId={id} photoCount={photoCount} planTier={planTier} />
             </div>
           </div>
         </section>
@@ -221,7 +249,10 @@ export default async function JobDetailPage({
           <div>
             <h2 className="text-lg font-semibold text-slate-900">
               Photos
-              <span className="ml-2 font-normal text-slate-500">({photos?.length ?? 0})</span>
+              <span className="ml-2 font-normal text-slate-500">
+                ({photoCount}
+                {isDraft ? ` / ${plan.maxPhotos}` : ""})
+              </span>
             </h2>
             {isDraft && (
               <p className="mt-0.5 text-sm text-slate-500">

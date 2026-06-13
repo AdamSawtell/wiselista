@@ -7,11 +7,13 @@ import {
   ActivityIndicator,
   SafeAreaView,
   ScrollView,
+  Pressable,
 } from "react-native";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 import { theme } from "../theme";
 import PrimaryButton from "../components/PrimaryButton";
+import { PLANS, type PlanTier } from "../lib/plans";
 
 const STEPS = [
   "Walk through each room with pro framing tips",
@@ -22,6 +24,7 @@ const STEPS = [
 export default function ShootStartScreen({ navigation }: { navigation: any }) {
   const { user } = useAuth();
   const [propertyName, setPropertyName] = useState("");
+  const [planTier, setPlanTier] = useState<PlanTier>("core");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -36,6 +39,7 @@ export default function ShootStartScreen({ navigation }: { navigation: any }) {
         user_id: user.id,
         status: "draft",
         name: trimmed || null,
+        plan_tier: planTier,
       })
       .select("id")
       .single();
@@ -78,6 +82,31 @@ export default function ShootStartScreen({ navigation }: { navigation: any }) {
           onChangeText={setPropertyName}
           maxLength={120}
         />
+
+        <Text style={[styles.label, { color: theme.colors.textMuted }]}>Choose a plan</Text>
+        <View style={styles.planRow}>
+          {(["core", "pro"] as const).map((tier) => (
+            <Pressable
+              key={tier}
+              onPress={() => setPlanTier(tier)}
+              style={[
+                styles.planChip,
+                {
+                  borderColor: planTier === tier ? theme.colors.primary : theme.colors.border,
+                  backgroundColor: planTier === tier ? "#EFF6FF" : theme.colors.surface,
+                },
+              ]}
+            >
+              <Text style={[styles.planTitle, { color: theme.colors.textPrimary }]}>{PLANS[tier].name}</Text>
+              <Text style={[styles.planPrice, { color: theme.colors.textSecondary }]}>
+                ${PLANS[tier].priceAud} AUD · {PLANS[tier].maxPhotos} photos
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+        <Text style={[styles.planHint, { color: theme.colors.textMuted }]}>
+          Upgrade to Pro anytime before you submit.
+        </Text>
 
         {error && <Text style={[styles.error, { color: theme.colors.error }]}>{error}</Text>}
 
@@ -124,6 +153,11 @@ const styles = StyleSheet.create({
     ...theme.typography.body,
   },
   error: { ...theme.typography.caption, marginBottom: theme.spacing.md },
+  planRow: { gap: theme.spacing.sm, marginBottom: theme.spacing.sm },
+  planChip: { borderWidth: 1, borderRadius: theme.radius.sm, padding: theme.spacing.md },
+  planTitle: { ...theme.typography.captionMedium },
+  planPrice: { ...theme.typography.caption, marginTop: 4 },
+  planHint: { ...theme.typography.caption, marginBottom: theme.spacing.lg },
   loader: { marginVertical: theme.spacing.lg },
   cta: { marginBottom: theme.spacing.sm },
 });

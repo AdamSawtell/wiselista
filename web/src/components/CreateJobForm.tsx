@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { type PlanTier } from "@/lib/plans";
+import { PlanSelector } from "@/components/PlanSelector";
 
 type CreateJobFormProps = {
   /** Compact button for the app header; full form for the dashboard hero. */
@@ -12,6 +14,7 @@ export function CreateJobForm({ compact = false }: CreateJobFormProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [name, setName] = useState("");
+  const [planTier, setPlanTier] = useState<PlanTier>("core");
   const [expanded, setExpanded] = useState(false);
   const router = useRouter();
 
@@ -23,7 +26,7 @@ export function CreateJobForm({ compact = false }: CreateJobFormProps) {
       const res = await fetch("/api/jobs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim() || undefined }),
+        body: JSON.stringify({ name: name.trim() || undefined, plan_tier: planTier }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -32,6 +35,7 @@ export function CreateJobForm({ compact = false }: CreateJobFormProps) {
         return;
       }
       setName("");
+      setPlanTier("core");
       setExpanded(false);
       router.push(`/dashboard/jobs/${data.id}`);
       router.refresh();
@@ -83,7 +87,7 @@ export function CreateJobForm({ compact = false }: CreateJobFormProps) {
   }
 
   return (
-    <form onSubmit={handleCreate} className="card flex flex-col gap-4 p-5 sm:flex-row sm:items-end">
+    <form onSubmit={handleCreate} className="card flex flex-col gap-5 p-5">
       <div className="min-w-0 flex-1">
         <label htmlFor="project-name" className="block text-sm font-medium text-slate-700">
           Project name
@@ -99,10 +103,17 @@ export function CreateJobForm({ compact = false }: CreateJobFormProps) {
         />
         <p className="mt-1 text-xs text-slate-500">Optional — you can rename later.</p>
       </div>
-      <button type="submit" disabled={loading} className="btn-primary shrink-0">
+
+      <div>
+        <p className="mb-3 text-sm font-medium text-slate-700">Choose a plan</p>
+        <PlanSelector value={planTier} onChange={setPlanTier} />
+        <p className="mt-2 text-xs text-slate-500">You can upgrade to Pro at any time before you submit.</p>
+      </div>
+
+      <button type="submit" disabled={loading} className="btn-primary shrink-0 self-start">
         {loading ? "Creating…" : "Create project"}
       </button>
-      {error && <p className="w-full text-sm text-red-600 sm:order-last">{error}</p>}
+      {error && <p className="text-sm text-red-600">{error}</p>}
     </form>
   );
 }
