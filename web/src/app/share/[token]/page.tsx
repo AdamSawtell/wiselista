@@ -58,7 +58,7 @@ export default async function SharePage({
         <section className="overflow-hidden rounded-2xl border border-wiselista-border bg-white shadow-sm">
           <div className="border-b border-wiselista-border bg-wiselista-navy px-6 py-8 text-white sm:px-8">
             <p className="text-xs font-semibold uppercase tracking-wider text-sky-200">Property</p>
-            <h1 className="mt-2 text-2xl font-bold sm:text-3xl">{data.propertyName}</h1>
+            <h1 className="mt-2 text-2xl font-bold text-white sm:text-3xl">{data.propertyName}</h1>
             {data.propertyAddress && (
               <p className="mt-2 text-base text-slate-200">{data.propertyAddress}</p>
             )}
