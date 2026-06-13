@@ -102,9 +102,9 @@ export default function Home() {
       <section className="border-b border-wiselista-border bg-slate-50">
         <div className="mx-auto grid max-w-7xl grid-cols-2 gap-6 px-4 py-8 sm:grid-cols-4 sm:px-6 lg:px-8">
           {[
-            { value: "~15 min", label: "Typical turnaround" },
+            { value: "~15 minutes", label: "Typical turnaround" },
             { value: "AUD $29", label: "Per job, all photos" },
-            { value: "6 rooms", label: "Guided capture types" },
+            { value: "Guided capture", label: "6 rooms on site" },
             { value: "AI + HDR", label: "Pro enhancement" },
           ].map((stat) => (
             <div key={stat.label} className="text-center sm:text-left">
