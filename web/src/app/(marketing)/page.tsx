@@ -367,7 +367,7 @@ export default function Home() {
           <h2 className="text-2xl font-bold text-white sm:text-3xl">
             Ready to list with better photos?
           </h2>
-          <p className="mt-3 text-slate-300">
+          <p className="mx-auto mt-3 max-w-2xl text-base text-slate-200">
             Join rental managers and agents who shoot on site and publish the same afternoon.
           </p>
           <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
