@@ -7,6 +7,7 @@ import {
   StyleSheet,
   SafeAreaView,
   ActivityIndicator,
+  Pressable,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { useAuth } from "../contexts/AuthContext";
@@ -16,14 +17,21 @@ import {
   fetchProfile,
   saveProfile,
   type AgentProfileInput,
+  type ProfileType,
+  PROFILE_TYPE_LABELS,
+  PROFILE_TYPES,
+  isAgentProfile,
 } from "../lib/profile";
 
 const emptyForm = (): AgentProfileInput => ({
+  profile_type: "agent",
   full_name: "",
   business_name: "",
   role_title: "",
   phone: "",
   business_url: "",
+  linkedin_url: "",
+  license_number: "",
   business_address: "",
 });
 
@@ -43,11 +51,14 @@ export default function AccountScreen() {
       const profile = await fetchProfile(user.id);
       if (profile) {
         setForm({
+          profile_type: profile.profile_type === "individual" ? "individual" : "agent",
           full_name: profile.full_name ?? "",
           business_name: profile.business_name ?? "",
           role_title: profile.role_title ?? "",
           phone: profile.phone ?? "",
           business_url: profile.business_url ?? "",
+          linkedin_url: profile.linkedin_url ?? "",
+          license_number: profile.license_number ?? "",
           business_address: profile.business_address ?? "",
         });
       } else {
@@ -90,11 +101,13 @@ export default function AccountScreen() {
     setSaved(false);
   }
 
+  const showAgentFields = isAgentProfile(form.profile_type);
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <View style={[styles.header, { backgroundColor: theme.colors.surface, borderBottomColor: theme.colors.border }]}>
         <Text style={[styles.kicker, { color: theme.colors.primary }]}>Account</Text>
-        <Text style={[styles.title, { color: theme.colors.textPrimary }]}>Your agent profile</Text>
+        <Text style={[styles.title, { color: theme.colors.textPrimary }]}>Your profile</Text>
         {user?.email && (
           <Text style={[styles.subtitle, { color: theme.colors.textMuted }]}>{user.email}</Text>
         )}
@@ -110,24 +123,62 @@ export default function AccountScreen() {
             Shown on share links you send to clients with your property photos.
           </Text>
 
+          <Text style={[styles.label, { color: theme.colors.textMuted }]}>Profile type</Text>
+          <View style={styles.typeRow}>
+            {PROFILE_TYPES.map((type) => (
+              <Pressable
+                key={type}
+                onPress={() => updateField("profile_type", type)}
+                style={[
+                  styles.typeChip,
+                  {
+                    borderColor: form.profile_type === type ? theme.colors.primary : theme.colors.border,
+                    backgroundColor: form.profile_type === type ? "#EFF6FF" : theme.colors.surface,
+                  },
+                ]}
+              >
+                <Text
+                  style={{
+                    ...theme.typography.caption,
+                    color: form.profile_type === type ? theme.colors.primary : theme.colors.textSecondary,
+                  }}
+                >
+                  {PROFILE_TYPE_LABELS[type]}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+
           <ProfileField
             label="Your name *"
             value={form.full_name}
             onChangeText={(v) => updateField("full_name", v)}
             placeholder="Adam Sawtell"
           />
-          <ProfileField
-            label="Agency or business name *"
-            value={form.business_name}
-            onChangeText={(v) => updateField("business_name", v)}
-            placeholder="Ray White Inner West"
-          />
-          <ProfileField
-            label="Role or title"
-            value={form.role_title ?? ""}
-            onChangeText={(v) => updateField("role_title", v)}
-            placeholder="Licensed Sales Agent"
-          />
+
+          {showAgentFields && (
+            <>
+              <ProfileField
+                label="Agency or business name *"
+                value={form.business_name ?? ""}
+                onChangeText={(v) => updateField("business_name", v)}
+                placeholder="Ray White Inner West"
+              />
+              <ProfileField
+                label="Role or title"
+                value={form.role_title ?? ""}
+                onChangeText={(v) => updateField("role_title", v)}
+                placeholder="Licensed Sales Agent"
+              />
+              <ProfileField
+                label="Real estate licence number"
+                value={form.license_number ?? ""}
+                onChangeText={(v) => updateField("license_number", v)}
+                placeholder="RLA337431"
+              />
+            </>
+          )}
+
           <ProfileField
             label="Phone number"
             value={form.phone ?? ""}
@@ -135,19 +186,34 @@ export default function AccountScreen() {
             placeholder="0412 345 678"
             keyboardType="phone-pad"
           />
-          <ProfileField
-            label="Business website or profile link"
-            value={form.business_url ?? ""}
-            onChangeText={(v) => updateField("business_url", v)}
-            placeholder="www.youragency.com.au"
-            autoCapitalize="none"
-          />
-          <ProfileField
-            label="Office address"
-            value={form.business_address ?? ""}
-            onChangeText={(v) => updateField("business_address", v)}
-            placeholder="123 Main Street, Sydney"
-          />
+
+          {showAgentFields && (
+            <>
+              <ProfileField
+                label="Agency website"
+                value={form.business_url ?? ""}
+                onChangeText={(v) => updateField("business_url", v)}
+                placeholder="www.youragency.com.au"
+                autoCapitalize="none"
+              />
+              <ProfileField
+                label="LinkedIn profile"
+                value={form.linkedin_url ?? ""}
+                onChangeText={(v) => updateField("linkedin_url", v)}
+                placeholder="linkedin.com/in/yourname"
+                autoCapitalize="none"
+              />
+              <ProfileField
+                label="Office address"
+                value={form.business_address ?? ""}
+                onChangeText={(v) => updateField("business_address", v)}
+                placeholder="123 Main Street, Sydney"
+              />
+              <Text style={[styles.photoHint, { color: theme.colors.textMuted }]}>
+                Upload a profile photo from the web dashboard — it appears on client share pages.
+              </Text>
+            </>
+          )}
 
           {error && <Text style={[styles.error, { color: theme.colors.error }]}>{error}</Text>}
           {saved && (
@@ -214,6 +280,13 @@ const styles = StyleSheet.create({
   centered: { flex: 1, justifyContent: "center", alignItems: "center" },
   scroll: { padding: theme.spacing.lg, paddingBottom: theme.spacing.xxl },
   hint: { ...theme.typography.body, marginBottom: theme.spacing.lg },
+  typeRow: { flexDirection: "row", flexWrap: "wrap", gap: theme.spacing.sm, marginBottom: theme.spacing.md },
+  typeChip: {
+    borderWidth: 1,
+    borderRadius: theme.radius.sm,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
   field: { marginBottom: theme.spacing.md },
   label: { ...theme.typography.captionMedium, marginBottom: 6 },
   input: {
@@ -222,6 +295,7 @@ const styles = StyleSheet.create({
     padding: 14,
     fontSize: 16,
   },
+  photoHint: { ...theme.typography.caption, marginBottom: theme.spacing.md },
   error: { ...theme.typography.caption, marginBottom: theme.spacing.sm },
   saved: { ...theme.typography.caption, marginBottom: theme.spacing.sm },
   save: { marginBottom: theme.spacing.sm },

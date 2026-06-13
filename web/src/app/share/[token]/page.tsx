@@ -85,9 +85,9 @@ export default async function SharePage({
 
           <div className="px-6 py-6 sm:px-8">
             <p className="text-sm leading-relaxed text-slate-600">
-              Your agent has shared listing-ready property photos enhanced with Wiselista — professional
-              HDR, colour, and sharpness tuned for rental and sales portals. Tap any image to view
-              full size.
+              {data.agent.profileType === "individual"
+                ? "Listing-ready property photos enhanced with Wiselista — professional HDR, colour, and sharpness tuned for rental and sales portals. Tap any image to view full size."
+                : "Your agent has shared listing-ready property photos enhanced with Wiselista — professional HDR, colour, and sharpness tuned for rental and sales portals. Tap any image to view full size."}
             </p>
           </div>
         </section>

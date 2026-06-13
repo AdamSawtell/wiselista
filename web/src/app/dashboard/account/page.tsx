@@ -16,7 +16,7 @@ export default async function AccountPage() {
     <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
       <div className="mb-8">
         <p className="text-sm font-medium text-wiselista-accent">Account</p>
-        <h1 className="mt-1 text-2xl font-bold text-slate-900">Your agent profile</h1>
+        <h1 className="mt-1 text-2xl font-bold text-slate-900">Your profile</h1>
         <p className="mt-2 text-sm text-slate-600">
           Signed in as <span className="font-medium text-slate-800">{user.email}</span>
         </p>

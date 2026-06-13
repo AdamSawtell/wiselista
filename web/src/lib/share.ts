@@ -3,6 +3,7 @@ import { LISTING_TYPE_LABELS, type ListingType } from "@/lib/enhancement";
 import { getJobDisplayName, ROOM_LABELS } from "@/lib/jobs";
 import {
   type AgentProfile,
+  PROFILE_PHOTO_SIGNED_EXPIRY,
   shareAgentFromPayload,
   type ShareAgentInfo,
 } from "@/lib/profile";
@@ -168,8 +169,29 @@ async function loadSharePayloadViaService(token: string): Promise<RpcSharePayloa
   };
 }
 
-function payloadToSharePageData(payload: RpcSharePayload, photos: SharePhoto[]): SharePageData {
+async function resolveProfilePhotoUrl(
+  profile: Partial<AgentProfile> | null | undefined
+): Promise<Partial<AgentProfile> | null | undefined> {
+  if (!profile?.photo_key) return profile;
+  if (profile.share_profile_photo_url) return profile;
+
+  const supabase = signingClient();
+  if (!supabase) return profile;
+
+  const { data, error } = await supabase.storage
+    .from(BUCKET)
+    .createSignedUrl(profile.photo_key, PROFILE_PHOTO_SIGNED_EXPIRY);
+  if (error || !data?.signedUrl) return profile;
+
+  return { ...profile, share_profile_photo_url: data.signedUrl };
+}
+
+async function payloadToSharePageData(
+  payload: RpcSharePayload,
+  photos: SharePhoto[]
+): Promise<SharePageData> {
   const listingType = payload.listing_type as ListingType | null;
+  const profile = await resolveProfilePhotoUrl(payload.agent_profile ?? undefined);
   return {
     propertyName: getJobDisplayName({
       id: payload.job_id,
@@ -180,7 +202,7 @@ function payloadToSharePageData(payload: RpcSharePayload, photos: SharePhoto[]):
     agent: shareAgentFromPayload(
       payload.agent_email,
       payload.agent_meta ?? undefined,
-      payload.agent_profile ?? undefined
+      profile ?? undefined
     ),
     completedAt: payload.completed_at ?? null,
     photos,
@@ -197,5 +219,5 @@ export async function getSharePageData(token: string): Promise<SharePageData | n
   const cachedPhotos = photosFromCachedUrls(payload);
   const signedPhotos =
     cachedPhotos.length > 0 ? cachedPhotos : await signPhotoUrls(photos);
-  return payloadToSharePageData(payload, signedPhotos);
+  return await payloadToSharePageData(payload, signedPhotos);
 }
