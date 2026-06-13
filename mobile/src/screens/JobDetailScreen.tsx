@@ -10,6 +10,7 @@ import {
   Alert,
   SafeAreaView,
   Image,
+  Linking,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import * as ImagePicker from "expo-image-picker";
@@ -320,7 +321,7 @@ export default function JobDetailScreen({
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
       });
-      let data: { error?: string } = {};
+      let data: { error?: string; url?: string } = {};
       try {
         const text = await res.text();
         data = text ? JSON.parse(text) : {};
@@ -333,6 +334,14 @@ export default function JobDetailScreen({
       }
       if (!res.ok) {
         Alert.alert("Submit failed", data.error ?? `Error ${res.status}`);
+        return;
+      }
+      if (data.url) {
+        await fetchJob();
+        const opened = await Linking.openURL(data.url);
+        if (!opened) {
+          Alert.alert("Payment", "Open the payment link in your browser to complete checkout.");
+        }
         return;
       }
       await fetchJob();

@@ -24,23 +24,22 @@ You **do not** need a new coded prompt per job. Tune wording in `prompts.ts`; th
    - Calls **triggerMockAI(jobId)** (or real AI when wired).
 3. **Mock path (current):**
    - After a short delay, `submitJobToMockAI` copies each photo’s `original_key` to `edited_key` and sets job to `ready`.
-4. **Real AI path (when wired):**
-   - Use **buildAIRequests(jobId)** from `web/src/lib/ai-adapter.ts` to get, per photo:
-     - `photoId`, `originalKey`, `originalUrl` (signed), `roomType`, **`prompt`** (from `getEditPrompt(roomType)`).
-   - For each request: call your AI partner with `originalUrl` + `prompt` → get edited image → upload to storage → set `photo.edited_key`.
-   - Mark job `ready` (and optionally notify user).
+4. **Real AI path (Claid, when `CLAID_API_KEY` set):**
+   - Submit API calls **processJobWithRealAI(jobId)** (fire-and-forget).
+   - **buildAIRequests(jobId)** gives per photo: `photoId`, `originalUrl` (signed), etc.
+   - For each photo: POST to Claid `/v1/image/edit` with `input: originalUrl` and property-enhancement operations → get `tmp_url` → download → upload to `wiselista-photos` as `{user_id}/{job_id}/edited/{photo_id}.jpg` → set `photo.edited_key`.
+   - When all done, set job `status: "ready"`, `completed_at`.
 
 ---
 
-## 3. Wiring real AI (no prompt coded per job)
+## 3. Real AI wired (Claid)
 
-1. In `web/src/lib/ai-adapter.ts`, implement **processJobWithRealAI(jobId)**:
-   - `const requests = await buildAIRequests(jobId);`
-   - For each `r`: call your partner API with `r.originalUrl` and `r.prompt`.
-   - Upload the returned image to `wiselista-photos` (e.g. `{user_id}/{job_id}/edited/{photo_id}.jpg`), then update `photos.edited_key`.
-   - When all photos are done, set `jobs.status = 'ready'`, `jobs.completed_at = now()`.
-2. In the submit API (or a small config), call **processJobWithRealAI** instead of **triggerMockAI** when real AI is enabled (e.g. env `USE_REAL_AI=true`).
-3. **Prompts:** Change behaviour by editing `web/src/lib/prompts.ts` only — add/change default or room prompts; no per-job code.
+1. **processJobWithRealAI(jobId)** in `web/src/lib/ai-adapter.ts` is implemented:
+   - Uses **buildAIRequests(jobId)**; for each photo calls Claid `/v1/image/edit` with signed URL and property-enhancement operations (HDR, upscale photo).
+   - Downloads result from `tmp_url`, uploads to `wiselista-photos` as `{user_id}/{job_id}/edited/{photo_id}.jpg`, updates `photos.edited_key`.
+   - When all photos are done, sets `jobs.status = 'ready'`, `jobs.completed_at`.
+2. Submit API calls **processJobWithRealAI** when **CLAID_API_KEY** is set; otherwise calls **triggerMockAI**. Set `CLAID_API_KEY` in `.env.local` (or Amplify env) to enable. Get key at [Claid](https://claid.ai/login) → Create API key.
+3. **Prompts:** `prompts.ts` is used for future prompt-based APIs; Claid uses operations (no text prompt per request).
 
 ---
 

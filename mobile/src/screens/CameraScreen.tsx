@@ -9,7 +9,7 @@ import {
   Dimensions,
 } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
-import { APP_URL } from "../lib/supabase";
+import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 import { theme } from "../theme";
 import { ROOM_TYPES, ROOM_LABELS, type RoomType } from "../types";
@@ -24,7 +24,7 @@ export default function CameraScreen({
   navigation: any;
   route: { params: { jobId: string; startSequence?: number } };
 }) {
-  const { user, session } = useAuth();
+  const { user } = useAuth();
   const jobId = route.params.jobId;
   const startSequence = route.params.startSequence ?? 0;
   const [roomType, setRoomType] = useState<RoomType>("living_room");
@@ -39,10 +39,6 @@ export default function CameraScreen({
 
   async function handleCapture() {
     if (!cameraRef.current || !user || uploading) return;
-    if (!session?.access_token) {
-      setError("Not signed in. Sign out and sign in again.");
-      return;
-    }
     setUploading(true);
     setError(null);
     try {
@@ -56,30 +52,44 @@ export default function CameraScreen({
         setUploading(false);
         return;
       }
-      const formData = new FormData();
-      formData.append("file", {
-        uri: photo.uri,
-        type: "image/jpeg",
-        name: "photo.jpg",
-      } as unknown as Blob);
-      formData.append("room_type", roomType);
-      formData.append("sequence", String(startSequence));
+      const ext = "jpg";
+      const key = `${user.id}/${jobId}/${crypto.randomUUID()}.${ext}`;
 
-      const baseUrl = APP_URL || "https://wiselista.com";
-      const res = await fetch(`${baseUrl.replace(/\/$/, "")}/api/jobs/${jobId}/photos`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${session.access_token}` },
-        body: formData,
+      const response = await fetch(photo.uri);
+      const blob = await response.blob();
+      const { error: uploadError } = await supabase.storage
+        .from("wiselista-photos")
+        .upload(key, blob, { contentType: "image/jpeg", upsert: false });
+
+      if (uploadError) {
+        setError(uploadError.message);
+        setUploading(false);
+        return;
+      }
+
+      const { data: existingPhotos } = await supabase
+        .from("photos")
+        .select("sequence")
+        .eq("job_id", jobId)
+        .order("sequence", { ascending: false })
+        .limit(1);
+      const nextSeq = (existingPhotos?.[0]?.sequence ?? -1) + 1;
+
+      const { error: insertError } = await supabase.from("photos").insert({
+        job_id: jobId,
+        room_type: roomType,
+        sequence: nextSeq,
+        original_key: key,
       });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        setError((data as { error?: string }).error ?? `Upload failed (${res.status})`);
+
+      if (insertError) {
+        setError(insertError.message);
         setUploading(false);
         return;
       }
       navigation.goBack();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Upload failed. Check your connection.");
+      setError(e instanceof Error ? e.message : "Upload failed");
     }
     setUploading(false);
   }
