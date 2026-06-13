@@ -1,4 +1,6 @@
-import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import { createClient, getServiceClientOrNull } from "@/lib/supabase/server";
+import { getApiUser } from "@/lib/api-auth";
 import { getCurrentUser } from "@/lib/auth";
 import { NextResponse } from "next/server";
 
@@ -75,14 +77,20 @@ export async function PATCH(
 
 /** Delete job and all its photos (DB + storage). User must own the job. */
 export async function DELETE(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const user = await getCurrentUser();
+  const user = await getApiUser(request);
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id: jobId } = await params;
-  const supabase = await createClient();
+  const authHeader = request.headers.get("authorization");
+  const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+  const supabase = token
+    ? createSupabaseClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
+        global: { headers: { Authorization: `Bearer ${token}` } },
+      })
+    : await createClient();
   if (!supabase) return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
 
   const { data: job, error: jobError } = await supabase
@@ -99,13 +107,18 @@ export async function DELETE(
     .select("original_key, edited_key")
     .eq("job_id", jobId);
 
-  const service = createServiceClient();
+  const service = getServiceClientOrNull();
   if (photos?.length && service) {
     const keys = photos.flatMap((p) => [p.original_key, p.edited_key].filter(Boolean)) as string[];
-    if (keys.length) await service.storage.from(BUCKET).remove(keys);
+    if (keys.length) {
+      const { error: storageError } = await service.storage.from(BUCKET).remove(keys);
+      if (storageError) {
+        console.warn("[DeleteJob] storage cleanup failed:", storageError.message, { jobId });
+      }
+    }
   }
 
-  const { error: deleteError } = await supabase.from("jobs").delete().eq("id", jobId);
+  const { error: deleteError } = await supabase.from("jobs").delete().eq("id", jobId).eq("user_id", user.id);
 
   if (deleteError) return NextResponse.json({ error: deleteError.message }, { status: 500 });
   return NextResponse.json({ ok: true });

@@ -44,3 +44,12 @@ export function createServiceClient() {
   }
   return createSupabaseClient(supabaseUrl, serviceKey);
 }
+
+/** Service client when configured; null otherwise (storage cleanup can be skipped). */
+export function getServiceClientOrNull() {
+  try {
+    return createServiceClient();
+  } catch {
+    return null;
+  }
+}
