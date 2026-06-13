@@ -1,0 +1,20 @@
+---
+description: Do not change the landing page unless the user explicitly asks
+globs: web/src/app/page.tsx
+alwaysApply: false
+---
+
+# Landing page — frozen
+
+The marketing landing page (`web/src/app/page.tsx`) is **approved and frozen**.
+
+## Rules
+
+1. **Do not edit** the landing page copy, layout, sections, images, or stats unless the user **explicitly instructs** a change.
+2. If a task might touch the landing page (e.g. global header/footer, pricing text, hero) and the user did **not** mention the landing page — **stop and confirm** before changing `page.tsx`.
+3. Other pages (`/investors`, `/login`, `/dashboard`, etc.) are not frozen unless the user says so.
+4. Bug fixes that break the landing page (build errors, broken links) are allowed — keep the diff minimal and preserve approved copy unless the user approves a wording change.
+
+## When unsure
+
+Ask: *"Should I update the landing page for this, or leave it as-is?"*
