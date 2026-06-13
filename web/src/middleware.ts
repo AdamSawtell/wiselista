@@ -8,6 +8,7 @@ import { updateSession } from "@/lib/supabase/middleware";
 function isAllowedOrigin(origin: string | null): boolean {
   if (!origin) return false;
   if (origin === "https://wiselista.com") return true;
+  if (origin === "https://mobile.wiselista.com") return true;
   if (origin.startsWith("http://localhost:") || origin.startsWith("http://127.0.0.1:")) return true;
   if (origin.endsWith(".amplifyapp.com") || origin === "https://amplifyapp.com") return true;
   return false;
