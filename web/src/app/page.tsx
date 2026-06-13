@@ -7,22 +7,19 @@ const SHOWCASE = [
   {
     title: "Bright living room",
     suburb: "Ponsonby, Auckland",
-    before: "https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=800&q=80",
-    after: "https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?w=800&q=80",
+    photo: "https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?w=800&q=80",
     tag: "AI enhanced",
   },
   {
     title: "Modern kitchen",
     suburb: "Richmond, Melbourne",
-    before: "https://images.unsplash.com/photo-1556911220-bff31c812dba?w=800&q=80",
-    after: "https://images.unsplash.com/photo-1600489000022-0f1a8d7c51d5?w=800&q=80",
+    photo: "https://images.unsplash.com/photo-1556911220-bff31c812dba?w=800&q=80",
     tag: "HDR + colour",
   },
   {
     title: "Street appeal",
     suburb: "Paddington, Sydney",
-    before: "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=800&q=80",
-    after: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800&q=80",
+    photo: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800&q=80",
     tag: "Exterior polish",
   },
 ] as const;
@@ -122,7 +119,7 @@ export default function Home() {
             <div>
               <h2 className="text-3xl font-bold text-slate-900">See the difference</h2>
               <p className="mt-2 max-w-xl text-slate-600">
-                Phone photos transformed for listings — brighter, sharper, and ready to publish.
+                Same on-site capture — uplifted from flat phone quality to bright, sharp listing photos.
               </p>
             </div>
             <Link href="/login" className="text-sm font-semibold text-wiselista-accent hover:underline">
@@ -135,8 +132,8 @@ export default function Home() {
               <article key={item.title} className="listing-card group overflow-hidden">
                 <div className="relative aspect-[4/3] overflow-hidden bg-slate-200">
                   <Image
-                    src={item.after}
-                    alt={`${item.title} — edited`}
+                    src={item.photo}
+                    alt={`${item.title} — listing ready`}
                     fill
                     className="object-cover transition-transform duration-500 group-hover:scale-105"
                     sizes="(max-width: 1024px) 100vw, 33vw"
@@ -147,10 +144,10 @@ export default function Home() {
                   <div className="absolute inset-x-0 bottom-0 flex">
                     <div className="relative h-16 flex-1 overflow-hidden border-r border-white/20">
                       <Image
-                        src={item.before}
-                        alt={`${item.title} — before`}
+                        src={item.photo}
+                        alt={`${item.title} — phone capture`}
                         fill
-                        className="object-cover opacity-90"
+                        className="showcase-before object-cover"
                         sizes="200px"
                       />
                       <span className="absolute bottom-1 left-2 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-white">
@@ -159,8 +156,8 @@ export default function Home() {
                     </div>
                     <div className="relative h-16 flex-1 overflow-hidden">
                       <Image
-                        src={item.after}
-                        alt={`${item.title} — after`}
+                        src={item.photo}
+                        alt={`${item.title} — after edit`}
                         fill
                         className="object-cover"
                         sizes="200px"

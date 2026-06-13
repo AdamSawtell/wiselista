@@ -44,6 +44,11 @@
     @apply rounded-xl border border-wiselista-border bg-white shadow-sm transition-shadow hover:shadow-md;
   }
 
+  /* Simulates a flat, underexposed phone snapshot — same photo as the listing-ready version */
+  .showcase-before {
+    filter: brightness(0.72) contrast(0.84) saturate(0.58) sepia(0.12) blur(0.3px);
+  }
+
   .badge-draft { @apply rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600; }
   .badge-processing { @apply rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800; }
   .badge-ready { @apply rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-800; }
