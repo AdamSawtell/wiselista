@@ -1,0 +1,7 @@
+# Wiselista_V2 — GitHub integration (AdamSawtell/wiselista)
+# Project ref: mxylwsmyljcevzbupmkz
+
+project_id = "mxylwsmyljcevzbupmkz"
+
+[remotes.production]
+project_id = "mxylwsmyljcevzbupmkz"
