@@ -74,7 +74,10 @@ export async function POST(
       userId: user.id,
       photoCount: photos.length,
     });
-    await runJobProcessing(jobId);
+    const result = await runJobProcessing(jobId, supabase);
+    if (!result.ok) {
+      return NextResponse.json({ error: result.error ?? "Processing failed" }, { status: 500 });
+    }
 
     return NextResponse.json({ skippedPayment: true });
   }

@@ -2,13 +2,13 @@
  * Mock AI adapter: copies original to edited and marks job ready.
  */
 
-import { createServiceClient } from "@/lib/supabase/server";
+import { createServiceClient, type SupabaseClient } from "@/lib/supabase/server";
 import { computeExpiresAt, normalizePlanTier } from "@/lib/plans";
 
-export async function submitJobToMockAI(jobId: string): Promise<void> {
-  const supabase = createServiceClient();
+export async function submitJobToMockAI(jobId: string, supabase?: SupabaseClient): Promise<void> {
+  const db = supabase ?? createServiceClient();
 
-  const { data: job } = await supabase
+  const { data: job } = await db
     .from("jobs")
     .select("id, plan_tier")
     .eq("id", jobId)
@@ -18,7 +18,7 @@ export async function submitJobToMockAI(jobId: string): Promise<void> {
     throw new Error(`Mock AI: job ${jobId} not found`);
   }
 
-  const { data: photos } = await supabase
+  const { data: photos } = await db
     .from("photos")
     .select("id, original_key, edited_key")
     .eq("job_id", jobId)
@@ -26,7 +26,7 @@ export async function submitJobToMockAI(jobId: string): Promise<void> {
 
   if (!photos?.length) {
     const completedAt = new Date();
-    await supabase
+    await db
       .from("jobs")
       .update({
         status: "ready",
@@ -43,11 +43,11 @@ export async function submitJobToMockAI(jobId: string): Promise<void> {
 
   for (const p of photos) {
     if (p.edited_key) continue;
-    await supabase.from("photos").update({ edited_key: p.original_key }).eq("id", p.id);
+    await db.from("photos").update({ edited_key: p.original_key }).eq("id", p.id);
   }
 
   const completedAt = new Date();
-  await supabase
+  await db
     .from("jobs")
     .update({
       status: "ready",

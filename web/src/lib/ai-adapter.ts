@@ -9,16 +9,13 @@
  * 4. Real (Claid): call Claid /v1/image/edit per photo → download tmp_url → upload to storage → set edited_key → mark job ready.
  */
 
-import { createServiceClient } from "@/lib/supabase/server";
+import { createServiceClient, type SupabaseClient } from "@/lib/supabase/server";
 import { computeExpiresAt, normalizePlanTier } from "@/lib/plans";
 import { getEditPrompt, type RoomType } from "@/lib/prompts";
 
 const BUCKET = "wiselista-photos";
 
-async function markJobReady(
-  supabase: Awaited<ReturnType<typeof createServiceClient>>,
-  jobId: string
-) {
+async function markJobReady(supabase: SupabaseClient, jobId: string) {
   const completedAt = new Date();
   const { data: job } = await supabase.from("jobs").select("plan_tier").eq("id", jobId).single();
   const expiresAt = computeExpiresAt(completedAt, normalizePlanTier(job?.plan_tier));
@@ -100,10 +97,10 @@ export type AIPhotoRequest = {
  * original image URL and the prompt (default or room-specific from prompts.ts).
  * Use this when wiring the real AI: no prompt coded per job.
  */
-export async function buildAIRequests(jobId: string): Promise<AIPhotoRequest[]> {
-  const supabase = createServiceClient();
+export async function buildAIRequests(jobId: string, supabase?: SupabaseClient): Promise<AIPhotoRequest[]> {
+  const db = supabase ?? createServiceClient();
 
-  const { data: photos } = await supabase
+  const { data: photos } = await db
     .from("photos")
     .select("id, original_key, room_type, edited_key")
     .eq("job_id", jobId)
@@ -115,7 +112,7 @@ export async function buildAIRequests(jobId: string): Promise<AIPhotoRequest[]> 
 
   for (const p of photos) {
     if (p.edited_key) continue;
-    const { data: signed } = await supabase.storage
+    const { data: signed } = await db.storage
       .from(BUCKET)
       .createSignedUrl(p.original_key, SIGNED_URL_EXPIRY_AI);
 
@@ -168,7 +165,7 @@ async function callClaidEdit(inputUrl: string, roomType: RoomType): Promise<stri
 }
 
 async function uploadClaidResult(
-  supabase: Awaited<ReturnType<typeof createServiceClient>>,
+  supabase: SupabaseClient,
   userId: string,
   jobId: string,
   photoId: string,
@@ -192,10 +189,11 @@ async function uploadClaidResult(
 /** Re-enhance a single photo (job stays ready). */
 export async function reprocessPhotoWithClaid(
   jobId: string,
-  photoId: string
+  photoId: string,
+  supabase?: SupabaseClient
 ): Promise<void> {
-  const supabase = createServiceClient();
-  const { data: job } = await supabase
+  const db = supabase ?? createServiceClient();
+  const { data: job } = await db
     .from("jobs")
     .select("id, user_id, status")
     .eq("id", jobId)
@@ -204,7 +202,7 @@ export async function reprocessPhotoWithClaid(
   if (!job?.user_id) throw new Error("Job not found");
   if (job.status !== "ready") throw new Error("Can only re-enhance photos on ready projects");
 
-  const { data: photo } = await supabase
+  const { data: photo } = await db
     .from("photos")
     .select("id, original_key, room_type")
     .eq("id", photoId)
@@ -213,14 +211,14 @@ export async function reprocessPhotoWithClaid(
 
   if (!photo) throw new Error("Photo not found");
 
-  const { data: signed } = await supabase.storage
+  const { data: signed } = await db.storage
     .from(BUCKET)
     .createSignedUrl(photo.original_key, SIGNED_URL_EXPIRY_AI);
 
   if (!signed?.signedUrl) throw new Error("Could not sign photo URL");
 
   await uploadClaidResult(
-    supabase,
+    db,
     job.user_id,
     jobId,
     photoId,
@@ -233,17 +231,10 @@ export async function reprocessPhotoWithClaid(
  * Process job with Claid: for each photo, call Claid edit → download result → upload to storage → set edited_key → mark job ready.
  * Must be awaited from the submit route (serverless kills fire-and-forget when the HTTP response returns).
  */
-export async function processJobWithRealAI(jobId: string): Promise<void> {
-  let supabase;
-  try {
-    supabase = createServiceClient();
-  } catch {
-    throw new Error(
-      "AI processing requires SUPABASE_SERVICE_ROLE_KEY on the server (set in Amplify env vars)"
-    );
-  }
+export async function processJobWithRealAI(jobId: string, supabase?: SupabaseClient): Promise<void> {
+  const db = supabase ?? createServiceClient();
 
-  const { data: job } = await supabase
+  const { data: job } = await db
     .from("jobs")
     .select("id, user_id")
     .eq("id", jobId)
@@ -253,14 +244,14 @@ export async function processJobWithRealAI(jobId: string): Promise<void> {
     throw new Error(`Claid: job ${jobId} not found or missing user_id`);
   }
 
-  const requests = await buildAIRequests(jobId);
+  const requests = await buildAIRequests(jobId, db);
   if (!requests.length) {
-    await markJobReady(supabase, jobId);
+    await markJobReady(db, jobId);
     return;
   }
   const startedAt = new Date().toISOString();
 
-  await supabase
+  await db
     .from("jobs")
     .update({
       processing_photo_total: requests.length,
@@ -272,18 +263,18 @@ export async function processJobWithRealAI(jobId: string): Promise<void> {
 
   for (let i = 0; i < requests.length; i++) {
     const r = requests[i];
-    await supabase
+    await db
       .from("jobs")
       .update({ processing_photo_index: i + 1, updated_at: new Date().toISOString() })
       .eq("id", jobId);
 
     try {
-      await uploadClaidResult(supabase, job.user_id, jobId, r.photoId, r.roomType, r.originalUrl);
+      await uploadClaidResult(db, job.user_id, jobId, r.photoId, r.roomType, r.originalUrl);
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       const failureMessage = `Photo ${r.photoId.slice(0, 8)}: ${message}`.slice(0, 500);
       console.error("[Claid]", { jobId, userId: job.user_id, photoId: r.photoId, error: message });
-      await supabase
+      await db
         .from("jobs")
         .update({
           status: "failed",
@@ -298,5 +289,5 @@ export async function processJobWithRealAI(jobId: string): Promise<void> {
     }
   }
 
-  await markJobReady(supabase, jobId);
+  await markJobReady(db, jobId);
 }

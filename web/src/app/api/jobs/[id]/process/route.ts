@@ -51,7 +51,7 @@ export async function POST(
   }
 
   console.info("[Process] starting/resuming", { jobId, userId: user.id, pending, total: photos.length });
-  const result = await runJobProcessing(jobId);
+  const result = await runJobProcessing(jobId, supabase);
 
   const { data: updated } = await supabase.from("jobs").select("status, failure_message").eq("id", jobId).single();
 

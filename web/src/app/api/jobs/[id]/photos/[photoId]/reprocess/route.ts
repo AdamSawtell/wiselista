@@ -32,7 +32,7 @@ export async function POST(
 
   try {
     if (process.env.CLAID_API_KEY) {
-      await reprocessPhotoWithClaid(jobId, photoId);
+      await reprocessPhotoWithClaid(jobId, photoId, supabase);
     } else {
       const { data: photo } = await supabase
         .from("photos")
