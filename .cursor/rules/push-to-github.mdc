@@ -1,0 +1,23 @@
+---
+description: Always commit and push code changes to GitHub after editing
+alwaysApply: true
+---
+
+# Push code changes to GitHub
+
+After making code changes in this repo, **always commit and push to GitHub** before finishing — do not wait for the user to ask.
+
+## Required steps
+
+1. **Before finishing:** If you edited, added, or deleted files, run `git status` to see changes.
+2. **Commit:** Stage and commit with a clear message (e.g. `git add -A` then `git commit -m "Brief description"`).
+3. **Push:** Run `git push origin main` (or the correct branch) so the changes are on GitHub.
+
+## When to do it
+
+- After every feature, fix, or refactor — **always**, unless the user explicitly says not to commit/push.
+- Do **not** leave the user with only local changes—they expect the repo (and Amplify) to have the latest code.
+
+## Note
+
+On Windows PowerShell use `;` to chain commands (e.g. `Set-Location "path"; git status`), not `&&`.
