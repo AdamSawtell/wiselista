@@ -30,23 +30,7 @@ export default async function SharePage({
   const { token } = await params;
   const data = await getSharePageData(token);
 
-  if (!data) {
-    const serviceConfigured = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY);
-    if (!serviceConfigured) {
-      return (
-        <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
-          <div className="max-w-md rounded-xl border border-wiselista-border bg-white p-8 text-center shadow-sm">
-            <p className="text-sm font-medium text-wiselista-accent">Wiselista</p>
-            <h1 className="mt-2 text-xl font-bold text-slate-900">Share link unavailable</h1>
-            <p className="mt-3 text-sm text-slate-600">
-              Client share pages need server configuration. Ask your agent to contact Wiselista support.
-            </p>
-          </div>
-        </div>
-      );
-    }
-    notFound();
-  }
+  if (!data) notFound();
 
   return (
     <div className="min-h-screen bg-slate-50">
