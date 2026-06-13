@@ -1,9 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
 import Link from "next/link";
 import { StatusBadge } from "@/components/StatusBadge";
 import { CreateJobButton } from "@/components/CreateJobButton";
 import { DeleteJobButton } from "@/components/DeleteJobButton";
-import { RedirectToLogin } from "@/components/RedirectToLogin";
 
 // Dashboard depends on request cookies and Supabase auth.
 // Force dynamic rendering so Amplify's static export worker doesn't try
@@ -11,29 +11,22 @@ import { RedirectToLogin } from "@/components/RedirectToLogin";
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
-  try {
-    let user: { id: string } | null = null;
-    let jobs: { id: string; status: string; created_at: string }[] | null = null;
-    let jobsError: { message: string } | null = null;
+  const supabase = await createClient();
+  if (!supabase) redirect("/login?error=session");
 
-    const supabase = await createClient();
-    if (!supabase) return <RedirectToLogin />;
+  const { data: authData, error: authError } = await supabase.auth.getUser();
+  if (authError || !authData?.user) redirect("/login?error=session");
+  const user = authData.user;
 
-    const { data: authData, error: authError } = await supabase.auth.getUser();
-    if (authError || !authData?.user) return <RedirectToLogin />;
-    user = authData.user;
+  const result = await supabase
+    .from("jobs")
+    .select("id, status, created_at")
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false });
+  const jobs = result.data ?? null;
+  const jobsError = result.error ? { message: result.error.message } : null;
 
-    const result = await supabase
-      .from("jobs")
-      .select("id, status, created_at")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
-    jobs = result.data ?? null;
-    jobsError = result.error ? { message: result.error.message } : null;
-
-    if (!user) return <RedirectToLogin />;
-
-    return (
+  return (
     <div className="min-h-full bg-wiselista-surface">
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
         <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
@@ -90,9 +83,5 @@ export default async function DashboardPage() {
         )}
       </div>
     </div>
-    );
-  } catch (e) {
-    console.error("Dashboard load failed:", e);
-    return <RedirectToLogin />;
-  }
+  );
 }

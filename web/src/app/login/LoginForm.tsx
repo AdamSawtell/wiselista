@@ -1,8 +1,9 @@
 "use client";
 
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
+import { clearSupabaseAuthCookies } from "@/lib/supabase/clear-auth-cookies";
 import { useState, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
 export function LoginForm() {
@@ -11,18 +12,22 @@ export function LoginForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [clearing, setClearing] = useState(false);
-  const router = useRouter();
   const searchParams = useSearchParams();
   const sessionError = searchParams.get("error") === "session";
 
-  // When we land here with a broken session, clear any stale Supabase session so the user can sign in fresh.
+  // Clear cookies from old Supabase projects when session is broken.
   useEffect(() => {
     if (!sessionError || !isSupabaseConfigured()) return;
+    clearSupabaseAuthCookies(true);
     const supabase = createClient();
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) supabase.auth.signOut({ scope: "local" });
-    });
+    void supabase.auth.signOut({ scope: "global" });
   }, [sessionError]);
+
+  async function clearAuthState() {
+    const supabase = createClient();
+    clearSupabaseAuthCookies(false);
+    await supabase.auth.signOut({ scope: "global" });
+  }
 
   if (!isSupabaseConfigured()) {
     return (
@@ -47,15 +52,15 @@ export function LoginForm() {
 
   async function handleClearSession() {
     setClearing(true);
-    await supabase.auth.signOut({ scope: "local" });
-    setClearing(false);
-    router.replace("/login", { scroll: false });
+    await clearAuthState();
+    window.location.href = "/login";
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    await clearAuthState();
     const { error: err } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
     if (err) {
