@@ -66,7 +66,7 @@ export default async function DashboardPage() {
                       <StatusBadge status={job.status} />
                     </div>
                     <p className="mt-3 text-sm text-slate-600">
-                      {new Date(job.created_at).toLocaleDateString(undefined, {
+                      {new Date(job.created_at).toLocaleString(undefined, {
                         dateStyle: "medium",
                         timeStyle: "short",
                       })}

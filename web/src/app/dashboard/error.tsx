@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import Link from "next/link";
+import { isRedirectError } from "next/dist/client/components/redirect";
 
 export default function DashboardError({
   error,
@@ -11,9 +12,14 @@ export default function DashboardError({
   reset: () => void;
 }) {
   useEffect(() => {
-    // Log in dev; in production digest is all you get
-    console.error("Dashboard error:", error.message, error.digest);
+    if (!isRedirectError(error)) {
+      console.error("Dashboard error:", error.message, error.digest);
+    }
   }, [error]);
+
+  if (isRedirectError(error)) {
+    throw error;
+  }
 
   return (
     <div className="flex min-h-[calc(100vh-8rem)] items-center justify-center px-4 py-12">
