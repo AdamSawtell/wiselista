@@ -57,7 +57,8 @@ export default async function DashboardPage({
               id: p.id,
               original_key: p.original_key,
               edited_key: p.edited_key,
-            }))
+            })),
+            supabase
           )
         : [];
 

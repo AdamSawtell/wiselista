@@ -47,7 +47,8 @@ export default async function JobDetailPage({
           id: p.id,
           original_key: p.original_key,
           edited_key: p.edited_key ?? null,
-        }))
+        })),
+        supabase
       )
     : [];
 

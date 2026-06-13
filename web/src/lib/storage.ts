@@ -1,8 +1,10 @@
 /**
  * Server-side helpers for Supabase storage (wiselista-photos bucket).
- * Uses service role to create signed URLs for private objects.
+ * Prefer the signed-in user's session (works on Amplify without service role).
+ * Falls back to service role when available (webhooks, admin).
  */
 
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createServiceClient } from "@/lib/supabase/server";
 
 const BUCKET = "wiselista-photos";
@@ -20,18 +22,50 @@ export type PhotoSignedUrls = {
   editedUrl: string | null;
 };
 
+function resolveStorageClient(
+  userClient?: SupabaseClient | null
+): SupabaseClient | null {
+  if (userClient) return userClient;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!serviceKey) return null;
+  try {
+    return createServiceClient();
+  } catch {
+    return null;
+  }
+}
+
+async function signedUrlForKey(
+  supabase: SupabaseClient,
+  key: string,
+  expiresInSeconds: number
+): Promise<string | null> {
+  const { data, error } = await supabase.storage
+    .from(BUCKET)
+    .createSignedUrl(key, expiresInSeconds);
+
+  if (error) {
+    console.error("[storage] createSignedUrl failed:", error.message, key);
+    return null;
+  }
+  return data?.signedUrl ?? null;
+}
+
 /**
  * Create signed URLs for original and edited keys so the user can view/download.
- * Returns null URLs if service client is unavailable or a key fails.
+ * Pass the authenticated server Supabase client from createClient() when rendering
+ * dashboard pages so previews work without SUPABASE_SERVICE_ROLE_KEY on Amplify.
  */
 export async function getSignedUrlsForPhotos(
   photos: PhotoKeys[],
+  userClient?: SupabaseClient | null,
   expiresInSeconds: number = DEFAULT_EXPIRES_IN
 ): Promise<PhotoSignedUrls[]> {
-  let supabase;
-  try {
-    supabase = createServiceClient();
-  } catch {
+  const supabase = resolveStorageClient(userClient);
+  if (!supabase) {
+    console.error(
+      "[storage] No Supabase client for signed URLs — pass user session or set SUPABASE_SERVICE_ROLE_KEY"
+    );
     return photos.map((p) => ({
       id: p.id,
       originalUrl: null,
@@ -42,27 +76,19 @@ export async function getSignedUrlsForPhotos(
   const result: PhotoSignedUrls[] = [];
 
   for (const p of photos) {
-    let originalUrl: string | null = null;
+    const originalUrl = await signedUrlForKey(
+      supabase,
+      p.original_key,
+      expiresInSeconds
+    );
+
     let editedUrl: string | null = null;
-
-    try {
-      const { data: orig } = await supabase.storage
-        .from(BUCKET)
-        .createSignedUrl(p.original_key, expiresInSeconds);
-      if (orig?.signedUrl) originalUrl = orig.signedUrl;
-    } catch {
-      // skip
-    }
-
     if (p.edited_key) {
-      try {
-        const { data: edit } = await supabase.storage
-          .from(BUCKET)
-          .createSignedUrl(p.edited_key, expiresInSeconds);
-        if (edit?.signedUrl) editedUrl = edit.signedUrl;
-      } catch {
-        // skip
-      }
+      editedUrl = await signedUrlForKey(
+        supabase,
+        p.edited_key,
+        expiresInSeconds
+      );
     }
 
     result.push({ id: p.id, originalUrl, editedUrl });
