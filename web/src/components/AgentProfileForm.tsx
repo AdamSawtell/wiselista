@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import {
   type AgentProfile,
@@ -16,6 +15,7 @@ import {
 export function AgentProfileForm() {
   const [form, setForm] = useState<AgentProfileInput>(emptyProfileInput());
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
@@ -92,6 +92,10 @@ export function AgentProfileForm() {
   async function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    const localPreview = URL.createObjectURL(file);
+    setPhotoPreview(localPreview);
+
     setUploadingPhoto(true);
     setError(null);
     setSaved(false);
@@ -102,15 +106,19 @@ export function AgentProfileForm() {
       const data = await res.json();
       if (!res.ok) {
         setError(data.error ?? "Could not upload photo");
+        setPhotoPreview(null);
         return;
       }
       const p = data.profile as AgentProfile;
       setPhotoUrl(p.share_profile_photo_url ?? null);
+      setPhotoPreview(null);
       setSaved(true);
     } catch {
       setError("Could not upload photo");
+      setPhotoPreview(null);
     } finally {
       setUploadingPhoto(false);
+      URL.revokeObjectURL(localPreview);
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
   }
@@ -126,6 +134,7 @@ export function AgentProfileForm() {
         return;
       }
       setPhotoUrl(null);
+      setPhotoPreview(null);
       setSaved(true);
     } catch {
       setError("Could not remove photo");
@@ -182,8 +191,13 @@ export function AgentProfileForm() {
           </p>
           <div className="mt-4 flex flex-wrap items-center gap-4">
             <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-full border-2 border-white bg-slate-200 shadow-sm ring-2 ring-amber-300/60">
-              {photoUrl ? (
-                <Image src={photoUrl} alt="Your profile photo" fill className="object-cover" unoptimized />
+              {photoPreview || photoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={photoPreview ?? photoUrl ?? ""}
+                  alt="Your profile photo"
+                  className="h-full w-full object-cover"
+                />
               ) : (
                 <div className="flex h-full w-full items-center justify-center text-2xl font-semibold text-slate-400">
                   {form.full_name.trim().charAt(0).toUpperCase() || "?"}
@@ -204,9 +218,9 @@ export function AgentProfileForm() {
                 disabled={uploadingPhoto}
                 className="rounded-lg border border-wiselista-border bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
               >
-                {uploadingPhoto ? "Uploading…" : photoUrl ? "Change photo" : "Upload photo"}
+                {uploadingPhoto ? "Uploading…" : photoPreview || photoUrl ? "Change photo" : "Upload photo"}
               </button>
-              {photoUrl && (
+              {(photoPreview || photoUrl) && (
                 <button
                   type="button"
                   onClick={() => void handleRemovePhoto()}

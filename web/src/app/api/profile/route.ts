@@ -1,28 +1,35 @@
-import { createClientForRequest, getServiceClientOrNull } from "@/lib/supabase/server";
+import { createClientForRequest } from "@/lib/supabase/server";
 import { getApiUser } from "@/lib/api-auth";
 import {
   type AgentProfileInput,
-  PROFILE_PHOTO_SIGNED_EXPIRY,
   profilePhotoStorageKey,
   sanitizeProfileInput,
   validateProfileInput,
 } from "@/lib/profile";
+import {
+  enrichProfileWithPhotoUrl,
+  isAllowedProfileImage,
+  persistProfilePhotoUrl,
+  profileImageExtension,
+  signProfilePhotoUrl,
+} from "@/lib/profile-photo";
 import { NextResponse } from "next/server";
 
 const BUCKET = "wiselista-photos";
 
-async function signProfilePhotoUrl(photoKey: string): Promise<string | null> {
-  const service = getServiceClientOrNull();
-  if (!service) return null;
-  const { data, error } = await service.storage
-    .from(BUCKET)
-    .createSignedUrl(photoKey, PROFILE_PHOTO_SIGNED_EXPIRY);
-  if (error) {
-    console.error("[profile] createSignedUrl failed:", error.message, photoKey);
-    return null;
-  }
-  return data?.signedUrl ?? null;
-}
+const EMPTY_PROFILE = {
+  profile_type: "agent" as const,
+  full_name: "",
+  business_name: "",
+  role_title: null,
+  phone: null,
+  business_url: null,
+  linkedin_url: null,
+  license_number: null,
+  business_address: null,
+  photo_key: null,
+  share_profile_photo_url: null,
+};
 
 export async function GET(request: Request) {
   const user = await getApiUser(request);
@@ -35,25 +42,19 @@ export async function GET(request: Request) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   if (!data) {
-    return NextResponse.json({
-      profile: {
-        id: user.id,
-        profile_type: "agent",
-        full_name: "",
-        business_name: "",
-        role_title: null,
-        phone: null,
-        business_url: null,
-        linkedin_url: null,
-        license_number: null,
-        business_address: null,
-        photo_key: null,
-        share_profile_photo_url: null,
-      },
-    });
+    return NextResponse.json({ profile: { id: user.id, ...EMPTY_PROFILE } });
   }
 
-  return NextResponse.json({ profile: data });
+  const profile = await enrichProfileWithPhotoUrl(supabase, data);
+  if (
+    profile?.photo_key &&
+    profile.share_profile_photo_url &&
+    profile.share_profile_photo_url !== data.share_profile_photo_url
+  ) {
+    await persistProfilePhotoUrl(supabase, user.id, profile.share_profile_photo_url);
+  }
+
+  return NextResponse.json({ profile });
 }
 
 export async function PATCH(request: Request) {
@@ -76,18 +77,19 @@ export async function PATCH(request: Request) {
 
   const { data: existing } = await supabase
     .from("profiles")
-    .select("photo_key")
+    .select("photo_key, share_profile_photo_url")
     .eq("id", user.id)
     .maybeSingle();
 
   let photoKey: string | null = existing?.photo_key ?? null;
-  let shareProfilePhotoUrl: string | null = null;
+  let shareProfilePhotoUrl: string | null = existing?.share_profile_photo_url ?? null;
 
   if (input.profile_type === "agent" && photoKey) {
-    shareProfilePhotoUrl = await signProfilePhotoUrl(photoKey);
+    shareProfilePhotoUrl = await signProfilePhotoUrl(supabase, photoKey, shareProfilePhotoUrl);
   } else if (input.profile_type === "individual" && photoKey) {
     await supabase.storage.from(BUCKET).remove([photoKey]);
     photoKey = null;
+    shareProfilePhotoUrl = null;
   }
 
   const { data, error } = await supabase
@@ -106,7 +108,9 @@ export async function PATCH(request: Request) {
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ profile: data });
+
+  const profile = await enrichProfileWithPhotoUrl(supabase, data);
+  return NextResponse.json({ profile });
 }
 
 /** Upload or replace agent profile photo. */
@@ -124,32 +128,44 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "No file received" }, { status: 400 });
   }
 
-  if (!file.type.startsWith("image/")) {
-    return NextResponse.json({ error: "Upload a JPG or PNG image" }, { status: 400 });
+  if (!isAllowedProfileImage(file)) {
+    return NextResponse.json({ error: "Upload a JPG, PNG, or WebP image" }, { status: 400 });
   }
 
-  const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
-  if (!["jpg", "jpeg", "png", "webp"].includes(ext)) {
-    return NextResponse.json({ error: "Use JPG, PNG, or WebP" }, { status: 400 });
-  }
-
-  const key = profilePhotoStorageKey(user.id, ext === "jpeg" ? "jpg" : ext);
+  const ext = profileImageExtension(file);
+  const key = profilePhotoStorageKey(user.id, ext);
+  const contentType = file.type || `image/${ext === "jpg" ? "jpeg" : ext}`;
 
   const { error: uploadError } = await supabase.storage
     .from(BUCKET)
-    .upload(key, file, { contentType: file.type, upsert: true });
+    .upload(key, file, { contentType, upsert: true });
 
   if (uploadError) {
     return NextResponse.json({ error: uploadError.message }, { status: 500 });
   }
 
-  const shareProfilePhotoUrl = await signProfilePhotoUrl(key);
+  const shareProfilePhotoUrl = await signProfilePhotoUrl(supabase, key, null);
+
+  const { data: existing } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", user.id)
+    .maybeSingle();
 
   const { data, error } = await supabase
     .from("profiles")
     .upsert(
       {
         id: user.id,
+        profile_type: existing?.profile_type ?? "agent",
+        full_name: existing?.full_name ?? "",
+        business_name: existing?.business_name ?? "",
+        role_title: existing?.role_title ?? null,
+        phone: existing?.phone ?? null,
+        business_url: existing?.business_url ?? null,
+        linkedin_url: existing?.linkedin_url ?? null,
+        license_number: existing?.license_number ?? null,
+        business_address: existing?.business_address ?? null,
         photo_key: key,
         share_profile_photo_url: shareProfilePhotoUrl,
         updated_at: new Date().toISOString(),
@@ -160,7 +176,16 @@ export async function POST(request: Request) {
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ profile: data });
+
+  const profile = await enrichProfileWithPhotoUrl(supabase, data);
+  if (!profile?.share_profile_photo_url) {
+    return NextResponse.json(
+      { error: "Photo uploaded but preview URL could not be created. Try refreshing the page." },
+      { status: 500 }
+    );
+  }
+
+  return NextResponse.json({ profile });
 }
 
 /** Remove agent profile photo. */
@@ -183,15 +208,12 @@ export async function DELETE(request: Request) {
 
   const { data, error } = await supabase
     .from("profiles")
-    .upsert(
-      {
-        id: user.id,
-        photo_key: null,
-        share_profile_photo_url: null,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "id" }
-    )
+    .update({
+      photo_key: null,
+      share_profile_photo_url: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", user.id)
     .select("*")
     .single();
 

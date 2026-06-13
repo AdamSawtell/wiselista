@@ -3,10 +3,10 @@ import { LISTING_TYPE_LABELS, type ListingType } from "@/lib/enhancement";
 import { getJobDisplayName, ROOM_LABELS } from "@/lib/jobs";
 import {
   type AgentProfile,
-  PROFILE_PHOTO_SIGNED_EXPIRY,
   shareAgentFromPayload,
   type ShareAgentInfo,
 } from "@/lib/profile";
+import { signProfilePhotoUrl } from "@/lib/profile-photo";
 import { getServiceClientOrNull } from "@/lib/supabase/server";
 
 const BUCKET = "wiselista-photos";
@@ -173,17 +173,15 @@ async function resolveProfilePhotoUrl(
   profile: Partial<AgentProfile> | null | undefined
 ): Promise<Partial<AgentProfile> | null | undefined> {
   if (!profile?.photo_key) return profile;
-  if (profile.share_profile_photo_url) return profile;
 
-  const supabase = signingClient();
-  if (!supabase) return profile;
+  const signedUrl = await signProfilePhotoUrl(
+    signingClient(),
+    profile.photo_key,
+    profile.share_profile_photo_url
+  );
+  if (!signedUrl) return profile;
 
-  const { data, error } = await supabase.storage
-    .from(BUCKET)
-    .createSignedUrl(profile.photo_key, PROFILE_PHOTO_SIGNED_EXPIRY);
-  if (error || !data?.signedUrl) return profile;
-
-  return { ...profile, share_profile_photo_url: data.signedUrl };
+  return { ...profile, share_profile_photo_url: signedUrl };
 }
 
 async function payloadToSharePageData(
