@@ -11,18 +11,17 @@ import { JobNameEditor } from "@/components/JobNameEditor";
 import { PhotoGallery } from "@/components/PhotoGallery";
 import { PropertyContextForm } from "@/components/PropertyContextForm";
 import { ProcessingProgress } from "@/components/ProcessingProgress";
-import { EnhancementSummary } from "@/components/EnhancementSummary";
-import { ListingReadyChecklist } from "@/components/ListingReadyChecklist";
-import { TimeSavedCallout } from "@/components/TimeSavedCallout";
 import { ShareLinkButton } from "@/components/ShareLinkButton";
 import { getSignedUrlsForPhotos } from "@/lib/storage";
-import { formatJobDate } from "@/lib/jobs";
-import { getPlanConfig, normalizePlanTier } from "@/lib/plans";
+import { formatJobDateShort } from "@/lib/jobs";
+import { getPlanConfig, normalizePlanTier, planTierLabel } from "@/lib/plans";
 import { CustomerCapturePanel } from "@/components/CustomerCapturePanel";
 import { JobPlanEditor } from "@/components/JobPlanEditor";
 import { JobCaptureBriefPanel } from "@/components/JobCaptureBriefPanel";
 import { CaptureBriefProgress } from "@/components/CaptureBriefProgress";
-import { LISTING_TYPE_LABELS } from "@/lib/enhancement";
+import { JobSetupAccordion } from "@/components/JobSetupAccordion";
+import { JobReadyBanner } from "@/components/JobReadyBanner";
+import { getPortalLabel, LISTING_TYPE_LABELS } from "@/lib/enhancement";
 
 export const dynamic = "force-dynamic";
 
@@ -95,8 +94,6 @@ export default async function JobDetailPage({
       hasEdited: Boolean(p.edited_key),
     })) ?? [];
 
-  const editedCount = galleryPhotos.filter((p) => p.hasEdited).length;
-
   const downloadAllEdited: { filename: string; url: string }[] =
     photos?.length && signedUrls.length === photos.length
       ? signedUrls
@@ -116,37 +113,52 @@ export default async function JobDetailPage({
   const isDraft = jobRow.status === "draft";
   const isReady = jobRow.status === "ready";
   const isProcessing = jobRow.status === "processing";
+  const isFailed = jobRow.status === "failed";
   const planTier = normalizePlanTier(jobRow.plan_tier);
   const plan = getPlanConfig(planTier);
   const photoCount = photos?.length ?? 0;
 
+  const listingLabel =
+    jobRow.listing_type &&
+    LISTING_TYPE_LABELS[jobRow.listing_type as keyof typeof LISTING_TYPE_LABELS];
+  const portalLabel = getPortalLabel(jobRow.target_portal);
+
   return (
-    <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
+    <div className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-8">
       <Link
         href="/dashboard"
-        className="inline-flex items-center gap-1 text-sm font-medium text-slate-500 transition-colors hover:text-wiselista-accent"
+        className="inline-flex items-center gap-1 text-sm text-slate-500 transition-colors hover:text-wiselista-accent"
       >
-        <span aria-hidden>←</span> All projects
+        <span aria-hidden>←</span> Projects
       </Link>
 
-      <header className="mt-5 rounded-xl border border-wiselista-border bg-white p-5 shadow-sm sm:p-6">
+      <header className="mt-5 border-b border-slate-200 pb-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
             <JobNameEditor jobId={id} initialName={jobRow.name ?? null} />
-            <p className="mt-2 text-sm text-slate-500">
-              Created {formatJobDate(jobRow.created_at)}
+            <p className="mt-1.5 text-sm text-slate-500">
+              {formatJobDateShort(jobRow.created_at)}
               {jobRow.property_address && (
-                <span className="ml-2 text-slate-600">· {jobRow.property_address}</span>
+                <>
+                  <span className="mx-1.5 text-slate-300">·</span>
+                  {jobRow.property_address}
+                </>
               )}
-              {jobRow.listing_type && (
-                <span className="ml-2 rounded bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
-                  {LISTING_TYPE_LABELS[jobRow.listing_type as keyof typeof LISTING_TYPE_LABELS] ??
-                    jobRow.listing_type}
-                </span>
+              {listingLabel && (
+                <>
+                  <span className="mx-1.5 text-slate-300">·</span>
+                  {listingLabel}
+                </>
+              )}
+              {portalLabel && (
+                <>
+                  <span className="mx-1.5 text-slate-300">·</span>
+                  {portalLabel}
+                </>
               )}
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2">
             <StatusBadge status={jobRow.status} />
             {isReady && downloadAllEdited.length > 0 && (
               <>
@@ -158,146 +170,139 @@ export default async function JobDetailPage({
           </div>
         </div>
 
-        {jobRow.status === "failed" && (
-          <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-4">
-            <p className="font-medium text-red-800">Enhancement failed</p>
+        {isFailed && (
+          <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm">
+            <p className="font-medium text-red-900">Enhancement failed</p>
             {jobRow.failure_message && (
-              <p className="mt-1 text-sm text-red-700">{jobRow.failure_message}</p>
+              <p className="mt-1 text-red-800">{jobRow.failure_message}</p>
             )}
-            <p className="mt-2 text-xs text-red-600">
-              Delete this project and try again, or contact support with the project ID.
-            </p>
           </div>
         )}
       </header>
 
       {isProcessing && (
-        <ProcessingProgress
-          jobId={id}
-          photoCount={photos?.length ?? 0}
-          initialStatus={jobRow.status}
-        />
+        <div className="mt-6">
+          <ProcessingProgress
+            jobId={id}
+            photoCount={photos?.length ?? 0}
+            initialStatus={jobRow.status}
+          />
+        </div>
       )}
 
       {isReady && (
-        <div className="mt-6 space-y-6">
-          <TimeSavedCallout
-            photoCount={photos?.length ?? 0}
-            processingStartedAt={jobRow.processing_started_at ?? null}
-            completedAt={jobRow.completed_at}
-          />
-          <ListingReadyChecklist
-            photoCount={photos?.length ?? 0}
-            editedCount={editedCount}
+        <div className="mt-6">
+          <JobReadyBanner
+            photoCount={photoCount}
             targetPortal={jobRow.target_portal ?? null}
             propertyAddress={jobRow.property_address ?? null}
+            expiresAt={jobRow.expires_at ?? null}
           />
-          <EnhancementSummary photos={photos ?? []} />
-          {plan.shareEnabled ? (
-            <section className="rounded-xl border border-wiselista-border bg-white p-5 shadow-sm">
-              <h2 className="font-semibold text-slate-900">Share with your client</h2>
-              <p className="mt-1 text-sm text-slate-500">
-                Send a view-only link so vendors or property managers can approve before you list.
-              </p>
-              <div className="mt-4">
-                <ShareLinkButton jobId={id} />
-              </div>
-            </section>
-          ) : (
-            <section className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-5">
-              <h2 className="font-semibold text-slate-900">Share with your client</h2>
-              <p className="mt-1 text-sm text-slate-600">
-                Client share links are included on Wiselista Pro. This project is on Core — upgrade before
-                submitting your next listing to unlock share.
-              </p>
-            </section>
-          )}
         </div>
       )}
 
-      <div className="mt-6">
-        <PropertyContextForm
-          jobId={id}
-          initialAddress={jobRow.property_address ?? null}
-          initialListingType={jobRow.listing_type ?? null}
-          initialPortal={jobRow.target_portal ?? null}
-        />
-      </div>
+      <section id="job-photos" className="mt-6">
+        <div className="mb-4 flex items-baseline justify-between gap-4">
+          <h2 className="text-base font-medium text-slate-900">
+            Photos
+            <span className="ml-2 font-normal text-slate-500">
+              {photoCount}
+              {isDraft ? ` / ${plan.maxPhotos}` : ""}
+            </span>
+          </h2>
+        </div>
 
-      <div className="mt-6">
-        <JobCaptureBriefPanel
-          jobId={id}
-          planTier={planTier}
-          initialBrief={jobRow.capture_brief}
-          editable={isDraft}
-        />
-      </div>
-
-      {isDraft && (
-        <div className="mt-6">
+        {isDraft && (
           <CaptureBriefProgress
+            compact
             captureBrief={jobRow.capture_brief}
             filledSlotIds={photos?.map((p) => p.brief_slot_id) ?? []}
           />
-        </div>
-      )}
+        )}
 
-      <div className="mt-6">
-        <CustomerCapturePanel
-          jobId={id}
-          planTier={planTier}
-          isDraft={isDraft}
-          initialEnabled={Boolean(jobRow.capture_enabled)}
-          jobName={jobRow.name}
-          propertyAddress={jobRow.property_address}
-        />
-      </div>
-
-      <div className="mt-6">
-        <JobPlanEditor
-          jobId={id}
-          initialTier={planTier}
-          photoCount={photoCount}
-          editable={isDraft}
-          expiresAt={jobRow.expires_at ?? null}
-        />
-      </div>
+        <PhotoGallery jobId={id} jobStatus={jobRow.status} photos={galleryPhotos} />
+      </section>
 
       {isDraft && (
-        <section className="mt-6 space-y-4">
-          <AddPhotoForm jobId={id} photoCount={photoCount} maxPhotos={plan.maxPhotos} planName={plan.name} />
-          <div className="rounded-xl border border-wiselista-border bg-white p-5 shadow-sm">
-            <h2 className="font-semibold text-slate-900">Ready to enhance?</h2>
-            <p className="mt-1 text-sm text-slate-500">
-              Submit when you&apos;ve added all the photos you want edited ({photoCount} / {plan.maxPhotos}{" "}
-              on {plan.name}).
-            </p>
-            <div className="mt-4">
-              <SubmitJobButton jobId={id} photoCount={photoCount} planTier={planTier} />
+        <>
+          <div className="mt-6">
+            <AddPhotoForm
+              jobId={id}
+              photoCount={photoCount}
+              maxPhotos={plan.maxPhotos}
+              planName={plan.name}
+              embedded
+            />
+          </div>
+
+          <div className="mt-8 flex flex-wrap items-center justify-between gap-4 rounded-lg border border-slate-200 bg-white px-4 py-4">
+            <div>
+              <p className="text-sm font-medium text-slate-900">Submit for enhancement</p>
+              <p className="mt-0.5 text-xs text-slate-500">
+                {photoCount === 0
+                  ? "Add at least one photo first"
+                  : `${photoCount} photo${photoCount === 1 ? "" : "s"} on ${plan.name}`}
+              </p>
             </div>
+            <SubmitJobButton jobId={id} photoCount={photoCount} planTier={planTier} />
+          </div>
+
+          <JobSetupAccordion>
+            <PropertyContextForm
+              embedded
+              jobId={id}
+              initialAddress={jobRow.property_address ?? null}
+              initialListingType={jobRow.listing_type ?? null}
+              initialPortal={jobRow.target_portal ?? null}
+            />
+            <JobCaptureBriefPanel
+              jobId={id}
+              planTier={planTier}
+              initialBrief={jobRow.capture_brief}
+              editable
+            />
+            <CustomerCapturePanel
+              embedded
+              jobId={id}
+              planTier={planTier}
+              isDraft
+              initialEnabled={Boolean(jobRow.capture_enabled)}
+              jobName={jobRow.name}
+              propertyAddress={jobRow.property_address}
+            />
+            <JobPlanEditor
+              embedded
+              jobId={id}
+              initialTier={planTier}
+              photoCount={photoCount}
+              editable
+              expiresAt={jobRow.expires_at ?? null}
+            />
+          </JobSetupAccordion>
+        </>
+      )}
+
+      {isReady && plan.shareEnabled && (
+        <section className="mt-8 border-t border-slate-200 pt-8">
+          <h2 className="text-sm font-medium text-slate-900">Share with client</h2>
+          <p className="mt-1 text-xs text-slate-500">
+            Send a view-only link for vendor or property manager approval.
+          </p>
+          <div className="mt-3">
+            <ShareLinkButton jobId={id} />
           </div>
         </section>
       )}
 
-      <section id="job-photos" className="mt-8">
-        <div className="mb-4 flex items-end justify-between gap-4">
-          <div>
-            <h2 className="text-lg font-semibold text-slate-900">
-              Photos
-              <span className="ml-2 font-normal text-slate-500">
-                ({photoCount}
-                {isDraft ? ` / ${plan.maxPhotos}` : ""})
-              </span>
-            </h2>
-            {isDraft && (
-              <p className="mt-0.5 text-sm text-slate-500">
-                Remove any you don&apos;t want before submitting.
-              </p>
-            )}
-          </div>
-        </div>
-        <PhotoGallery jobId={id} jobStatus={jobRow.status} photos={galleryPhotos} />
-      </section>
+      {!isDraft && (
+        <footer className="mt-10 border-t border-slate-200 pt-6 text-xs text-slate-500">
+          {planTierLabel(planTier)} · {photoCount} photo{photoCount === 1 ? "" : "s"}
+          {jobRow.expires_at && (
+            <> · Available until {formatJobDateShort(jobRow.expires_at)}</>
+          )}
+          {!plan.shareEnabled && <> · Client share on Pro</>}
+        </footer>
+      )}
     </div>
   );
 }

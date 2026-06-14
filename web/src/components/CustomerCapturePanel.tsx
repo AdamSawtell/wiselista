@@ -37,6 +37,7 @@ type Props = {
   initialEnabled?: boolean;
   jobName?: string | null;
   propertyAddress?: string | null;
+  embedded?: boolean;
 };
 
 export function CustomerCapturePanel({
@@ -46,6 +47,7 @@ export function CustomerCapturePanel({
   initialEnabled,
   jobName,
   propertyAddress,
+  embedded = false,
 }: Props) {
   const [state, setState] = useState<CaptureState | null>(null);
   const [loading, setLoading] = useState(true);
@@ -147,12 +149,21 @@ export function CustomerCapturePanel({
   }
 
   if (!isPro) {
+    if (embedded) {
+      return (
+        <div>
+          <h3 className="text-sm font-medium text-slate-900">Customer capture</h3>
+          <p className="mt-1 text-xs text-slate-500">
+            Send a phone link for your vendor or tenant to photograph the property. Included on Pro.
+          </p>
+        </div>
+      );
+    }
     return (
-      <section className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-5">
-        <h2 className="font-semibold text-slate-900">Send to customer to capture</h2>
-        <p className="mt-1 text-sm text-slate-600">
-          Let your vendor or tenant photograph the property on their phone — no account needed. Available on
-          Wiselista Pro.
+      <section className="rounded-lg border border-dashed border-slate-200 p-4">
+        <h2 className="text-sm font-medium text-slate-900">Customer capture</h2>
+        <p className="mt-1 text-xs text-slate-500">
+          Send a phone link for your vendor or tenant to photograph the property. Included on Pro.
         </p>
       </section>
     );
@@ -168,123 +179,109 @@ export function CustomerCapturePanel({
   const hasAddress = Boolean(propertyAddress?.trim());
   const setupReady = hasProjectName;
 
+  const Wrapper = embedded ? "div" : "section";
+  const wrapperClass = embedded ? "" : "rounded-xl border border-slate-200 bg-white p-5";
+
   return (
-    <section className="rounded-xl border border-wiselista-border bg-white p-5 shadow-sm">
+    <Wrapper className={wrapperClass}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="font-semibold text-slate-900">Send to customer to capture</h2>
-          <p className="mt-1 text-sm text-slate-500">
-            Your customer opens a link on their phone, follows room-by-room steps with tips, and sends photos
-            straight to this project. No login required.
+          <h3 className="text-sm font-medium text-slate-900">Customer capture</h3>
+          <p className="mt-0.5 text-xs text-slate-500">
+            Magic link for room-by-room photos on their phone — no login.
           </p>
         </div>
         {enabled && (
-          <span className="rounded-full bg-sky-100 px-3 py-1 text-xs font-semibold text-sky-800">
-            {CAPTURE_STATUS_LABELS[status]}
-          </span>
+          <span className="text-xs font-medium text-slate-600">{CAPTURE_STATUS_LABELS[status]}</span>
         )}
       </div>
 
-      {isDraft && !enabled && (
-        <ul className="mt-4 space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm">
-          <li className={hasProjectName ? "text-emerald-800" : "text-slate-600"}>
-            {hasProjectName ? "✓" : "○"} Project name — so your customer knows which property (rename at the top)
+      {isDraft && !enabled && !embedded && (
+        <ul className="mt-3 space-y-1 text-xs text-slate-600">
+          <li className={hasProjectName ? "text-emerald-800" : ""}>
+            {hasProjectName ? "✓" : "○"} Project name set
           </li>
           <li className={hasAddress ? "text-emerald-800" : "text-slate-500"}>
-            {hasAddress ? "✓" : "○"} Property address — recommended, shown on the customer&apos;s phone
-          </li>
-          <li className="text-slate-600">
-            ○ Shot list — configure rooms above so your customer knows what to photograph
+            {hasAddress ? "✓" : "○"} Address recommended
           </li>
         </ul>
       )}
 
       {!enabled && isDraft && (
-        <div className="mt-4">
+        <div className="mt-3">
           <button
             type="button"
             onClick={() => void enableCapture()}
             disabled={busy || !setupReady}
-            className="btn-primary disabled:cursor-not-allowed disabled:opacity-50"
+            className="btn-secondary text-sm disabled:cursor-not-allowed disabled:opacity-50"
           >
             {busy ? "Creating link…" : "Create capture link"}
           </button>
           {!setupReady && (
-            <p className="mt-2 text-sm text-amber-800">
-              Add a project name before sending the link — your customer will see it on their phone.
-            </p>
+            <p className="mt-2 text-xs text-amber-800">Add a project name first — your customer will see it.</p>
           )}
         </div>
       )}
 
       {enabled && state?.url && (
-        <div className="mt-4 space-y-4">
-          <div className="rounded-lg border border-wiselista-border bg-slate-50 p-4">
-            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Capture link</p>
-            <p className="mt-1 break-all text-sm text-slate-800">{state.url}</p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <button type="button" onClick={() => void copyLink()} className="btn-secondary text-sm">
-                {copied ? "Copied!" : "Copy link"}
+        <div className="mt-3 space-y-3">
+          <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-3">
+            <p className="break-all text-xs text-slate-700">{state.url}</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button type="button" onClick={() => void copyLink()} className="btn-secondary text-xs">
+                {copied ? "Copied" : "Copy link"}
               </button>
               {isDraft && (
                 <>
-                  <button type="button" onClick={() => void enableCapture()} disabled={busy} className="btn-secondary text-sm">
-                    Refresh link
+                  <button type="button" onClick={() => void enableCapture()} disabled={busy} className="text-xs text-slate-600 hover:underline">
+                    Refresh
                   </button>
-                  <button type="button" onClick={() => void revokeCapture()} disabled={busy} className="text-sm text-red-600 hover:underline">
-                    Revoke link
+                  <button type="button" onClick={() => void revokeCapture()} disabled={busy} className="text-xs text-red-600 hover:underline">
+                    Revoke
                   </button>
                 </>
               )}
             </div>
             {state.capture_expires_at && (
-              <p className="mt-2 text-xs text-slate-500">
-                Link expires {new Date(state.capture_expires_at).toLocaleDateString()}
+              <p className="mt-2 text-xs text-slate-400">
+                Expires {new Date(state.capture_expires_at).toLocaleDateString()}
               </p>
             )}
           </div>
 
-          <CaptureTimeline status={status} state={state} />
+          {!embedded && <CaptureTimeline status={status} state={state} />}
 
-          {status === "submitted" && (
-            <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
-              <p className="font-medium text-emerald-900">Customer sent photos</p>
-              <p className="mt-1 text-sm text-emerald-800">
-                {state.capture_customer_name ? `${state.capture_customer_name} submitted ` : "Submitted "}
-                {state.photoCount} photo{state.photoCount === 1 ? "" : "s"}. Review in the gallery below, then
-                submit for AI enhancement.
-              </p>
-              <button
-                type="button"
-                onClick={() =>
-                  document.getElementById("job-photos")?.scrollIntoView({ behavior: "smooth" })
-                }
-                className="mt-3 text-sm font-medium text-emerald-900 underline hover:text-emerald-700"
-              >
-                Jump to photos ↓
-              </button>
-            </div>
+          {embedded && status !== "idle" && status !== "link_sent" && (
+            <p className="text-xs text-slate-600">
+              {CAPTURE_STATUS_LABELS[status]}
+              {state.photoCount > 0 && ` · ${state.photoCount} photo${state.photoCount === 1 ? "" : "s"}`}
+            </p>
           )}
 
-          {state.events.length > 0 && (
-            <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Activity</p>
-              <ul className="mt-2 space-y-2">
+          {status === "submitted" && (
+            <p className="text-xs text-emerald-800">
+              {state.capture_customer_name ? `${state.capture_customer_name} sent ` : "Customer sent "}
+              {state.photoCount} photo{state.photoCount === 1 ? "" : "s"} — review above, then submit.
+            </p>
+          )}
+
+          {!embedded && state.events.length > 0 && (
+            <details className="text-xs text-slate-500">
+              <summary className="cursor-pointer font-medium text-slate-600">Activity</summary>
+              <ul className="mt-2 space-y-1">
                 {state.events.slice(0, 6).map((event) => (
-                  <li key={event.id} className="text-sm text-slate-600">
-                    <span className="text-slate-400">{formatEventTime(event.created_at)}</span>
-                    {" · "}
-                    {formatEventLabel(event)}
+                  <li key={event.id}>
+                    {formatEventTime(event.created_at)} · {formatEventLabel(event)}
                   </li>
                 ))}
               </ul>
-            </div>
+            </details>
           )}
         </div>
       )}
 
-      {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
-    </section>
+      {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
+    </Wrapper>
   );
 }
 

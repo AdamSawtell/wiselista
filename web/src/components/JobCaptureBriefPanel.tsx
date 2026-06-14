@@ -2,7 +2,13 @@
 
 import { useState } from "react";
 import { CaptureBriefEditor, captureBriefIsValid } from "@/components/CaptureBriefEditor";
-import { defaultCaptureBrief, resolveCaptureBrief, type CaptureBrief } from "@/lib/capture-brief";
+import {
+  defaultCaptureBrief,
+  orderedSlots,
+  requiredSlotCount,
+  resolveCaptureBrief,
+  type CaptureBrief,
+} from "@/lib/capture-brief";
 import { type PlanTier } from "@/lib/plans";
 
 type Props = {
@@ -12,11 +18,28 @@ type Props = {
   editable: boolean;
 };
 
+function briefSummary(brief: CaptureBrief): string {
+  const slots = orderedSlots(brief);
+  const required = requiredSlotCount(brief);
+  const labels = slots
+    .filter((s) => s.required)
+    .slice(0, 4)
+    .map((s) => s.label);
+  const extra = required - labels.length;
+  const list = labels.join(", ");
+  return extra > 0 ? `${list}, +${extra} more` : list;
+}
+
 export function JobCaptureBriefPanel({ jobId, planTier, initialBrief, editable }: Props) {
   const [brief, setBrief] = useState<CaptureBrief>(() => resolveCaptureBrief(initialBrief));
+  const [expanded, setExpanded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  if (!editable) {
+    return null;
+  }
 
   async function saveBrief() {
     if (!captureBriefIsValid(brief, planTier)) return;
@@ -43,54 +66,48 @@ export function JobCaptureBriefPanel({ jobId, planTier, initialBrief, editable }
     }
   }
 
-  function resetBrief() {
-    setBrief(defaultCaptureBrief());
-  }
-
   return (
-    <section className="rounded-xl border border-wiselista-border bg-white p-5 shadow-sm">
+    <div>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="font-semibold text-slate-900">Capture brief</h2>
-          <p className="mt-1 text-sm text-slate-500">
-            Set up the rooms for this property — your customer link and guided shoot follow this shot list.
+          <h3 className="text-sm font-medium text-slate-900">Shot list</h3>
+          <p className="mt-0.5 text-xs text-slate-500">
+            {requiredSlotCount(brief)} required rooms — {briefSummary(brief)}
           </p>
         </div>
-        {saved && <span className="text-sm font-medium text-emerald-700">Saved</span>}
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="text-xs font-medium text-wiselista-accent hover:underline"
+        >
+          {expanded ? "Hide editor" : "Customize"}
+        </button>
       </div>
 
-      <div className="mt-5">
-        <CaptureBriefEditor
-          planTier={planTier}
-          value={brief}
-          onChange={setBrief}
-          compact
-        />
-      </div>
-
-      {editable && (
-        <div className="mt-5 flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => void saveBrief()}
-            disabled={saving || !captureBriefIsValid(brief, planTier)}
-            className="btn-primary disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {saving ? "Saving…" : "Save shot list"}
-          </button>
-          <button type="button" onClick={resetBrief} className="btn-secondary text-sm">
-            Reset to default
-          </button>
+      {expanded && (
+        <div className="mt-4 rounded-lg border border-slate-200 p-4">
+          <CaptureBriefEditor planTier={planTier} value={brief} onChange={setBrief} compact />
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => void saveBrief()}
+              disabled={saving || !captureBriefIsValid(brief, planTier)}
+              className="btn-primary text-sm disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {saving ? "Saving…" : "Save shot list"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setBrief(defaultCaptureBrief())}
+              className="btn-secondary text-sm"
+            >
+              Reset
+            </button>
+            {saved && <span className="self-center text-xs text-emerald-600">Saved</span>}
+          </div>
+          {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
         </div>
       )}
-
-      {!editable && (
-        <p className="mt-4 text-sm text-slate-500">
-          Shot list is locked after you submit for enhancement.
-        </p>
-      )}
-
-      {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
-    </section>
+    </div>
   );
 }

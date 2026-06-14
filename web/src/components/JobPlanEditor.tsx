@@ -17,6 +17,7 @@ type JobPlanEditorProps = {
   photoCount: number;
   editable: boolean;
   expiresAt?: string | null;
+  embedded?: boolean;
 };
 
 export function JobPlanEditor({
@@ -25,6 +26,7 @@ export function JobPlanEditor({
   photoCount,
   editable,
   expiresAt,
+  embedded = false,
 }: JobPlanEditorProps) {
   const [tier, setTier] = useState<PlanTier>(initialTier);
   const [saving, setSaving] = useState(false);
@@ -74,46 +76,39 @@ export function JobPlanEditor({
     void saveTier(nextTier);
   }
 
-  return (
-    <section className="rounded-xl border border-wiselista-border bg-white p-5 shadow-sm">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="font-semibold text-slate-900">Plan</h2>
-          <p className="mt-1 text-sm text-slate-500">
-            {editable
-              ? "Choose Core or Pro — you can upgrade at any time before you submit."
-              : `${planTierLabel(tier)} · ${formatPlanPrice(tier)}`}
-          </p>
-        </div>
-        {!editable && (
-          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-700">
-            {plan.name.replace("Wiselista ", "")}
-          </span>
-        )}
-      </div>
+  const inner = (
+    <>
+      <h3 className="text-sm font-medium text-slate-900">Plan</h3>
+      {!embedded && (
+        <p className="mt-1 text-sm text-slate-500">
+          {editable
+            ? "Choose Core or Pro before you submit."
+            : `${planTierLabel(tier)} · ${formatPlanPrice(tier)}`}
+        </p>
+      )}
 
       {editable ? (
-        <div className="mt-4">
+        <div className="mt-3">
           <PlanSelector value={tier} onChange={handleChange} disabled={saving} compact />
         </div>
       ) : (
-        <ul className="mt-4 space-y-1 text-sm text-slate-600">
+        <ul className="mt-3 space-y-1 text-xs text-slate-600">
           <li>
-            Photos: {photoCount} / {plan.maxPhotos}
+            {photoCount} / {plan.maxPhotos} photos · {plan.retentionDays} day retention
           </li>
-          <li>Project available for {plan.retentionDays} days after enhancement</li>
-          <li>{plan.shareEnabled ? "Share with client included" : "Share with client — Pro only"}</li>
-          {expiresAt && (
-            <li className="text-slate-500">Available until {new Date(expiresAt).toLocaleDateString()}</li>
-          )}
+          {expiresAt && <li>Available until {new Date(expiresAt).toLocaleDateString()}</li>}
         </ul>
       )}
 
-      {saving && <p className="mt-3 text-sm text-slate-500">Updating plan…</p>}
-      {saved && !saving && (
-        <p className="mt-3 text-sm text-emerald-600">Plan updated to {planTierLabel(tier)}.</p>
-      )}
-      {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
-    </section>
+      {saving && <p className="mt-2 text-xs text-slate-500">Updating…</p>}
+      {saved && !saving && <p className="mt-2 text-xs text-emerald-600">Plan updated.</p>}
+      {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
+    </>
+  );
+
+  if (embedded) return <div>{inner}</div>;
+
+  return (
+    <section className="rounded-xl border border-slate-200 bg-white p-5">{inner}</section>
   );
 }

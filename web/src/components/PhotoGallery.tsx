@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ROOM_LABELS } from "@/lib/jobs";
-import { getEnhancementSummary } from "@/lib/enhancement";
 import { DeletePhotoButton } from "@/components/DeletePhotoButton";
 import { BeforeAfterSlider } from "@/components/BeforeAfterSlider";
 import { ReprocessPhotoButton } from "@/components/ReprocessPhotoButton";
@@ -77,9 +76,8 @@ export function PhotoGallery({ jobId, jobStatus, photos: initialPhotos }: PhotoG
 
   if (photos.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed border-slate-300 bg-white p-12 text-center">
-        <p className="font-medium text-slate-700">No photos yet</p>
-        <p className="mt-1 text-sm text-slate-500">Add photos above to get started.</p>
+      <div className="rounded-lg border border-dashed border-slate-200 bg-white px-6 py-12 text-center">
+        <p className="text-sm text-slate-600">No photos yet</p>
       </div>
     );
   }
@@ -87,12 +85,12 @@ export function PhotoGallery({ jobId, jobStatus, photos: initialPhotos }: PhotoG
   return (
     <div>
       {canReorder && (
-        <p className="mb-3 text-sm text-slate-500">
-          Drag photos to set listing order (hero shot first).
-          {savingOrder && <span className="ml-2 text-wiselista-accent">Saving order…</span>}
+        <p className="mb-3 text-xs text-slate-500">
+          Drag to reorder — first photo is the hero shot.
+          {savingOrder && <span className="ml-2">Saving…</span>}
         </p>
       )}
-      <ul className="grid gap-6 lg:grid-cols-2">
+      <ul className="grid gap-5 lg:grid-cols-2">
         {photos.map((photo, index) => {
           const label = ROOM_LABELS[photo.room_type] ?? photo.room_type;
           const showCompare = photo.originalUrl && photo.editedUrl;
@@ -105,18 +103,18 @@ export function PhotoGallery({ jobId, jobStatus, photos: initialPhotos }: PhotoG
               onDragStart={() => handleDragStart(photo.id)}
               onDragOver={(e) => handleDragOver(e, photo.id)}
               onDragEnd={() => void handleDragEnd()}
-              className={`overflow-hidden rounded-xl border border-wiselista-border bg-white shadow-sm ${
+              className={`overflow-hidden rounded-lg border border-slate-200 bg-white ${
                 dragId === photo.id ? "opacity-60 ring-2 ring-wiselista-accent" : ""
               }`}
             >
-              <div className="flex items-center justify-between gap-2 border-b border-wiselista-border px-4 py-3">
+              <div className="flex items-center justify-between gap-2 border-b border-slate-100 px-3 py-2.5">
                 <div className="flex min-w-0 items-center gap-2">
                   {canReorder && (
                     <span className="cursor-grab text-slate-400" title="Drag to reorder" aria-hidden>
                       ⠿
                     </span>
                   )}
-                  <span className="truncate font-medium text-slate-900">
+                  <span className="truncate text-sm font-medium text-slate-900">
                     {orderNum}. {label}
                   </span>
                 </div>
@@ -137,9 +135,8 @@ export function PhotoGallery({ jobId, jobStatus, photos: initialPhotos }: PhotoG
                     editedUrl={photo.editedUrl!}
                     alt={label}
                   />
-                  <div className="border-t border-wiselista-border px-4 py-3">
-                    <p className="text-xs text-slate-600">{getEnhancementSummary(photo.room_type)}</p>
-                    <div className="mt-2 flex flex-wrap items-center gap-3">
+                  <div className="border-t border-slate-100 px-3 py-2">
+                    <div className="flex flex-wrap items-center gap-3">
                       <a
                         href={photo.editedUrl!}
                         download
@@ -147,7 +144,7 @@ export function PhotoGallery({ jobId, jobStatus, photos: initialPhotos }: PhotoG
                         rel="noopener noreferrer"
                         className="text-xs font-medium text-wiselista-accent hover:underline"
                       >
-                        Download edited
+                        Download
                       </a>
                       {jobStatus === "ready" && (
                         <ReprocessPhotoButton jobId={jobId} photoId={photo.id} />

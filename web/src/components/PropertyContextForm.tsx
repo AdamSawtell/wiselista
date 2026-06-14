@@ -10,6 +10,7 @@ type PropertyContextFormProps = {
   initialListingType: string | null;
   initialPortal: string | null;
   readOnly?: boolean;
+  embedded?: boolean;
 };
 
 export function PropertyContextForm({
@@ -18,6 +19,7 @@ export function PropertyContextForm({
   initialListingType,
   initialPortal,
   readOnly = false,
+  embedded = false,
 }: PropertyContextFormProps) {
   const [address, setAddress] = useState(initialAddress ?? "");
   const [listingType, setListingType] = useState(initialListingType ?? "");
@@ -50,13 +52,13 @@ export function PropertyContextForm({
 
   if (readOnly && !address && !listingType && !portal) return null;
 
-  return (
-    <section className="rounded-xl border border-wiselista-border bg-white p-5 shadow-sm">
-      <h2 className="font-semibold text-slate-900">Property details</h2>
-      <p className="mt-1 text-sm text-slate-500">
-        Optional — helps tailor exports and your listing workflow.
-      </p>
-      <div className="mt-4 grid gap-4 sm:grid-cols-2">
+  const inner = (
+    <>
+      <h3 className="text-sm font-medium text-slate-900">Property details</h3>
+      {!embedded && (
+        <p className="mt-1 text-sm text-slate-500">Optional — for exports and your listing workflow.</p>
+      )}
+      <div className={`grid gap-4 sm:grid-cols-2 ${embedded ? "mt-3" : "mt-4"}`}>
         <label className="block sm:col-span-2">
           <span className="text-sm font-medium text-slate-700">Address</span>
           <input
@@ -105,11 +107,15 @@ export function PropertyContextForm({
       {!readOnly && (
         <div className="mt-4 flex items-center gap-3">
           <button type="button" onClick={() => void save()} disabled={saving} className="btn-secondary text-sm">
-            {saving ? "Saving…" : "Save details"}
+            {saving ? "Saving…" : "Save"}
           </button>
-          {saved && <span className="text-sm text-emerald-600">Saved</span>}
+          {saved && <span className="text-xs text-emerald-600">Saved</span>}
         </div>
       )}
-    </section>
+    </>
   );
+
+  if (embedded) return <div>{inner}</div>;
+
+  return <section className="rounded-xl border border-slate-200 bg-white p-5">{inner}</section>;
 }

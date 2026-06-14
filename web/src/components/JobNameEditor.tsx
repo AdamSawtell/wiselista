@@ -67,7 +67,7 @@ export function JobNameEditor({ jobId, initialName }: JobNameEditorProps) {
         }}
         maxLength={120}
         disabled={saving}
-        className="w-full max-w-xl rounded-lg border border-wiselista-border bg-white px-3 py-1.5 text-xl font-bold text-slate-900 focus:border-wiselista-accent focus:outline-none focus:ring-1 focus:ring-wiselista-accent sm:text-2xl"
+        className="w-full max-w-xl rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xl font-semibold text-slate-900 focus:border-wiselista-accent focus:outline-none focus:ring-1 focus:ring-wiselista-accent"
         aria-label="Project name"
       />
     );
@@ -80,7 +80,7 @@ export function JobNameEditor({ jobId, initialName }: JobNameEditorProps) {
       className="group flex max-w-full items-center gap-2 text-left"
       title="Click to rename"
     >
-      <h1 className="truncate text-xl font-bold text-slate-900 sm:text-2xl">{displayName}</h1>
+      <h1 className="truncate text-xl font-semibold text-slate-900">{displayName}</h1>
       <span className="shrink-0 rounded-md px-2 py-0.5 text-xs font-medium text-slate-400 opacity-0 transition-opacity group-hover:opacity-100 group-focus:opacity-100">
         Rename
       </span>

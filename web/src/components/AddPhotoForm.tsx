@@ -17,9 +17,10 @@ type AddPhotoFormProps = {
   photoCount: number;
   maxPhotos: number;
   planName: string;
+  embedded?: boolean;
 };
 
-export function AddPhotoForm({ jobId, photoCount, maxPhotos, planName }: AddPhotoFormProps) {
+export function AddPhotoForm({ jobId, photoCount, maxPhotos, planName, embedded = false }: AddPhotoFormProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -75,14 +76,16 @@ export function AddPhotoForm({ jobId, photoCount, maxPhotos, planName }: AddPhot
     setLoading(false);
   }
 
-  return (
-    <form onSubmit={handleSubmit} className="rounded-xl border border-wiselista-border bg-white p-5 shadow-sm">
-      <h3 className="font-semibold text-slate-900">Add photos</h3>
-      <p className="mt-1 text-sm text-slate-500">
-        {photoCount} / {maxPhotos} photos on {planName}. Choose a room type, then upload images from your device.
-      </p>
+  const form = (
+    <>
+      <h3 className="text-sm font-medium text-slate-900">Add photos</h3>
+      {!embedded && (
+        <p className="mt-1 text-sm text-slate-500">
+          {photoCount} / {maxPhotos} on {planName}.
+        </p>
+      )}
 
-      <div className="mt-5 grid gap-4 sm:grid-cols-2">
+      <div className={`grid gap-4 sm:grid-cols-2 ${embedded ? "mt-3" : "mt-5"}`}>
         <div>
           <label htmlFor="room_type" className="block text-sm font-medium text-slate-700">
             Room type
@@ -104,9 +107,9 @@ export function AddPhotoForm({ jobId, photoCount, maxPhotos, planName }: AddPhot
 
         <div>
           <label htmlFor="file" className="block text-sm font-medium text-slate-700">
-            Photos
+            Upload
           </label>
-          <div className="mt-1.5 rounded-lg border-2 border-dashed border-slate-200 bg-slate-50 px-3 py-4 transition-colors hover:border-wiselista-accent/40 hover:bg-slate-100/80">
+          <div className="mt-1.5">
             <input
               ref={fileInputRef}
               id="file"
@@ -114,16 +117,25 @@ export function AddPhotoForm({ jobId, photoCount, maxPhotos, planName }: AddPhot
               type="file"
               accept="image/*"
               multiple
-              className="block w-full text-sm text-slate-600 file:mr-3 file:rounded-md file:border-0 file:bg-wiselista-accent file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white file:cursor-pointer hover:file:bg-wiselista-accent-hover"
+              className="block w-full text-sm text-slate-600 file:mr-3 file:rounded-md file:border-0 file:bg-slate-800 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white file:cursor-pointer hover:file:bg-slate-700"
             />
           </div>
         </div>
       </div>
 
-      {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
-      <button type="submit" disabled={loading || atLimit} className="btn-primary mt-5">
-        {atLimit ? "Photo limit reached" : loading ? "Uploading…" : "Add photos"}
+      {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+      <button type="submit" disabled={loading || atLimit} className="btn-primary mt-4 text-sm">
+        {atLimit ? "Photo limit reached" : loading ? "Uploading…" : "Upload"}
       </button>
+    </>
+  );
+
+  return (
+    <form
+      onSubmit={handleSubmit}
+      className={embedded ? "" : "rounded-xl border border-slate-200 bg-white p-5"}
+    >
+      {form}
     </form>
   );
 }
