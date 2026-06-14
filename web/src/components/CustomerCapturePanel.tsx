@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   CAPTURE_STATUS_LABELS,
   normalizeCaptureStatus,
@@ -51,6 +52,9 @@ export function CustomerCapturePanel({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const router = useRouter();
+  const prevPhotoCount = useRef<number | null>(null);
+  const prevStatus = useRef<CaptureStatus | null>(null);
 
   const isPro = planTier === "pro";
 
@@ -62,18 +66,39 @@ export function CustomerCapturePanel({
         setError(data.error ?? "Could not load capture status");
         return;
       }
+
+      const count = typeof data.photoCount === "number" ? data.photoCount : 0;
+      const status = normalizeCaptureStatus(data.capture_status);
+      const countIncreased =
+        prevPhotoCount.current !== null && count > prevPhotoCount.current;
+      const justSubmitted =
+        prevStatus.current !== null &&
+        prevStatus.current !== "submitted" &&
+        status === "submitted";
+
+      if (countIncreased || justSubmitted) {
+        router.refresh();
+        if (justSubmitted) {
+          setTimeout(() => {
+            document.getElementById("job-photos")?.scrollIntoView({ behavior: "smooth" });
+          }, 400);
+        }
+      }
+
+      prevPhotoCount.current = count;
+      prevStatus.current = status;
       setState(data);
     } catch {
       setError("Could not load capture status");
     } finally {
       setLoading(false);
     }
-  }, [jobId]);
+  }, [jobId, router]);
 
   useEffect(() => {
     void refresh();
     if (!isDraft) return;
-    const interval = setInterval(() => void refresh(), 15000);
+    const interval = setInterval(() => void refresh(), 8000);
     return () => clearInterval(interval);
   }, [refresh, isDraft]);
 
@@ -226,9 +251,18 @@ export function CustomerCapturePanel({
               <p className="font-medium text-emerald-900">Customer sent photos</p>
               <p className="mt-1 text-sm text-emerald-800">
                 {state.capture_customer_name ? `${state.capture_customer_name} submitted ` : "Submitted "}
-                {state.photoCount} photo{state.photoCount === 1 ? "" : "s"}. Review below, then submit for AI
-                enhancement.
+                {state.photoCount} photo{state.photoCount === 1 ? "" : "s"}. Review in the gallery below, then
+                submit for AI enhancement.
               </p>
+              <button
+                type="button"
+                onClick={() =>
+                  document.getElementById("job-photos")?.scrollIntoView({ behavior: "smooth" })
+                }
+                className="mt-3 text-sm font-medium text-emerald-900 underline hover:text-emerald-700"
+              >
+                Jump to photos ↓
+              </button>
             </div>
           )}
 

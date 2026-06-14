@@ -279,7 +279,7 @@ export default async function JobDetailPage({
         </section>
       )}
 
-      <section className="mt-8">
+      <section id="job-photos" className="mt-8">
         <div className="mb-4 flex items-end justify-between gap-4">
           <div>
             <h2 className="text-lg font-semibold text-slate-900">
