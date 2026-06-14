@@ -315,6 +315,14 @@ export default function Home() {
               </div>
             ))}
           </div>
+          <p className="mt-8 text-center">
+            <Link
+              href="/how-it-works"
+              className="text-sm font-medium text-wiselista-accent hover:underline"
+            >
+              See the full walkthrough →
+            </Link>
+          </p>
         </div>
       </section>
 

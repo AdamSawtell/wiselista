@@ -23,7 +23,7 @@ export function Footer() {
               <Link href="/#why-wiselista" className="transition-colors hover:text-wiselista-accent">
                 Why Wiselista
               </Link>
-              <Link href="/#how-it-works" className="transition-colors hover:text-wiselista-accent">
+              <Link href="/how-it-works" className="transition-colors hover:text-wiselista-accent">
                 How it works
               </Link>
               <Link href="/#showcase" className="transition-colors hover:text-wiselista-accent">
