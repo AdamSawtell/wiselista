@@ -12,6 +12,14 @@ export const GUIDED_CAPTURE_SEQUENCE = [
 
 export type GuidedRoomType = (typeof GUIDED_CAPTURE_SEQUENCE)[number];
 
+export type CaptureBriefSlotView = {
+  id: string;
+  label: string;
+  room_type: string;
+  required: boolean;
+  sequence: number;
+};
+
 export const CAPTURE_TIPS: Record<string, string[]> = {
   living_room: [
     "Stand in a corner and shoot diagonally across the room.",
@@ -43,7 +51,48 @@ export const CAPTURE_TIPS: Record<string, string[]> = {
     "Avoid harsh midday sun — morning or late afternoon is best.",
     "Check the letterbox and driveway are tidy in frame.",
   ],
+  dining_room: [
+    "Shoot from a corner to include table and surrounding space.",
+    "Clear the table of clutter and personal items.",
+    "Turn on overhead lights for even illumination.",
+    "Open blinds slightly if the room feels dark.",
+  ],
+  study: [
+    "Shoot from the doorway showing desk and storage.",
+    "Tidy cables, papers, and personal items on the desk.",
+    "Turn on desk or ceiling lights for a bright, inviting look.",
+    "Keep the frame level and avoid shooting into windows.",
+  ],
+  laundry: [
+    "Shoot from the doorway — include washer, dryer, and bench if visible.",
+    "Clear surfaces of laundry baskets and clutter.",
+    "Turn on the room light for even brightness.",
+    "Close cupboard doors unless showcasing storage.",
+  ],
+  garage: [
+    "Shoot from the driveway or doorway in landscape orientation.",
+    "Tidy visible tools, bikes, and storage boxes if possible.",
+    "Open the garage door for natural light when safe to do so.",
+    "Include enough of the space to show size and access.",
+  ],
+  other: [
+    "Hold the phone steady and keep the frame level.",
+    "Turn on room lights for even brightness.",
+    "Fill the frame with the feature you want to highlight.",
+  ],
 };
+
+/** Tips for a brief slot — uses slot id for special rooms, room_type as fallback. */
+export function getCaptureTipsForSlot(slot: CaptureBriefSlotView): string[] {
+  if (slot.id === "dining_room" && CAPTURE_TIPS.dining_room) return CAPTURE_TIPS.dining_room;
+  if (slot.id === "study" && CAPTURE_TIPS.study) return CAPTURE_TIPS.study;
+  if (slot.id === "laundry" && CAPTURE_TIPS.laundry) return CAPTURE_TIPS.laundry;
+  if (slot.id === "garage" && CAPTURE_TIPS.garage) return CAPTURE_TIPS.garage;
+  if (slot.id.startsWith("bedroom")) return CAPTURE_TIPS.bedroom;
+  if (slot.id.startsWith("bathroom")) return CAPTURE_TIPS.bathroom;
+  if (slot.id.startsWith("exterior")) return CAPTURE_TIPS.exterior;
+  return CAPTURE_TIPS[slot.room_type] ?? CAPTURE_TIPS.other;
+}
 
 /** Shown once before the room-by-room flow starts. */
 export const CAPTURE_WELCOME_TIPS = [
@@ -74,6 +123,9 @@ export type CaptureSession = {
   agentName: string;
   agentAgency: string | null;
   alreadySubmitted: boolean;
+  slots: CaptureBriefSlotView[];
+  filledSlotIds: string[];
+  requiredSlotCount: number;
 };
 
 export function normalizeCaptureStatus(status: string | null | undefined): CaptureStatus {

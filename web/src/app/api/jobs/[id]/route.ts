@@ -3,6 +3,7 @@ import { createClient, createClientForRequest, getServiceClientOrNull } from "@/
 import { getApiUser } from "@/lib/api-auth";
 import { getCurrentUser } from "@/lib/auth";
 import { canDowngradeToCore, getPlanConfig, normalizePlanTier } from "@/lib/plans";
+import { parseCaptureBrief, validateBriefForPlan } from "@/lib/capture-brief";
 import { NextResponse } from "next/server";
 
 const BUCKET = "wiselista-photos";
@@ -51,6 +52,7 @@ export async function PATCH(
     listing_type?: string | null;
     target_portal?: string | null;
     plan_tier?: string;
+    capture_brief?: unknown;
   };
   try {
     body = await request.json();
@@ -58,7 +60,7 @@ export async function PATCH(
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const updates: Record<string, string | null> = { updated_at: new Date().toISOString() };
+  const updates: Record<string, string | null | object> = { updated_at: new Date().toISOString() };
 
   if (body.name !== undefined) {
     const trimmed = typeof body.name === "string" ? body.name.trim() : "";
@@ -124,6 +126,35 @@ export async function PATCH(
     updates.plan_tier = nextTier;
   }
 
+  if (body.capture_brief !== undefined) {
+    const parsed = parseCaptureBrief(body.capture_brief);
+    if (!parsed) {
+      return NextResponse.json({ error: "Invalid capture brief" }, { status: 400 });
+    }
+
+    const supabaseBrief = await createClientForRequest(request);
+    if (!supabaseBrief) return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
+
+    const { data: jobForBrief } = await supabaseBrief
+      .from("jobs")
+      .select("id, status, plan_tier")
+      .eq("id", id)
+      .eq("user_id", user.id)
+      .single();
+
+    if (!jobForBrief) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    if (jobForBrief.status !== "draft") {
+      return NextResponse.json({ error: "Shot list can only be changed while the project is a draft" }, { status: 400 });
+    }
+
+    const briefValidation = validateBriefForPlan(parsed, jobForBrief.plan_tier);
+    if (!briefValidation.ok) {
+      return NextResponse.json({ error: briefValidation.error }, { status: 400 });
+    }
+
+    updates.capture_brief = parsed;
+  }
+
   if (Object.keys(updates).length === 1) {
     return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
   }
@@ -136,7 +167,7 @@ export async function PATCH(
     .update(updates)
     .eq("id", id)
     .eq("user_id", user.id)
-    .select("id, name, property_address, listing_type, target_portal, plan_tier, status, created_at, updated_at")
+    .select("id, name, property_address, listing_type, target_portal, plan_tier, status, capture_brief, created_at, updated_at")
     .single();
 
   if (error || !data) return NextResponse.json({ error: "Not found" }, { status: 404 });

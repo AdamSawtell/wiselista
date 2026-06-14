@@ -52,6 +52,7 @@ export async function POST(
 
   const formData = await request.formData();
   const roomType = formData.get("room_type") as string;
+  const briefSlotId = String(formData.get("brief_slot_id") ?? "").trim() || null;
   const sequence = parseInt(String(formData.get("sequence") ?? "0"), 10);
   const file = formData.get("file") as File | null;
   const hasFile = file && typeof file.size === "number" && file.size > 0;
@@ -85,6 +86,7 @@ export async function POST(
       room_type: roomType,
       sequence,
       original_key: key,
+      brief_slot_id: briefSlotId,
     })
     .select("id, room_type, sequence, original_key, created_at")
     .single();

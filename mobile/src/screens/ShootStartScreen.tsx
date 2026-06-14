@@ -14,6 +14,12 @@ import { useAuth } from "../contexts/AuthContext";
 import { theme } from "../theme";
 import PrimaryButton from "../components/PrimaryButton";
 import { PLANS, type PlanTier } from "../lib/plans";
+import {
+  BRIEF_TEMPLATES,
+  briefFromTemplate,
+  defaultCaptureBrief,
+  type BriefTemplateId,
+} from "../lib/captureBrief";
 
 const STEPS = [
   "Walk through each room with pro framing tips",
@@ -25,6 +31,7 @@ export default function ShootStartScreen({ navigation }: { navigation: any }) {
   const { user } = useAuth();
   const [propertyName, setPropertyName] = useState("");
   const [planTier, setPlanTier] = useState<PlanTier>("core");
+  const [templateId, setTemplateId] = useState<BriefTemplateId>("house_3");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -33,6 +40,7 @@ export default function ShootStartScreen({ navigation }: { navigation: any }) {
     setLoading(true);
     setError(null);
     const trimmed = propertyName.trim();
+    const captureBrief = templateId === "house_3" ? defaultCaptureBrief() : briefFromTemplate(templateId);
     const { data, error: err } = await supabase
       .from("jobs")
       .insert({
@@ -40,6 +48,7 @@ export default function ShootStartScreen({ navigation }: { navigation: any }) {
         status: "draft",
         name: trimmed || null,
         plan_tier: planTier,
+        capture_brief: captureBrief,
       })
       .select("id")
       .single();
@@ -108,6 +117,25 @@ export default function ShootStartScreen({ navigation }: { navigation: any }) {
           Upgrade to Pro anytime before you submit.
         </Text>
 
+        <Text style={[styles.label, { color: theme.colors.textMuted }]}>Property type</Text>
+        <View style={styles.templateGrid}>
+          {BRIEF_TEMPLATES.map((t) => (
+            <Pressable
+              key={t.id}
+              onPress={() => setTemplateId(t.id)}
+              style={[
+                styles.templateChip,
+                {
+                  borderColor: templateId === t.id ? theme.colors.primary : theme.colors.border,
+                  backgroundColor: templateId === t.id ? "#EFF6FF" : theme.colors.surface,
+                },
+              ]}
+            >
+              <Text style={[styles.planTitle, { color: theme.colors.textPrimary }]}>{t.name}</Text>
+            </Pressable>
+          ))}
+        </View>
+
         {error && <Text style={[styles.error, { color: theme.colors.error }]}>{error}</Text>}
 
         {loading ? (
@@ -158,6 +186,8 @@ const styles = StyleSheet.create({
   planTitle: { ...theme.typography.captionMedium },
   planPrice: { ...theme.typography.caption, marginTop: 4 },
   planHint: { ...theme.typography.caption, marginBottom: theme.spacing.lg },
+  templateGrid: { gap: theme.spacing.sm, marginBottom: theme.spacing.lg },
+  templateChip: { borderWidth: 1, borderRadius: theme.radius.sm, padding: theme.spacing.md },
   loader: { marginVertical: theme.spacing.lg },
   cta: { marginBottom: theme.spacing.sm },
 });

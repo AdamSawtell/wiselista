@@ -3,10 +3,17 @@ import { createClient as createSupabaseClient, type SupabaseClient } from "@supa
 import {
   type CaptureSession,
   type CaptureStatus,
+  type CaptureBriefSlotView,
   normalizeCaptureStatus,
 } from "@/lib/capture-shared";
 import { getPlanConfig } from "@/lib/plans";
 import { getServiceClientOrNull } from "@/lib/supabase/server";
+import {
+  orderedSlots,
+  parseCaptureBrief,
+  requiredSlotCount,
+  resolveCaptureBrief,
+} from "@/lib/capture-brief";
 
 export {
   CAPTURE_LINK_TTL_DAYS,
@@ -32,8 +39,44 @@ type RpcCapturePayload = {
     business_name?: string;
   } | null;
   already_submitted: boolean;
+  capture_brief?: unknown;
+  filled_slot_ids?: string[] | null;
 };
 
+function briefSlotsFromPayload(briefRaw: unknown): CaptureBriefSlotView[] {
+  const brief = resolveCaptureBrief(briefRaw);
+  return orderedSlots(brief).map((s) => ({
+    id: s.id,
+    label: s.label,
+    room_type: s.room_type,
+    required: s.required,
+    sequence: s.sequence,
+  }));
+}
+
+function payloadToSession(data: RpcCapturePayload): CaptureSession {
+  const brief = parseCaptureBrief(data.capture_brief) ?? resolveCaptureBrief(null);
+  const slots = briefSlotsFromPayload(data.capture_brief);
+  const filledSlotIds = Array.isArray(data.filled_slot_ids)
+    ? data.filled_slot_ids.filter((id): id is string => typeof id === "string")
+    : [];
+
+  return {
+    jobId: data.job_id,
+    propertyName: data.property_name?.trim() || "Property photos",
+    propertyAddress: data.property_address ?? null,
+    planTier: data.plan_tier ?? "pro",
+    captureStatus: normalizeCaptureStatus(data.capture_status),
+    photoCount: data.photo_count ?? 0,
+    maxPhotos: data.max_photos ?? getPlanConfig(data.plan_tier).maxPhotos,
+    agentName: data.agent_profile?.full_name?.trim() || "Your agent",
+    agentAgency: data.agent_profile?.business_name?.trim() || null,
+    alreadySubmitted: Boolean(data.already_submitted),
+    slots,
+    filledSlotIds,
+    requiredSlotCount: requiredSlotCount(brief),
+  };
+}
 export function generateCaptureToken(): string {
   return randomBytes(24).toString("hex");
 }
@@ -47,21 +90,6 @@ export function captureExpiresAt(from = new Date()): string {
 export function captureUrl(token: string): string {
   const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
   return `${appUrl}/capture/${token}`;
-}
-
-function payloadToSession(data: RpcCapturePayload): CaptureSession {
-  return {
-    jobId: data.job_id,
-    propertyName: data.property_name?.trim() || "Property photos",
-    propertyAddress: data.property_address ?? null,
-    planTier: data.plan_tier ?? "pro",
-    captureStatus: normalizeCaptureStatus(data.capture_status),
-    photoCount: data.photo_count ?? 0,
-    maxPhotos: data.max_photos ?? getPlanConfig(data.plan_tier).maxPhotos,
-    agentName: data.agent_profile?.full_name?.trim() || "Your agent",
-    agentAgency: data.agent_profile?.business_name?.trim() || null,
-    alreadySubmitted: Boolean(data.already_submitted),
-  };
 }
 
 export async function loadCaptureSession(token: string): Promise<CaptureSession | null> {

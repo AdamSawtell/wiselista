@@ -6,6 +6,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { theme } from "../theme";
 import PrimaryButton from "../components/PrimaryButton";
 import { PLANS, type PlanTier } from "../lib/plans";
+import { defaultCaptureBrief } from "../lib/captureBrief";
 
 export default function CreateJobScreen({ navigation }: { navigation: any }) {
   const { user } = useAuth();
@@ -19,7 +20,12 @@ export default function CreateJobScreen({ navigation }: { navigation: any }) {
     setError(null);
     const { data, error: err } = await supabase
       .from("jobs")
-      .insert({ user_id: user.id, status: "draft", plan_tier: planTier })
+      .insert({
+        user_id: user.id,
+        status: "draft",
+        plan_tier: planTier,
+        capture_brief: defaultCaptureBrief(),
+      })
       .select("id")
       .single();
     setLoading(false);

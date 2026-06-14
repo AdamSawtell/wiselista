@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { type PlanTier } from "@/lib/plans";
 import { PlanSelector } from "@/components/PlanSelector";
+import { CaptureBriefEditor, captureBriefIsValid } from "@/components/CaptureBriefEditor";
+import { defaultCaptureBrief, type CaptureBrief } from "@/lib/capture-brief";
 
 type CreateJobFormProps = {
   /** Compact button for the app header; full form for the dashboard hero. */
@@ -16,6 +18,7 @@ export function CreateJobForm({ compact = false }: CreateJobFormProps) {
   const [name, setName] = useState("");
   const [planTier, setPlanTier] = useState<PlanTier>("core");
   const [customerCapture, setCustomerCapture] = useState(false);
+  const [captureBrief, setCaptureBrief] = useState<CaptureBrief>(() => defaultCaptureBrief());
   const [expanded, setExpanded] = useState(false);
   const router = useRouter();
 
@@ -23,6 +26,10 @@ export function CreateJobForm({ compact = false }: CreateJobFormProps) {
     e?.preventDefault();
     if (planTier === "pro" && customerCapture && !name.trim()) {
       setError("Add a project name when sending the link to your customer to capture photos.");
+      return;
+    }
+    if (!captureBriefIsValid(captureBrief, planTier)) {
+      setError("Adjust the shot list to fit your plan limits.");
       return;
     }
     setLoading(true);
@@ -35,6 +42,7 @@ export function CreateJobForm({ compact = false }: CreateJobFormProps) {
           name: name.trim() || undefined,
           plan_tier: planTier,
           customer_capture: planTier === "pro" && customerCapture,
+          capture_brief: captureBrief,
         }),
       });
       const data = await res.json();
@@ -140,7 +148,17 @@ export function CreateJobForm({ compact = false }: CreateJobFormProps) {
         </label>
       )}
 
-      <button type="submit" disabled={loading} className="btn-primary shrink-0 self-start">
+      <div className="rounded-xl border border-wiselista-border bg-slate-50/50 p-4">
+        <p className="text-sm font-medium text-slate-900">Shot list for this property</p>
+        <p className="mt-1 text-xs text-slate-600">
+          Sets the rooms for customer capture and your guided shoot checklist.
+        </p>
+        <div className="mt-4">
+          <CaptureBriefEditor planTier={planTier} value={captureBrief} onChange={setCaptureBrief} compact />
+        </div>
+      </div>
+
+      <button type="submit" disabled={loading || !captureBriefIsValid(captureBrief, planTier)} className="btn-primary shrink-0 self-start">
         {loading ? "Creating…" : "Create project"}
       </button>
       {error && <p className="text-sm text-red-600">{error}</p>}

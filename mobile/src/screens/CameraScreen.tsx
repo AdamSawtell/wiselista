@@ -37,8 +37,11 @@ export default function CameraScreen({
       jobId: string;
       startSequence?: number;
       roomType?: RoomType;
+      briefSlotId?: string;
+      slotLabel?: string;
       guided?: boolean;
       stepIndex?: number;
+      totalSteps?: number;
       propertyName?: string;
     };
   };
@@ -47,7 +50,10 @@ export default function CameraScreen({
   const jobId = route.params.jobId;
   const guided = route.params.guided ?? false;
   const fixedRoom = route.params.roomType;
+  const briefSlotId = route.params.briefSlotId;
+  const slotLabel = route.params.slotLabel;
   const stepIndex = route.params.stepIndex ?? 0;
+  const totalSteps = route.params.totalSteps;
   const propertyName = route.params.propertyName;
 
   const [roomType, setRoomType] = useState<RoomType>(fixedRoom ?? "living_room");
@@ -72,14 +78,19 @@ export default function CameraScreen({
     setUploading(true);
     setError(null);
     try {
-      const result = await uploadJobPhoto(user.id, jobId, uri, roomType);
+      const result = await uploadJobPhoto(user.id, jobId, uri, roomType, {
+        briefSlotId: briefSlotId ?? null,
+      });
       if (guided) {
         navigation.replace("CapturePreview", {
           jobId,
           photoId: result.photoId,
           previewUri: uri,
           roomType,
+          briefSlotId,
+          slotLabel,
           stepIndex,
+          totalSteps,
           propertyName,
         });
         return;

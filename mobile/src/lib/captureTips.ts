@@ -1,6 +1,6 @@
 import type { RoomType } from "../types";
 
-/** Default room order for a guided property shoot (hero → supporting rooms → exterior). */
+/** Legacy default sequence when no capture brief is stored. */
 export const GUIDED_SHOOT_SEQUENCE: RoomType[] = [
   "living_room",
   "kitchen",
@@ -46,6 +46,37 @@ export const CAPTURE_TIPS: Record<RoomType, string[]> = {
     "Fill the frame with the feature you want to highlight.",
   ],
 };
+
+const SLOT_TIPS: Record<string, string[]> = {
+  dining_room: [
+    "Shoot from a corner to include table and surrounding space.",
+    "Clear the table of clutter and personal items.",
+    "Turn on overhead lights for even illumination.",
+  ],
+  study: [
+    "Shoot from the doorway showing desk and storage.",
+    "Tidy cables, papers, and personal items on the desk.",
+    "Turn on desk or ceiling lights for a bright look.",
+  ],
+  laundry: [
+    "Shoot from the doorway — include washer and bench if visible.",
+    "Clear surfaces of laundry baskets and clutter.",
+    "Turn on the room light for even brightness.",
+  ],
+  garage: [
+    "Shoot from the driveway or doorway in landscape orientation.",
+    "Tidy visible tools and storage boxes if possible.",
+    "Open the garage door for natural light when safe.",
+  ],
+};
+
+export function getTipsForSlot(slotId: string, roomType: RoomType): string[] {
+  if (SLOT_TIPS[slotId]) return SLOT_TIPS[slotId];
+  if (slotId.startsWith("bedroom")) return CAPTURE_TIPS.bedroom;
+  if (slotId.startsWith("bathroom")) return CAPTURE_TIPS.bathroom;
+  if (slotId.startsWith("exterior")) return CAPTURE_TIPS.exterior;
+  return CAPTURE_TIPS[roomType] ?? CAPTURE_TIPS.other;
+}
 
 export function getShootProgressLabel(stepIndex: number, total: number): string {
   return `Room ${stepIndex + 1} of ${total}`;

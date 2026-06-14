@@ -29,6 +29,7 @@ export async function POST(
 
   const formData = await request.formData();
   const roomType = String(formData.get("room_type") ?? "");
+  const briefSlotId = String(formData.get("brief_slot_id") ?? "").trim() || null;
   const file = formData.get("file") as File | null;
 
   if (!ROOM_TYPES.includes(roomType)) {
@@ -47,6 +48,59 @@ export async function POST(
     .eq("job_id", job.id);
 
   const maxPhotos = getPlanConfig(job.plan_tier).maxPhotos;
+
+  if (briefSlotId) {
+    const { data: existingSlotPhoto } = await service
+      .from("photos")
+      .select("id, original_key")
+      .eq("job_id", job.id)
+      .eq("brief_slot_id", briefSlotId)
+      .maybeSingle();
+
+    if (existingSlotPhoto) {
+      const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+      const key = `${job.user_id}/${job.id}/${crypto.randomUUID()}.${ext === "jpeg" ? "jpg" : ext}`;
+
+      const { error: uploadError } = await service.storage
+        .from(BUCKET)
+        .upload(key, file, { contentType: file.type || "image/jpeg", upsert: false });
+
+      if (uploadError) {
+        return NextResponse.json({ error: uploadError.message }, { status: 500 });
+      }
+
+      const { data: photo, error: updateError } = await service
+        .from("photos")
+        .update({ room_type: roomType, original_key: key })
+        .eq("id", existingSlotPhoto.id)
+        .select("id, room_type, sequence, brief_slot_id")
+        .single();
+
+      if (updateError) {
+        return NextResponse.json({ error: updateError.message }, { status: 500 });
+      }
+
+      if (existingSlotPhoto.original_key) {
+        await service.storage.from(BUCKET).remove([existingSlotPhoto.original_key]);
+      }
+
+      await advanceCaptureStatus(service, job, "in_progress");
+      await logCaptureEvent(service, job.id, "photo_uploaded", {
+        room_type: roomType,
+        brief_slot_id: briefSlotId,
+        photo_id: photo?.id,
+        retake: true,
+      });
+
+      const { count: newCount } = await service
+        .from("photos")
+        .select("id", { count: "exact", head: true })
+        .eq("job_id", job.id);
+
+      return NextResponse.json({ photo, photoCount: newCount ?? 0, maxPhotos, retake: true });
+    }
+  }
+
   if ((count ?? 0) >= maxPhotos) {
     return NextResponse.json({ error: `This project allows up to ${maxPhotos} photos` }, { status: 400 });
   }
@@ -78,8 +132,9 @@ export async function POST(
       room_type: roomType,
       sequence,
       original_key: key,
+      brief_slot_id: briefSlotId,
     })
-    .select("id, room_type, sequence")
+    .select("id, room_type, sequence, brief_slot_id")
     .single();
 
   if (insertError) {
@@ -87,7 +142,11 @@ export async function POST(
   }
 
   await advanceCaptureStatus(service, job, "in_progress");
-  await logCaptureEvent(service, job.id, "photo_uploaded", { room_type: roomType, photo_id: photo?.id });
+  await logCaptureEvent(service, job.id, "photo_uploaded", {
+    room_type: roomType,
+    brief_slot_id: briefSlotId,
+    photo_id: photo?.id,
+  });
 
   const { count: newCount } = await service
     .from("photos")

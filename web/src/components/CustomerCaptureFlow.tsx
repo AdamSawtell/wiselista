@@ -2,10 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
-  CAPTURE_TIPS,
   CAPTURE_WELCOME_TIPS,
-  GUIDED_CAPTURE_SEQUENCE,
-  roomLabel,
+  getCaptureTipsForSlot,
   type CaptureSession,
 } from "@/lib/capture-shared";
 import {
@@ -13,6 +11,7 @@ import {
   getBrightnessHint,
   getBrightnessStatus,
 } from "@/lib/capture-coaching";
+import { computeBriefProgress, isBriefComplete, progressForSlots } from "@/lib/capture-brief";
 
 type Props = {
   token: string;
@@ -29,11 +28,16 @@ export function CustomerCaptureFlow({ token, initialSession }: Props) {
   const [photoHint, setPhotoHint] = useState<string | null>(null);
   const [done, setDone] = useState(initialSession.alreadySubmitted);
   const [customerName, setCustomerName] = useState("");
-  const [uploadedRooms, setUploadedRooms] = useState<Set<string>>(new Set());
+  const [filledSlots, setFilledSlots] = useState<Set<string>>(
+    () => new Set(initialSession.filledSlotIds)
+  );
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const room = GUIDED_CAPTURE_SEQUENCE[stepIndex];
-  const tips = room ? CAPTURE_TIPS[room] ?? [] : [];
+  const slots = session.slots;
+  const slot = slots[stepIndex];
+  const tips = slot ? getCaptureTipsForSlot(slot) : [];
+  const progress = progressForSlots(slots, filledSlots);
+  const briefComplete = isBriefComplete(progress);
 
   useEffect(() => {
     void fetch(`/api/capture/${token}/complete`, { method: "PATCH" });
@@ -44,12 +48,13 @@ export function CustomerCaptureFlow({ token, initialSession }: Props) {
     if (res.ok) {
       const data = (await res.json()) as CaptureSession;
       setSession(data);
+      setFilledSlots(new Set(data.filledSlotIds));
       if (data.alreadySubmitted) setDone(true);
     }
   }
 
   async function uploadPhoto(file: File) {
-    if (!room) return;
+    if (!slot) return;
     setUploading(true);
     setError(null);
     setPhotoHint(null);
@@ -63,15 +68,16 @@ export function CustomerCaptureFlow({ token, initialSession }: Props) {
     try {
       const body = new FormData();
       body.append("file", file);
-      body.append("room_type", room);
+      body.append("room_type", slot.room_type);
+      body.append("brief_slot_id", slot.id);
       const res = await fetch(`/api/capture/${token}/photos`, { method: "POST", body });
       const data = await res.json();
       if (!res.ok) {
         setError(data.error ?? "Upload failed");
         return;
       }
-      setUploadedRooms((prev) => new Set(prev).add(room));
-      setSession((s) => ({ ...s, photoCount: data.photoCount ?? s.photoCount + 1 }));
+      setFilledSlots((prev) => new Set(prev).add(slot.id));
+      setSession((s) => ({ ...s, photoCount: data.photoCount ?? s.photoCount + 1, filledSlotIds: [...filledSlots, slot.id] }));
     } catch {
       setError("Upload failed — check your connection");
     } finally {
@@ -128,7 +134,7 @@ export function CustomerCaptureFlow({ token, initialSession }: Props) {
           {session.agentAgency ? ` · ${session.agentAgency}` : ""} asked you to photograph this property.
         </p>
         <p className="mt-2 text-xs text-sky-200">
-          {session.photoCount} / {session.maxPhotos} photos · No account needed
+          {progress.requiredFilled} / {progress.requiredTotal} required rooms · {session.photoCount} photos
         </p>
       </header>
 
@@ -136,8 +142,8 @@ export function CustomerCaptureFlow({ token, initialSession }: Props) {
         <section className="rounded-2xl border border-wiselista-border bg-white p-6 shadow-sm">
           <h2 className="text-xl font-semibold text-slate-900">Before you start</h2>
           <p className="mt-2 text-sm text-slate-600">
-            We&apos;ll guide you room by room. Each step includes tips to help you get listing-quality photos on
-            your phone.
+            Your agent set up {slots.length} rooms for this property. We&apos;ll guide you through each one with
+            tips for listing-quality photos on your phone.
           </p>
           <ol className="mt-5 space-y-3">
             {CAPTURE_WELCOME_TIPS.map((tip, i) => (
@@ -149,16 +155,29 @@ export function CustomerCaptureFlow({ token, initialSession }: Props) {
               </li>
             ))}
           </ol>
+          <ul className="mt-5 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+            {slots.slice(0, 6).map((s) => (
+              <li key={s.id} className="flex items-center gap-2 py-0.5">
+                <span className="text-slate-400">·</span>
+                {s.label}
+                {!s.required && <span className="text-xs text-slate-400">(optional)</span>}
+              </li>
+            ))}
+            {slots.length > 6 && (
+              <li className="pt-1 text-xs text-slate-500">+ {slots.length - 6} more rooms</li>
+            )}
+          </ul>
           <button type="button" onClick={() => setStarted(true)} className="btn-primary mt-6 w-full">
             Start photographing
           </button>
         </section>
-      ) : stepIndex < GUIDED_CAPTURE_SEQUENCE.length ? (
+      ) : stepIndex < slots.length ? (
         <section className="rounded-2xl border border-wiselista-border bg-white p-6 shadow-sm">
           <p className="text-xs font-semibold uppercase tracking-wide text-wiselista-accent">
-            Room {stepIndex + 1} of {GUIDED_CAPTURE_SEQUENCE.length}
+            Room {stepIndex + 1} of {slots.length}
+            {!slot?.required && " · Optional"}
           </p>
-          <h2 className="mt-1 text-xl font-semibold text-slate-900">{roomLabel(room)}</h2>
+          <h2 className="mt-1 text-xl font-semibold text-slate-900">{slot?.label}</h2>
 
           <div className="mt-4 rounded-lg bg-sky-50 p-4">
             <p className="text-xs font-semibold uppercase tracking-wide text-sky-800">Tips for this room</p>
@@ -172,7 +191,7 @@ export function CustomerCaptureFlow({ token, initialSession }: Props) {
             </ul>
           </div>
 
-          {room === "exterior" && (
+          {slot?.room_type === "exterior" && (
             <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
               Tip: rotate your phone sideways (landscape) for front-of-house shots.
             </p>
@@ -196,9 +215,9 @@ export function CustomerCaptureFlow({ token, initialSession }: Props) {
               onClick={() => fileRef.current?.click()}
               className="btn-primary w-full"
             >
-              {uploading ? "Uploading…" : uploadedRooms.has(room) ? "Retake photo" : "Take photo"}
+              {uploading ? "Uploading…" : filledSlots.has(slot!.id) ? "Retake photo" : "Take photo"}
             </button>
-            {uploadedRooms.has(room) && !photoHint && (
+            {filledSlots.has(slot!.id) && !photoHint && (
               <p className="mt-2 text-center text-xs text-emerald-600">Photo saved for this room</p>
             )}
             {photoHint && (
@@ -217,12 +236,12 @@ export function CustomerCaptureFlow({ token, initialSession }: Props) {
               }}
               className="btn-secondary flex-1 text-sm"
             >
-              {uploadedRooms.has(room) ? "Next room" : "Skip room"}
+              {filledSlots.has(slot!.id) ? "Next room" : slot?.required ? "Skip for now" : "Skip room"}
             </button>
-            {stepIndex === GUIDED_CAPTURE_SEQUENCE.length - 1 && session.photoCount > 0 && (
+            {stepIndex === slots.length - 1 && session.photoCount > 0 && (
               <button
                 type="button"
-                onClick={() => setStepIndex(GUIDED_CAPTURE_SEQUENCE.length)}
+                onClick={() => setStepIndex(slots.length)}
                 className="btn-primary flex-1 text-sm"
               >
                 Finish
@@ -234,9 +253,17 @@ export function CustomerCaptureFlow({ token, initialSession }: Props) {
         <section className="rounded-2xl border border-wiselista-border bg-white p-6 shadow-sm">
           <h2 className="text-xl font-semibold text-slate-900">Send to your agent</h2>
           <p className="mt-2 text-sm text-slate-600">
-            You&apos;ve added {session.photoCount} photo{session.photoCount === 1 ? "" : "s"}. Send them to{" "}
-            {session.agentName} for professional enhancement.
+            You&apos;ve added {session.photoCount} photo{session.photoCount === 1 ? "" : "s"}
+            {briefComplete
+              ? " — all required rooms are done."
+              : ` — ${progress.requiredTotal - progress.requiredFilled} required room(s) still missing.`}
           </p>
+
+          {!briefComplete && (
+            <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+              You can still send now, but your agent may ask for missing rooms.
+            </p>
+          )}
 
           <label className="mt-4 block">
             <span className="text-sm font-medium text-slate-700">Your name (optional)</span>

@@ -8,12 +8,17 @@ export type UploadPhotoResult = {
   sequence: number;
 };
 
+export type UploadPhotoOptions = {
+  briefSlotId?: string | null;
+};
+
 /** Upload a captured image to storage and insert the photo row. */
 export async function uploadJobPhoto(
   userId: string,
   jobId: string,
   imageUri: string,
-  roomType: RoomType
+  roomType: RoomType,
+  options?: UploadPhotoOptions
 ): Promise<UploadPhotoResult> {
   const { data: job } = await supabase
     .from("jobs")
@@ -33,6 +38,44 @@ export async function uploadJobPhoto(
   const plan = getPlanConfig(normalizePlanTier(job.plan_tier));
   if ((count ?? 0) >= plan.maxPhotos) {
     throw new Error(`${plan.name} allows up to ${plan.maxPhotos} photos`);
+  }
+
+  const briefSlotId = options?.briefSlotId?.trim() || null;
+
+  if (briefSlotId) {
+    const { data: existing } = await supabase
+      .from("photos")
+      .select("id, original_key")
+      .eq("job_id", jobId)
+      .eq("brief_slot_id", briefSlotId)
+      .maybeSingle();
+
+    if (existing) {
+      const response = await fetch(imageUri);
+      const blob = await response.blob();
+      const storageKey = `${userId}/${jobId}/${crypto.randomUUID()}.jpg`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("wiselista-photos")
+        .upload(storageKey, blob, { contentType: "image/jpeg", upsert: false });
+
+      if (uploadError) throw new Error(uploadError.message);
+
+      const { data: updated, error: updateError } = await supabase
+        .from("photos")
+        .update({ room_type: roomType, original_key: storageKey })
+        .eq("id", existing.id)
+        .select("id, sequence")
+        .single();
+
+      if (updateError || !updated) throw new Error(updateError?.message ?? "Could not save photo");
+
+      if (existing.original_key) {
+        await supabase.storage.from("wiselista-photos").remove([existing.original_key]);
+      }
+
+      return { photoId: updated.id, storageKey, sequence: updated.sequence };
+    }
   }
 
   const response = await fetch(imageUri);
@@ -61,6 +104,7 @@ export async function uploadJobPhoto(
       room_type: roomType,
       sequence,
       original_key: storageKey,
+      brief_slot_id: briefSlotId,
     })
     .select("id")
     .single();

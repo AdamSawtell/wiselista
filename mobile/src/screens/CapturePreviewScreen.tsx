@@ -12,7 +12,6 @@ import { APP_URL } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 import { theme } from "../theme";
 import { ROOM_LABELS, type RoomType } from "../types";
-import { GUIDED_SHOOT_SEQUENCE } from "../lib/captureTips";
 import PrimaryButton from "../components/PrimaryButton";
 
 export default function CapturePreviewScreen({
@@ -26,15 +25,19 @@ export default function CapturePreviewScreen({
       photoId: string;
       previewUri: string;
       roomType: RoomType;
+      briefSlotId?: string;
+      slotLabel?: string;
       stepIndex: number;
+      totalSteps?: number;
       propertyName?: string;
     };
   };
 }) {
   const { session } = useAuth();
-  const { jobId, photoId, previewUri, roomType, stepIndex, propertyName } = route.params;
+  const { jobId, photoId, previewUri, roomType, stepIndex, propertyName, slotLabel, totalSteps } =
+    route.params;
   const [removing, setRemoving] = useState(false);
-  const isLast = stepIndex >= GUIDED_SHOOT_SEQUENCE.length - 1;
+  const isLast = totalSteps != null ? stepIndex >= totalSteps - 1 : false;
 
   async function handleRetake() {
     if (!session?.access_token) return;
@@ -63,7 +66,9 @@ export default function CapturePreviewScreen({
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <View style={[styles.header, { backgroundColor: theme.colors.surface, borderBottomColor: theme.colors.border }]}>
         <Text style={[styles.kicker, { color: theme.colors.primary }]}>Preview</Text>
-        <Text style={[styles.title, { color: theme.colors.textPrimary }]}>{ROOM_LABELS[roomType]}</Text>
+        <Text style={[styles.title, { color: theme.colors.textPrimary }]}>
+          {slotLabel ?? ROOM_LABELS[roomType]}
+        </Text>
       </View>
 
       <View style={styles.body}>

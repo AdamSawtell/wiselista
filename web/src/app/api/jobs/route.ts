@@ -7,6 +7,7 @@ import {
   generateCaptureToken,
   logCaptureEvent,
 } from "@/lib/capture";
+import { defaultCaptureBrief, parseCaptureBrief, validateBriefForPlan } from "@/lib/capture-brief";
 import { NextResponse } from "next/server";
 
 export async function GET() {
@@ -32,6 +33,7 @@ export async function POST(request: Request) {
   let name: string | null = null;
   let planTier: PlanTier = "core";
   let customerCapture = false;
+  let captureBrief = defaultCaptureBrief();
   try {
     const body = await request.json();
     const trimmed = typeof body?.name === "string" ? body.name.trim() : "";
@@ -41,8 +43,17 @@ export async function POST(request: Request) {
     name = trimmed || null;
     planTier = normalizePlanTier(typeof body?.plan_tier === "string" ? body.plan_tier : null);
     customerCapture = Boolean(body?.customer_capture);
+    if (body?.capture_brief) {
+      const parsed = parseCaptureBrief(body.capture_brief);
+      if (parsed) captureBrief = parsed;
+    }
   } catch {
     // no body — create unnamed project on default Core plan
+  }
+
+  const briefValidation = validateBriefForPlan(captureBrief, planTier);
+  if (!briefValidation.ok) {
+    return NextResponse.json({ error: briefValidation.error }, { status: 400 });
   }
 
   const supabase = await createClient();
@@ -63,6 +74,7 @@ export async function POST(request: Request) {
       capture_token: captureToken,
       capture_expires_at: captureExpires,
       capture_status: captureEnabled ? "link_sent" : "idle",
+      capture_brief: captureBrief,
     })
     .select("id, status, name, plan_tier, capture_enabled, capture_token, created_at")
     .single();

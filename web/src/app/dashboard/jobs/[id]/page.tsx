@@ -20,6 +20,8 @@ import { formatJobDate } from "@/lib/jobs";
 import { getPlanConfig, normalizePlanTier } from "@/lib/plans";
 import { CustomerCapturePanel } from "@/components/CustomerCapturePanel";
 import { JobPlanEditor } from "@/components/JobPlanEditor";
+import { JobCaptureBriefPanel } from "@/components/JobCaptureBriefPanel";
+import { CaptureBriefProgress } from "@/components/CaptureBriefProgress";
 import { LISTING_TYPE_LABELS } from "@/lib/enhancement";
 
 export const dynamic = "force-dynamic";
@@ -39,6 +41,7 @@ type JobRow = {
   expires_at?: string | null;
   capture_enabled?: boolean | null;
   capture_status?: string | null;
+  capture_brief?: unknown;
 };
 
 export default async function JobDetailPage({
@@ -67,7 +70,7 @@ export default async function JobDetailPage({
 
   const { data: photos } = await supabase
     .from("photos")
-    .select("id, room_type, sequence, original_key, edited_key")
+    .select("id, room_type, sequence, original_key, edited_key, brief_slot_id")
     .eq("job_id", id)
     .order("sequence");
 
@@ -220,6 +223,24 @@ export default async function JobDetailPage({
           initialPortal={jobRow.target_portal ?? null}
         />
       </div>
+
+      <div className="mt-6">
+        <JobCaptureBriefPanel
+          jobId={id}
+          planTier={planTier}
+          initialBrief={jobRow.capture_brief}
+          editable={isDraft}
+        />
+      </div>
+
+      {isDraft && (
+        <div className="mt-6">
+          <CaptureBriefProgress
+            captureBrief={jobRow.capture_brief}
+            filledSlotIds={photos?.map((p) => p.brief_slot_id) ?? []}
+          />
+        </div>
+      )}
 
       <div className="mt-6">
         <CustomerCapturePanel

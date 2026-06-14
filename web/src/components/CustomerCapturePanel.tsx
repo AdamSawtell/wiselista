@@ -168,6 +168,9 @@ export function CustomerCapturePanel({
           <li className={hasAddress ? "text-emerald-800" : "text-slate-500"}>
             {hasAddress ? "✓" : "○"} Property address — recommended, shown on the customer&apos;s phone
           </li>
+          <li className="text-slate-600">
+            ○ Shot list — configure rooms above so your customer knows what to photograph
+          </li>
         </ul>
       )}
 
