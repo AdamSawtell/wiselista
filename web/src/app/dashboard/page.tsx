@@ -1,10 +1,15 @@
+import Link from "next/link";
 import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-import { CreateJobForm } from "@/components/CreateJobForm";
 import { JobCard } from "@/components/JobCard";
 import { JobStatusFilter } from "@/components/JobStatusFilter";
 import { getSignedUrlsForPhotos } from "@/lib/storage";
+import {
+  countJobsByStatus,
+  matchesStatusFilter,
+  type JobStatusFilterValue,
+} from "@/lib/jobs";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +26,9 @@ export default async function DashboardPage({
 }: {
   searchParams: Promise<{ status?: string }>;
 }) {
-  const { status: statusFilter } = await searchParams;
+  const { status: statusParam } = await searchParams;
+  const statusFilter = (statusParam ?? "all") as JobStatusFilterValue;
+
   const supabase = await createClient();
   if (!supabase) redirect("/login?error=session");
 
@@ -29,28 +36,21 @@ export default async function DashboardPage({
   if (authError || !authData?.user) redirect("/login?error=session");
   const user = authData.user;
 
-  let query = supabase
+  const result = await supabase
     .from("jobs")
     .select("id, status, name, created_at, photos(id, room_type, original_key, edited_key)")
     .eq("user_id", user.id)
     .order("created_at", { ascending: false });
 
-  if (statusFilter && statusFilter !== "all") {
-    if (statusFilter === "processing") {
-      query = query.in("status", ["submitted", "payment_pending", "processing"]);
-    } else {
-      query = query.eq("status", statusFilter);
-    }
-  }
-
-  const result = await query;
-  const jobs = (result.data ?? null) as JobRow[] | null;
+  const allJobs = (result.data ?? null) as JobRow[] | null;
   const jobsError = result.error ? { message: result.error.message } : null;
+  const counts = countJobsByStatus(allJobs ?? []);
+  const jobs = (allJobs ?? []).filter((job) => matchesStatusFilter(job.status, statusFilter));
 
   const cards = await Promise.all(
-    (jobs ?? []).map(async (job) => {
+    jobs.map(async (job) => {
       const photos = job.photos ?? [];
-      const previewPhotos = photos.slice(0, 4);
+      const previewPhotos = photos.slice(0, 1);
       const signed = previewPhotos.length
         ? await getSignedUrlsForPhotos(
             previewPhotos.map((p) => ({
@@ -79,46 +79,63 @@ export default async function DashboardPage({
   );
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
-          Your projects
-        </h1>
-        <p className="mt-2 max-w-xl text-slate-600">
-          Create a project, add property photos, and submit for AI editing. Everything in one place.
-        </p>
-      </div>
-
-      <div className="mb-8">
-        <CreateJobForm />
-      </div>
-
-      <Suspense fallback={<div className="mb-6 h-9" />}>
-        <div className="mb-6">
-          <JobStatusFilter />
+    <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 sm:py-10">
+      <header className="mb-8 flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Projects</h1>
+          <p className="mt-1 text-sm text-slate-500">
+            {counts.all === 0
+              ? "Your property listings will appear here."
+              : `${counts.all} listing${counts.all === 1 ? "" : "s"}`}
+            {counts.ready > 0 && (
+              <span>
+                {" "}
+                · {counts.ready} ready to download
+              </span>
+            )}
+          </p>
         </div>
-      </Suspense>
+        <Link href="/dashboard/new" className="btn-primary shrink-0">
+          New project
+        </Link>
+      </header>
+
+      {counts.all > 0 && (
+        <Suspense fallback={<div className="mb-6 h-10 border-b border-slate-200" />}>
+          <JobStatusFilter counts={counts} />
+        </Suspense>
+      )}
 
       {jobsError ? (
-        <div className="rounded-xl border border-wiselista-border bg-white p-8 text-center shadow-sm">
-          <p className="text-slate-600">Could not load projects.</p>
-          <p className="mt-2 text-sm text-slate-500">
-            Check that the jobs table exists in Supabase and env vars are set in Amplify.
-          </p>
+        <div className="rounded-lg border border-slate-200 bg-white p-8 text-center">
+          <p className="text-slate-700">Could not load projects.</p>
+          <p className="mt-2 text-sm text-slate-500">Try refreshing the page.</p>
         </div>
       ) : cards.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-slate-300 bg-white p-12 text-center">
-          <p className="font-medium text-slate-700">
-            {statusFilter && statusFilter !== "all"
-              ? "No projects match this filter."
-              : "No projects yet."}
-          </p>
-          <p className="mt-2 text-sm text-slate-500">
-            Create your first project above to start adding photos.
-          </p>
+        <div className="rounded-lg border border-dashed border-slate-300 bg-white px-6 py-14 text-center">
+          {counts.all === 0 ? (
+            <>
+              <p className="text-base font-medium text-slate-800">No projects yet</p>
+              <p className="mx-auto mt-2 max-w-sm text-sm text-slate-500">
+                Create a project for each listing. Add photos yourself or send a link for your customer to
+                capture on their phone.
+              </p>
+              <Link href="/dashboard/new" className="btn-primary mt-6 inline-flex">
+                Create your first project
+              </Link>
+            </>
+          ) : (
+            <>
+              <p className="font-medium text-slate-800">Nothing in this view</p>
+              <p className="mt-2 text-sm text-slate-500">Try another filter or create a new project.</p>
+              <Link href="/dashboard" className="mt-4 inline-block text-sm font-medium text-wiselista-accent hover:underline">
+                Show all projects
+              </Link>
+            </>
+          )}
         </div>
       ) : (
-        <ul className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+        <ul className="overflow-hidden rounded-lg border border-slate-200 bg-white divide-y divide-slate-100">
           {cards.map(({ job, previews }) => (
             <JobCard key={job.id} job={job} previews={previews} />
           ))}

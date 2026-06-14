@@ -154,13 +154,14 @@ async function callClaidEdit(inputUrl: string, roomType: RoomType): Promise<stri
   });
 
   if (!res.ok) {
-    const err = (await res.json().catch(() => ({}))) as { message?: string };
+    const err = (await res.json().catch(() => ({}))) as { message?: string; error?: string };
     if (res.status === 402) {
       throw new Error(
-        "Claid API credits required — add billing at claid.ai (Dashboard → Billing). This is separate from Stripe customer payments."
+        "Claid API credits required — web/editor credits in your Claid dashboard do not apply to the REST API. " +
+          "Purchase API credits at claid.ai/api-pricing (Integrations → API). Free trial includes 50 API credits."
       );
     }
-    throw new Error(`Claid API error ${res.status}: ${err.message ?? res.statusText}`);
+    throw new Error(`Claid API error ${res.status}: ${err.message ?? err.error ?? res.statusText}`);
   }
 
   const data = (await res.json()) as { data?: { output?: { tmp_url?: string } } };

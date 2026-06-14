@@ -8,7 +8,7 @@ import { CaptureBriefEditor, captureBriefIsValid } from "@/components/CaptureBri
 import { defaultCaptureBrief, type CaptureBrief } from "@/lib/capture-brief";
 
 type CreateJobFormProps = {
-  /** Compact button for the app header; full form for the dashboard hero. */
+  /** Inline name + create for the app header. */
   compact?: boolean;
 };
 
@@ -19,6 +19,7 @@ export function CreateJobForm({ compact = false }: CreateJobFormProps) {
   const [planTier, setPlanTier] = useState<PlanTier>("core");
   const [customerCapture, setCustomerCapture] = useState(false);
   const [captureBrief, setCaptureBrief] = useState<CaptureBrief>(() => defaultCaptureBrief());
+  const [customizeShotList, setCustomizeShotList] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const router = useRouter();
 
@@ -104,9 +105,9 @@ export function CreateJobForm({ compact = false }: CreateJobFormProps) {
   }
 
   return (
-    <form onSubmit={handleCreate} className="card flex flex-col gap-5 p-5">
-      <div className="min-w-0 flex-1">
-        <label htmlFor="project-name" className="block text-sm font-medium text-slate-700">
+    <form onSubmit={handleCreate} className="space-y-6">
+      <div>
+        <label htmlFor="project-name" className="block text-sm font-medium text-slate-800">
           Project name
         </label>
         <input
@@ -114,53 +115,86 @@ export function CreateJobForm({ compact = false }: CreateJobFormProps) {
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="e.g. 12 Oak Street listing"
+          placeholder="12 Oak Street"
           maxLength={120}
-          className="mt-1.5 block w-full rounded-lg border border-wiselista-border px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-wiselista-accent focus:outline-none focus:ring-1 focus:ring-wiselista-accent"
+          className="mt-2 block w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-wiselista-accent focus:outline-none focus:ring-1 focus:ring-wiselista-accent"
         />
-        <p className="mt-1 text-xs text-slate-500">Optional — you can rename later.</p>
+        <p className="mt-1.5 text-xs text-slate-500">Optional — rename anytime from the project page.</p>
       </div>
 
       <div>
-        <p className="mb-3 text-sm font-medium text-slate-700">Choose a plan</p>
-        <PlanSelector value={planTier} onChange={(tier) => {
-          setPlanTier(tier);
-          if (tier !== "pro") setCustomerCapture(false);
-        }} />
-        <p className="mt-2 text-xs text-slate-500">You can upgrade to Pro at any time before you submit.</p>
+        <p className="text-sm font-medium text-slate-800">Plan</p>
+        <div className="mt-2">
+          <PlanSelector
+            compact
+            value={planTier}
+            onChange={(tier) => {
+              setPlanTier(tier);
+              if (tier !== "pro") setCustomerCapture(false);
+            }}
+          />
+        </div>
       </div>
 
       {planTier === "pro" && (
-        <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-wiselista-border bg-sky-50/50 p-4">
+        <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200 px-4 py-3">
           <input
             type="checkbox"
             checked={customerCapture}
             onChange={(e) => setCustomerCapture(e.target.checked)}
-            className="mt-1 text-wiselista-accent focus:ring-wiselista-accent"
+            className="mt-0.5 text-wiselista-accent focus:ring-wiselista-accent"
           />
           <span>
-            <span className="block text-sm font-medium text-slate-900">Customer will capture photos</span>
-            <span className="mt-0.5 block text-xs text-slate-600">
-              Send a link to your vendor or tenant — they photograph the property on their phone (no account
-              needed) and photos appear in this project.
+            <span className="block text-sm font-medium text-slate-900">Customer captures photos</span>
+            <span className="mt-0.5 block text-xs leading-relaxed text-slate-500">
+              Send a link to your vendor or tenant — no account needed.
             </span>
           </span>
         </label>
       )}
 
-      <div className="rounded-xl border border-wiselista-border bg-slate-50/50 p-4">
-        <p className="text-sm font-medium text-slate-900">Shot list for this property</p>
-        <p className="mt-1 text-xs text-slate-600">
-          Sets the rooms for customer capture and your guided shoot checklist.
-        </p>
-        <div className="mt-4">
-          <CaptureBriefEditor planTier={planTier} value={captureBrief} onChange={setCaptureBrief} compact />
-        </div>
+      <div className="rounded-lg border border-slate-200">
+        <button
+          type="button"
+          onClick={() => setCustomizeShotList((v) => !v)}
+          className="flex w-full items-center justify-between px-4 py-3 text-left text-sm"
+        >
+          <span>
+            <span className="font-medium text-slate-900">Shot list</span>
+            <span className="mt-0.5 block text-xs text-slate-500">
+              Default: 3 bed house ({captureBrief.slots.filter((s) => s.required).length} required rooms)
+            </span>
+          </span>
+          <span className="text-slate-400">{customizeShotList ? "−" : "+"}</span>
+        </button>
+        {customizeShotList && (
+          <div className="border-t border-slate-200 px-4 pb-4 pt-2">
+            <CaptureBriefEditor
+              planTier={planTier}
+              value={captureBrief}
+              onChange={setCaptureBrief}
+              compact
+            />
+          </div>
+        )}
       </div>
 
-      <button type="submit" disabled={loading || !captureBriefIsValid(captureBrief, planTier)} className="btn-primary shrink-0 self-start">
-        {loading ? "Creating…" : "Create project"}
-      </button>
+      <div className="flex flex-wrap items-center gap-3 pt-2">
+        <button
+          type="submit"
+          disabled={loading || !captureBriefIsValid(captureBrief, planTier)}
+          className="btn-primary disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {loading ? "Creating…" : "Create project"}
+        </button>
+        <button
+          type="button"
+          onClick={() => router.push("/dashboard")}
+          className="text-sm font-medium text-slate-500 hover:text-slate-800"
+        >
+          Cancel
+        </button>
+      </div>
       {error && <p className="text-sm text-red-600">{error}</p>}
     </form>
   );

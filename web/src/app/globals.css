@@ -49,10 +49,10 @@
     filter: brightness(0.72) contrast(0.84) saturate(0.58) sepia(0.12) blur(0.3px);
   }
 
-  .badge-draft { @apply rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600; }
-  .badge-processing { @apply rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800; }
-  .badge-ready { @apply rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-800; }
-  .badge-failed { @apply rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-medium text-red-800; }
-  .badge-payment_pending { @apply rounded-full bg-sky-100 px-2.5 py-0.5 text-xs font-medium text-sky-800; }
-  .badge-submitted { @apply rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600; }
+  .badge-draft { @apply rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600; }
+  .badge-processing { @apply rounded-md bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800; }
+  .badge-ready { @apply rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-800; }
+  .badge-failed { @apply rounded-md bg-red-50 px-2 py-0.5 text-xs font-medium text-red-800; }
+  .badge-payment_pending { @apply rounded-md bg-sky-50 px-2 py-0.5 text-xs font-medium text-sky-800; }
+  .badge-submitted { @apply rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600; }
 }

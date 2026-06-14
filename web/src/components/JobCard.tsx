@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { StatusBadge } from "@/components/StatusBadge";
-import { DeleteJobButton } from "@/components/DeleteJobButton";
-import { getJobDisplayName, formatJobDate } from "@/lib/jobs";
+import { getJobDisplayName, formatJobDateShort } from "@/lib/jobs";
 
 export type JobCardPhoto = {
   url: string | null;
@@ -19,80 +18,74 @@ type JobCardProps = {
   previews: JobCardPhoto[];
 };
 
-function previewLabel(count: number, max: number): string {
-  if (count <= max) return "";
-  return `+${count - max}`;
+function statusHint(status: string): string | null {
+  switch (status) {
+    case "draft":
+      return "Add photos and submit when ready";
+    case "processing":
+    case "submitted":
+    case "payment_pending":
+      return "Enhancement in progress";
+    case "ready":
+      return "Download and share";
+    case "failed":
+      return "Needs attention";
+    default:
+      return null;
+  }
 }
 
 export function JobCard({ job, previews }: JobCardProps) {
-  const slots = [0, 1, 2, 3];
-  const filled = previews.filter((p) => p.url);
-  const extra = previewLabel(job.photoCount, 4);
+  const hero = previews.find((p) => p.url)?.url ?? null;
+  const hint = statusHint(job.status);
 
   return (
-    <li className="group overflow-hidden rounded-xl border border-wiselista-border bg-white shadow-sm transition-all hover:border-slate-300 hover:shadow-md">
-      <Link href={`/dashboard/jobs/${job.id}`} className="block">
-        <div className="grid grid-cols-4 gap-0.5 bg-slate-100 p-0.5">
-          {slots.map((i) => {
-            const photo = filled[i];
-            return (
-              <div
-                key={i}
-                className="relative aspect-[4/3] overflow-hidden bg-slate-200"
-              >
-                {photo?.url ? (
-                  <img
-                    src={photo.url}
-                    alt=""
-                    className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                  />
-                ) : i === 3 && extra ? (
-                  <div className="flex h-full items-center justify-center bg-slate-800/80 text-sm font-semibold text-white">
-                    {extra}
-                  </div>
-                ) : (
-                  <div className="flex h-full items-center justify-center text-slate-300">
-                    <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={1.5}
-                        d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                      />
-                    </svg>
-                  </div>
-                )}
-              </div>
-            );
-          })}
+    <li>
+      <Link
+        href={`/dashboard/jobs/${job.id}`}
+        className="group flex items-center gap-4 px-4 py-4 transition-colors hover:bg-slate-50 sm:gap-5 sm:px-5"
+      >
+        <div className="relative h-16 w-20 shrink-0 overflow-hidden rounded-md bg-slate-100 sm:h-[4.5rem] sm:w-24">
+          {hero ? (
+            <img src={hero} alt="" className="h-full w-full object-cover" />
+          ) : (
+            <div className="flex h-full items-center justify-center text-slate-300">
+              <svg className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.25}
+                  d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                />
+              </svg>
+            </div>
+          )}
         </div>
 
-        <div className="p-4">
-          <div className="flex items-start justify-between gap-2">
-            <h2 className="min-w-0 flex-1 truncate font-semibold text-slate-900">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <h2 className="truncate text-base font-medium text-slate-900 group-hover:text-wiselista-accent">
               {getJobDisplayName(job)}
             </h2>
             <StatusBadge status={job.status} />
           </div>
-          <p className="mt-1.5 text-sm text-slate-500">
+          <p className="mt-1 text-sm text-slate-500">
             {job.photoCount === 0
-              ? "No photos yet"
+              ? "No photos"
               : `${job.photoCount} photo${job.photoCount === 1 ? "" : "s"}`}
-            {" · "}
-            {formatJobDate(job.created_at)}
+            <span className="mx-1.5 text-slate-300">·</span>
+            {formatJobDateShort(job.created_at)}
           </p>
+          {hint && <p className="mt-0.5 hidden text-xs text-slate-400 sm:block">{hint}</p>}
         </div>
-      </Link>
 
-      <div className="flex items-center justify-between border-t border-wiselista-border px-4 py-2.5">
-        <Link
-          href={`/dashboard/jobs/${job.id}`}
-          className="text-sm font-medium text-wiselista-accent hover:underline"
+        <span
+          className="shrink-0 text-slate-300 transition-transform group-hover:translate-x-0.5 group-hover:text-slate-500"
+          aria-hidden
         >
-          Open project
-        </Link>
-        <DeleteJobButton jobId={job.id} variant="link" />
-      </div>
+          →
+        </span>
+      </Link>
     </li>
   );
 }
