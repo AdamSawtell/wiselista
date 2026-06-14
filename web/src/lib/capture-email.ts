@@ -52,9 +52,9 @@ export function buildCaptureEmailBody(input: CaptureEmailInput): string {
 
 export function buildCaptureMailtoUrl(input: CaptureEmailInput): string {
   const to = input.customerEmail?.trim() ?? "";
-  const params = new URLSearchParams();
-  params.set("subject", buildCaptureEmailSubject(input));
-  params.set("body", buildCaptureEmailBody(input));
-  const query = params.toString();
+  // encodeURIComponent (not URLSearchParams) — many mail clients show + as literal plus signs.
+  const subject = encodeURIComponent(buildCaptureEmailSubject(input));
+  const body = encodeURIComponent(buildCaptureEmailBody(input));
+  const query = `subject=${subject}&body=${body}`;
   return to ? `mailto:${to}?${query}` : `mailto:?${query}`;
 }
