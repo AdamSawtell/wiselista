@@ -103,6 +103,28 @@ export default function CameraScreen({
     }
   }
 
+  async function handleTakeWithCamera() {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== "granted") {
+      setError("Camera access is required to capture property photos.");
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.9,
+      base64: true,
+    });
+    if (result.canceled || !result.assets?.[0]?.uri) return;
+    const asset = result.assets[0];
+    if (asset.base64) {
+      const luma = estimateBrightnessFromBase64(asset.base64);
+      if (luma != null) {
+        setBrightnessHint(getBrightnessHint(getBrightnessStatus(luma)));
+      }
+    }
+    await processCapture(asset.uri);
+  }
+
   async function handleCapture() {
     if (!cameraRef.current || uploading) return;
     try {
@@ -181,10 +203,10 @@ export default function CameraScreen({
       {useWebFallback ? (
         <View style={[styles.webFallback, { backgroundColor: theme.colors.cameraBar }]}>
           <Text style={[styles.webFallbackTitle, { color: theme.colors.cameraBarText }]}>
-            Camera preview unavailable on web
+            {slotLabel ?? ROOM_LABELS[roomType]}
           </Text>
           <Text style={[styles.webFallbackSub, { color: theme.colors.cameraBarMuted }]}>
-            Choose a photo from your library to continue the guided shoot.
+            Tap Take photo to open your phone camera — same as the customer capture link.
           </Text>
         </View>
       ) : (
@@ -258,17 +280,28 @@ export default function CameraScreen({
         {error && <Text style={[styles.error, { color: theme.colors.error }]}>{error}</Text>}
 
         {useWebFallback ? (
-          <TouchableOpacity
-            style={[styles.capture, { backgroundColor: theme.colors.primary }, uploading && styles.captureDisabled]}
-            onPress={handlePickFromLibrary}
-            disabled={uploading}
-          >
-            {uploading ? (
-              <ActivityIndicator color={theme.colors.textOnPrimary} />
-            ) : (
-              <Text style={[styles.captureText, { color: theme.colors.textOnPrimary }]}>Choose photo</Text>
-            )}
-          </TouchableOpacity>
+          <>
+            <TouchableOpacity
+              style={[styles.capture, { backgroundColor: theme.colors.primary }, uploading && styles.captureDisabled]}
+              onPress={handleTakeWithCamera}
+              disabled={uploading}
+            >
+              {uploading ? (
+                <ActivityIndicator color={theme.colors.textOnPrimary} />
+              ) : (
+                <Text style={[styles.captureText, { color: theme.colors.textOnPrimary }]}>Take photo</Text>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.libraryBtn, uploading && styles.captureDisabled]}
+              onPress={handlePickFromLibrary}
+              disabled={uploading}
+            >
+              <Text style={[styles.libraryBtnText, { color: theme.colors.cameraBarMuted }]}>
+                Choose from library
+              </Text>
+            </TouchableOpacity>
+          </>
         ) : (
           <TouchableOpacity
             style={[styles.capture, { backgroundColor: theme.colors.primary }, uploading && styles.captureDisabled]}
@@ -350,6 +383,8 @@ const styles = StyleSheet.create({
   },
   captureDisabled: { opacity: 0.7 },
   captureText: { ...theme.typography.bodyMedium },
+  libraryBtn: { alignItems: "center", marginBottom: theme.spacing.md },
+  libraryBtnText: { ...theme.typography.captionMedium },
   back: { alignItems: "center" },
   backText: { ...theme.typography.caption },
   permissionText: { ...theme.typography.body, textAlign: "center", marginBottom: theme.spacing.md },
