@@ -8,7 +8,8 @@ import {
   type CaptureStatus,
 } from "@/lib/capture-shared";
 
-import { isDefaultProjectName } from "@/lib/jobs";
+import { isDefaultProjectName, getJobDisplayName } from "@/lib/jobs";
+import { buildCaptureMailtoUrl } from "@/lib/capture-email";
 
 type CaptureEvent = {
   id: string;
@@ -28,6 +29,10 @@ type CaptureState = {
   url: string | null;
   photoCount: number;
   events: CaptureEvent[];
+  name?: string | null;
+  property_address?: string | null;
+  agentName?: string | null;
+  agentAgency?: string | null;
 };
 
 type Props = {
@@ -54,6 +59,7 @@ export function CustomerCapturePanel({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [customerEmail, setCustomerEmail] = useState("");
   const router = useRouter();
   const prevPhotoCount = useRef<number | null>(null);
   const prevStatus = useRef<CaptureStatus | null>(null);
@@ -103,6 +109,26 @@ export function CustomerCapturePanel({
     const interval = setInterval(() => void refresh(), 8000);
     return () => clearInterval(interval);
   }, [refresh, isDraft]);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(`wiselista:capture-email:${jobId}`);
+      if (saved) setCustomerEmail(saved);
+    } catch {
+      // ignore
+    }
+  }, [jobId]);
+
+  function saveCustomerEmail(value: string) {
+    setCustomerEmail(value);
+    try {
+      const trimmed = value.trim();
+      if (trimmed) localStorage.setItem(`wiselista:capture-email:${jobId}`, trimmed);
+      else localStorage.removeItem(`wiselista:capture-email:${jobId}`);
+    } catch {
+      // ignore
+    }
+  }
 
   async function enableCapture() {
     setBusy(true);
@@ -179,6 +205,19 @@ export function CustomerCapturePanel({
   const hasAddress = Boolean(propertyAddress?.trim());
   const setupReady = hasProjectName;
 
+  const mailtoUrl =
+    enabled && state?.url
+      ? buildCaptureMailtoUrl({
+          captureUrl: state.url,
+          projectName: getJobDisplayName({ name: jobName ?? state.name, id: jobId }),
+          propertyAddress: propertyAddress ?? state.property_address,
+          expiresAt: state.capture_expires_at,
+          agentName: state.agentName,
+          agentAgency: state.agentAgency,
+          customerEmail: customerEmail.trim() || undefined,
+        })
+      : null;
+
   const Wrapper = embedded ? "div" : "section";
   const wrapperClass = embedded ? "" : "rounded-xl border border-slate-200 bg-white p-5";
 
@@ -225,12 +264,28 @@ export function CustomerCapturePanel({
 
       {enabled && state?.url && (
         <div className="mt-3 space-y-3">
+          <label className="block">
+            <span className="text-xs text-slate-600">Customer email (optional)</span>
+            <input
+              type="email"
+              value={customerEmail}
+              onChange={(e) => saveCustomerEmail(e.target.value)}
+              placeholder="vendor@example.com"
+              className="mt-1 w-full max-w-sm rounded-lg border border-slate-200 px-3 py-2 text-sm"
+              autoComplete="email"
+            />
+          </label>
           <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-3">
             <p className="break-all text-xs text-slate-700">{state.url}</p>
             <div className="mt-2 flex flex-wrap gap-2">
               <button type="button" onClick={() => void copyLink()} className="btn-secondary text-xs">
                 {copied ? "Copied" : "Copy link"}
               </button>
+              {mailtoUrl && (
+                <a href={mailtoUrl} className="btn-secondary inline-flex text-xs no-underline">
+                  Email link
+                </a>
+              )}
               {isDraft && (
                 <>
                   <button type="button" onClick={() => void enableCapture()} disabled={busy} className="text-xs text-slate-600 hover:underline">

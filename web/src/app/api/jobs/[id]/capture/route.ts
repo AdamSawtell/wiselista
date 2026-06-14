@@ -89,13 +89,19 @@ export async function GET(
   const { data: job } = await supabase
     .from("jobs")
     .select(
-      "capture_enabled, capture_token, capture_expires_at, capture_status, capture_viewed_at, capture_started_at, capture_submitted_at, capture_customer_name, plan_tier, status"
+      "name, property_address, capture_enabled, capture_token, capture_expires_at, capture_status, capture_viewed_at, capture_started_at, capture_submitted_at, capture_customer_name, plan_tier, status"
     )
     .eq("id", id)
     .eq("user_id", user.id)
     .single();
 
   if (!job) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("full_name, business_name")
+    .eq("id", user.id)
+    .maybeSingle();
 
   const { data: events } = await supabase
     .from("capture_events")
@@ -114,6 +120,8 @@ export async function GET(
     url: job.capture_token ? captureUrl(job.capture_token) : null,
     photoCount: photoCount ?? 0,
     events: events ?? [],
+    agentName: profile?.full_name?.trim() || null,
+    agentAgency: profile?.business_name?.trim() || null,
   });
 }
 
