@@ -39,14 +39,23 @@ export function SubmitJobButton({ jobId, photoCount, planTier }: SubmitJobButton
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ promo_code: promoCode.trim() || undefined }),
       });
-      const data = await res.json();
       clearInterval(tick);
+
+      let data: { error?: string; skippedPayment?: boolean; url?: string } = {};
+      try {
+        data = (await res.json()) as typeof data;
+      } catch {
+        data = {};
+      }
+
       if (!res.ok) {
+        if (await redirectIfProcessing()) return;
         setError(data.error ?? "Submit failed");
         setLoading(false);
         setProgress(0);
         return;
       }
+
       setProgress(100);
       if (data.skippedPayment) {
         router.push(`/dashboard/jobs/${jobId}?submitted=1`);
@@ -62,9 +71,26 @@ export function SubmitJobButton({ jobId, photoCount, planTier }: SubmitJobButton
       setProgress(0);
     } catch {
       clearInterval(tick);
-      setError("Something went wrong");
+      if (await redirectIfProcessing()) return;
+      setError("Submit timed out — refresh the page to check if enhancement started.");
       setLoading(false);
       setProgress(0);
+    }
+
+    async function redirectIfProcessing(): Promise<boolean> {
+      try {
+        const statusRes = await fetch(`/api/jobs/${jobId}/processing`);
+        if (!statusRes.ok) return false;
+        const statusData = (await statusRes.json()) as { status?: string };
+        if (statusData.status === "processing" || statusData.status === "ready") {
+          router.push(`/dashboard/jobs/${jobId}?submitted=1`);
+          router.refresh();
+          return true;
+        }
+      } catch {
+        // ignore
+      }
+      return false;
     }
   }
 

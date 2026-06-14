@@ -4,7 +4,6 @@ import { getApiUser } from "@/lib/api-auth";
 import { getStripe, isStripePaymentEnabled, jobPriceCents, stripeProductName } from "@/lib/stripe";
 import { isValidPilotPromoCode } from "@/lib/pilot-promo";
 import { getPlanConfig } from "@/lib/plans";
-import { runJobProcessing } from "@/lib/trigger-job-processing";
 import { NextResponse } from "next/server";
 
 /** Claid can take ~20s per photo; allow enough time on serverless. */
@@ -81,16 +80,12 @@ export async function POST(
 
     if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 });
 
-    console.info("[Submit] payment skipped (test mode), starting processing", {
+    console.info("[Submit] payment skipped — dashboard will run processing", {
       jobId,
       userId: user.id,
       photoCount: photos.length,
       promo: promoCode ? "yes" : "env",
     });
-    const result = await runJobProcessing(jobId, supabase);
-    if (!result.ok) {
-      return NextResponse.json({ error: result.error ?? "Processing failed" }, { status: 500 });
-    }
 
     return NextResponse.json({ skippedPayment: true, promoApplied: Boolean(promoCode) });
   }
