@@ -13,36 +13,29 @@ export const metadata: Metadata = {
 const STORYBOARD_STEPS = [
   {
     step: 1,
-    time: "0:00 – 0:05",
     caption: "Need listing photos but don't want to organise a photographer every time?",
   },
   {
     step: 2,
-    time: "0:05 – 0:10",
     caption:
       "With Wiselista, simply create a property project and send a magic link to your vendor or tenant.",
   },
   {
     step: 3,
-    time: "0:10 – 0:15",
     caption: "They walk room by room, taking photos on their phone with helpful guidance.",
   },
   {
     step: 4,
-    time: "0:15 – 0:20",
     caption: "No app, no login.",
   },
   {
     step: 5,
-    time: "0:20 – 0:25",
-    caption:
-      "The photos come straight back to you. Submit them for AI enhancement and get bright, listing-ready images.",
+    caption: "The photos come straight back to you. Submit them for AI enhancement.",
   },
   {
     step: 6,
-    time: "0:25 – 0:30",
     caption:
-      "Download and upload to Domain or realestate.com.au. Wiselista — property photos, AI-edited.",
+      "Download bright, listing-ready images and upload them to Domain or realestate.com.au.",
   },
 ] as const;
 
@@ -71,7 +64,6 @@ export default function HowItWorksPage() {
               <p className="text-xs font-semibold uppercase tracking-widest text-sky-300">
                 Wiselista — property photos, AI-edited
               </p>
-              <p className="mt-1 text-sm text-slate-400">30 second walkthrough</p>
             </div>
             <Image
               src="/images/how-it-works-storyboard.png"
@@ -102,11 +94,10 @@ export default function HowItWorksPage() {
                 key={item.step}
                 className="flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
               >
-                <div className="flex items-center justify-between border-b border-slate-100 bg-wiselista-navy px-4 py-3">
+                <div className="border-b border-slate-100 bg-wiselista-navy px-4 py-3">
                   <span className="flex h-8 w-8 items-center justify-center rounded-full bg-wiselista-accent text-sm font-bold text-white">
                     {item.step}
                   </span>
-                  <span className="text-xs font-medium text-sky-200">{item.time}</span>
                 </div>
                 <p className="flex flex-1 items-center bg-slate-800 px-4 py-5 text-sm leading-relaxed text-slate-100">
                   {item.caption}
