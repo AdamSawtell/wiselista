@@ -2,6 +2,7 @@ import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { getApiUser } from "@/lib/api-auth";
 import { getStripe, isStripePaymentEnabled, jobPriceCents, stripeProductName } from "@/lib/stripe";
+import { isValidPilotPromoCode } from "@/lib/pilot-promo";
 import { getPlanConfig } from "@/lib/plans";
 import { runJobProcessing } from "@/lib/trigger-job-processing";
 import { NextResponse } from "next/server";
@@ -60,8 +61,19 @@ export async function POST(
     );
   }
 
-  // Test / pilot: skip Stripe when keys are missing or WISELISTA_SKIP_PAYMENT=true
-  if (!isStripePaymentEnabled()) {
+  // Test / pilot: skip Stripe when keys are missing, WISELISTA_SKIP_PAYMENT=true, or valid promo code
+  let promoCode: string | undefined;
+  try {
+    const body = (await request.json()) as { promo_code?: string };
+    promoCode = body.promo_code?.trim();
+  } catch {
+    promoCode = undefined;
+  }
+
+  const skipPayment =
+    !isStripePaymentEnabled() || isValidPilotPromoCode(promoCode);
+
+  if (skipPayment) {
     const { error: updateError } = await supabase
       .from("jobs")
       .update({ status: "processing", updated_at: new Date().toISOString() })
@@ -73,13 +85,14 @@ export async function POST(
       jobId,
       userId: user.id,
       photoCount: photos.length,
+      promo: promoCode ? "yes" : "env",
     });
     const result = await runJobProcessing(jobId, supabase);
     if (!result.ok) {
       return NextResponse.json({ error: result.error ?? "Processing failed" }, { status: 500 });
     }
 
-    return NextResponse.json({ skippedPayment: true });
+    return NextResponse.json({ skippedPayment: true, promoApplied: Boolean(promoCode) });
   }
 
   const stripe = getStripe();

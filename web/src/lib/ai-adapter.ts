@@ -155,6 +155,11 @@ async function callClaidEdit(inputUrl: string, roomType: RoomType): Promise<stri
 
   if (!res.ok) {
     const err = (await res.json().catch(() => ({}))) as { message?: string };
+    if (res.status === 402) {
+      throw new Error(
+        "Claid API credits required — add billing at claid.ai (Dashboard → Billing). This is separate from Stripe customer payments."
+      );
+    }
     throw new Error(`Claid API error ${res.status}: ${err.message ?? res.statusText}`);
   }
 

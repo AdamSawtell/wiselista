@@ -15,6 +15,8 @@ export function SubmitJobButton({ jobId, photoCount, planTier }: SubmitJobButton
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [promoCode, setPromoCode] = useState("");
+  const [showPromo, setShowPromo] = useState(false);
   const router = useRouter();
 
   async function handleSubmit() {
@@ -32,7 +34,11 @@ export function SubmitJobButton({ jobId, photoCount, planTier }: SubmitJobButton
     }, estimateMs / 40);
 
     try {
-      const res = await fetch(`/api/jobs/${jobId}/submit`, { method: "POST" });
+      const res = await fetch(`/api/jobs/${jobId}/submit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ promo_code: promoCode.trim() || undefined }),
+      });
       const data = await res.json();
       clearInterval(tick);
       if (!res.ok) {
@@ -72,6 +78,33 @@ export function SubmitJobButton({ jobId, photoCount, planTier }: SubmitJobButton
       >
         {loading ? "Enhancing photos…" : `Submit for edit — $${plan.priceAud} AUD`}
       </button>
+
+      {!loading && (
+        <div className="mt-3">
+          {!showPromo ? (
+            <button
+              type="button"
+              onClick={() => setShowPromo(true)}
+              className="text-sm text-slate-500 hover:text-wiselista-accent"
+            >
+              Have a pilot code?
+            </button>
+          ) : (
+            <label className="block max-w-xs">
+              <span className="text-sm text-slate-600">Pilot code (optional)</span>
+              <input
+                type="text"
+                value={promoCode}
+                onChange={(e) => setPromoCode(e.target.value)}
+                placeholder="e.g. WISEPILOT"
+                className="mt-1 w-full rounded-lg border border-wiselista-border px-3 py-2 text-sm uppercase"
+                autoComplete="off"
+              />
+            </label>
+          )}
+        </div>
+      )}
+
       {loading && (
         <div className="mt-4 max-w-md">
           <p className="text-sm text-amber-800">
