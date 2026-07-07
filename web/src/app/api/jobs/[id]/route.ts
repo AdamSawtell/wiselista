@@ -1,7 +1,6 @@
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { createClient, createClientForRequest, getServiceClientOrNull } from "@/lib/supabase/server";
 import { getApiUser } from "@/lib/api-auth";
-import { getCurrentUser } from "@/lib/auth";
 import { canDowngradeToCore, getPlanConfig, normalizePlanTier } from "@/lib/plans";
 import { parseCaptureBrief, validateBriefForPlan } from "@/lib/capture-brief";
 import { NextResponse } from "next/server";
@@ -9,14 +8,14 @@ import { NextResponse } from "next/server";
 const BUCKET = "wiselista-photos";
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const user = await getCurrentUser();
+  const user = await getApiUser(request);
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
-  const supabase = await createClient();
+  const supabase = await createClientForRequest(request);
   if (!supabase) return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
 
   const { data: job, error: jobError } = await supabase

@@ -1,5 +1,5 @@
-import { createClient } from "@/lib/supabase/server";
-import { getCurrentUser } from "@/lib/auth";
+import { createClientForRequest } from "@/lib/supabase/server";
+import { getApiUser } from "@/lib/api-auth";
 import { normalizePlanTier, type PlanTier } from "@/lib/plans";
 import {
   captureExpiresAt,
@@ -10,11 +10,11 @@ import {
 import { defaultCaptureBrief, parseCaptureBrief, validateBriefForPlan } from "@/lib/capture-brief";
 import { NextResponse } from "next/server";
 
-export async function GET() {
-  const user = await getCurrentUser();
+export async function GET(request: Request) {
+  const user = await getApiUser(request);
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const supabase = await createClient();
+  const supabase = await createClientForRequest(request);
   if (!supabase) return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
   const { data, error } = await supabase
     .from("jobs")
@@ -27,7 +27,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const user = await getCurrentUser();
+  const user = await getApiUser(request);
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   let name: string | null = null;
@@ -56,7 +56,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: briefValidation.error }, { status: 400 });
   }
 
-  const supabase = await createClient();
+  const supabase = await createClientForRequest(request);
   if (!supabase) return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
 
   const captureEnabled = customerCapture && planTier === "pro";
