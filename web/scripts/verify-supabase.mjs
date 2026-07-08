@@ -15,9 +15,9 @@ const envPath = resolve(__dirname, "../.env.local");
 function loadEnv() {
   const raw = readFileSync(envPath, "utf8");
   const env = {};
-  for (const line of raw.split("\n")) {
+  for (const line of raw.split(/\r?\n/)) {
     const m = line.match(/^([A-Z0-9_]+)=(.*)$/);
-    if (m) env[m[1]] = m[2].trim();
+    if (m) env[m[1]] = m[2].trim().replace(/\r$/, "");
   }
   return env;
 }

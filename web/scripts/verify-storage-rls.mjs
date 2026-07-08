@@ -18,9 +18,9 @@ function loadEnv() {
     resolve(__dirname, "../.env.local"),
   ]) {
     if (!existsSync(envPath)) continue;
-    for (const line of readFileSync(envPath, "utf8").split("\n")) {
+    for (const line of readFileSync(envPath, "utf8").split(/\r?\n/)) {
       const m = line.match(/^([^#=]+)=(.*)$/);
-      if (m) env[m[1].trim()] = m[2].trim().replace(/^["']|["']$/g, "");
+      if (m) env[m[1].trim()] = m[2].trim().replace(/^["']|["']$/g, "").replace(/\r$/, "");
     }
   }
   for (const key of [

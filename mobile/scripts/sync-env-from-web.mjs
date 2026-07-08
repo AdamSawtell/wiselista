@@ -1,7 +1,17 @@
 import { readFileSync, writeFileSync, existsSync } from "fs";
+import { resolve, dirname } from "path";
+import { fileURLToPath } from "url";
 
-const webEnv = readFileSync("../web/.env.local", "utf8");
-const mobilePath = ".env";
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const webEnvPath = resolve(__dirname, "../../web/.env.local");
+const mobilePath = resolve(__dirname, "../.env");
+
+if (!existsSync(webEnvPath)) {
+  console.error("FAIL: missing web/.env.local at", webEnvPath);
+  process.exit(1);
+}
+
+const webEnv = readFileSync(webEnvPath, "utf8");
 
 function get(key) {
   const m = webEnv.match(new RegExp(`^${key}=(.+)$`, "m"));
