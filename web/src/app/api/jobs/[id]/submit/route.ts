@@ -39,7 +39,7 @@ export async function POST(
     .single();
 
   if (jobError || !job) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  if (job.status !== "draft") {
+  if (job.status !== "draft" && job.status !== "payment_pending") {
     return NextResponse.json({ error: "Job already submitted" }, { status: 400 });
   }
 

@@ -16,11 +16,17 @@
       "supportsTablet": true,
       "infoPlist": {
         "NSCameraUsageDescription": "Wiselista needs camera access to capture property photos.",
-        "NSMicrophoneUsageDescription": "Wiselista may use the microphone for video."
+        "NSMicrophoneUsageDescription": "Wiselista may use the microphone for video.",
+        "NSPhotoLibraryUsageDescription": "Wiselista saves enhanced listing photos to your photo library.",
+        "NSPhotoLibraryAddUsageDescription": "Wiselista saves enhanced listing photos to your photo library."
       }
     },
     "android": {
-      "permissions": ["android.permission.CAMERA"],
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
+      ],
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"

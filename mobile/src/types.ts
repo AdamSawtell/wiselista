@@ -11,6 +11,7 @@ export interface Job {
   completed_at?: string | null;
   failure_message?: string | null;
   name?: string | null;
+  plan_tier?: string | null;
   photos?: Photo[];
 }
 

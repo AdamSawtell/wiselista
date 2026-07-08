@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -14,6 +14,7 @@ import {
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import * as ImagePicker from "expo-image-picker";
+import * as Clipboard from "expo-clipboard";
 import { supabase, APP_URL } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 import { theme } from "../theme";
@@ -23,6 +24,9 @@ import StatusBadge from "../components/StatusBadge";
 import PrimaryButton from "../components/PrimaryButton";
 import { downloadJobZip, downloadPhoto } from "../lib/downloadPhotos";
 import { useJobProcessing } from "../hooks/useJobProcessing";
+import { useAppForegroundRefresh } from "../hooks/useAppForegroundRefresh";
+import { createShareLink } from "../lib/shareJob";
+import { getPlanConfig, normalizePlanTier } from "../lib/plans";
 import { SUPPORT_EMAIL, supportMailto } from "../lib/support";
 
 function jobTitle(job: Job): string {
@@ -59,6 +63,9 @@ export default function JobDetailScreen({
   const [loadError, setLoadError] = useState<string | null>(null);
   const [failedThumbnails, setFailedThumbnails] = useState<Record<string, boolean>>({});
   const [retrying, setRetrying] = useState(false);
+  const [sharingLink, setSharingLink] = useState(false);
+  const [resumingPayment, setResumingPayment] = useState(false);
+  const awaitingPaymentRef = useRef(false);
 
   const processing = useJobProcessing(
     jobId,
@@ -77,7 +84,7 @@ export default function JobDetailScreen({
     }
   }, [processing.status, job?.status]);
 
-  async function fetchJob() {
+  async function fetchJob(): Promise<Job | null> {
     setLoadError(null);
     setFailedThumbnails({});
     try {
@@ -89,7 +96,7 @@ export default function JobDetailScreen({
         .single();
       if (jobErr || !jobData) {
         setJob(null);
-        return;
+        return null;
       }
       setJob(jobData as Job);
       const { data: photosData } = await supabase
@@ -116,16 +123,42 @@ export default function JobDetailScreen({
         })
       );
       setSignedUrls(urls);
+      return jobData as Job;
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : "Could not load job");
       setJob(null);
       setPhotos([]);
       setSignedUrls({});
+      return null;
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   }
+
+  useAppForegroundRefresh(() => {
+    void (async () => {
+      const shouldRefresh =
+        awaitingPaymentRef.current ||
+        job?.status === "payment_pending" ||
+        job?.status === "processing" ||
+        job?.status === "submitted";
+      if (!shouldRefresh) return;
+
+      const wasAwaitingPayment = awaitingPaymentRef.current;
+      awaitingPaymentRef.current = false;
+      const updated = await fetchJob();
+      if (!wasAwaitingPayment || !updated) return;
+
+      if (updated.status === "processing" || updated.status === "submitted") {
+        Alert.alert("Payment received", "Enhancing your photos now.");
+      } else if (updated.status === "ready") {
+        Alert.alert("Ready", "Your enhanced photos are ready to download.");
+      } else if (updated.status === "payment_pending") {
+        Alert.alert("Payment incomplete", "Finish checkout or tap Resume payment.");
+      }
+    })();
+  });
 
   useEffect(() => {
     fetchJob();
@@ -229,6 +262,7 @@ export default function JobDetailScreen({
         return;
       }
       if (data.url) {
+        awaitingPaymentRef.current = true;
         await fetchJob();
         await Linking.openURL(data.url);
         return;
@@ -240,6 +274,50 @@ export default function JobDetailScreen({
     } finally {
       setSubmitting(false);
     }
+  }
+
+  async function handleResumePayment() {
+    if (!session?.access_token || job?.status !== "payment_pending") return;
+    setResumingPayment(true);
+    try {
+      const res = await fetch(`${APP_URL}/api/jobs/${jobId}/submit`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({}),
+      });
+      const text = await res.text();
+      const data = text ? JSON.parse(text) : {};
+      if (!res.ok) {
+        Alert.alert("Payment failed", data.error ?? `Error ${res.status}`);
+        return;
+      }
+      if (data.url) {
+        awaitingPaymentRef.current = true;
+        await Linking.openURL(data.url);
+        return;
+      }
+      await fetchJob();
+    } catch (e) {
+      Alert.alert("Payment failed", e instanceof Error ? e.message : "Network error");
+    } finally {
+      setResumingPayment(false);
+    }
+  }
+
+  async function handleShareLink() {
+    if (!session?.access_token) return;
+    setSharingLink(true);
+    const result = await createShareLink(jobId, session.access_token);
+    setSharingLink(false);
+    if (!result.ok || !result.url) {
+      Alert.alert("Share failed", result.error ?? "Could not create share link");
+      return;
+    }
+    await Clipboard.setStringAsync(result.url);
+    Alert.alert("Link copied", "Send this to your client for approval. The link expires in 7 days.");
   }
 
   async function handleDownloadZip() {
@@ -267,7 +345,13 @@ export default function JobDetailScreen({
     setDownloadingPhotoId(photo.id);
     const result = await downloadPhoto(url, `wiselista-${photo.room_type}-${photo.sequence + 1}.jpg`);
     setDownloadingPhotoId(null);
-    if (!result.ok) Alert.alert("Download failed", result.error ?? "Could not save photo");
+    if (!result.ok) {
+      Alert.alert("Download failed", result.error ?? "Could not save photo");
+      return;
+    }
+    if (result.savedToPhotos) {
+      Alert.alert("Saved", "Photo saved to your camera roll.");
+    }
   }
 
   async function handleRetryProcessing() {
@@ -322,6 +406,7 @@ export default function JobDetailScreen({
   const isPaymentPending = job.status === "payment_pending";
   const isFailed = job.status === "failed";
   const canSubmit = isDraft && photos.length >= 1;
+  const shareEnabled = getPlanConfig(normalizePlanTier(job.plan_tier)).shareEnabled;
   const editedCount = photos.filter((p) => p.edited_key).length;
   const progressPct =
     processing.total > 0 ? Math.round((processing.current / processing.total) * 100) : 0;
@@ -380,9 +465,17 @@ export default function JobDetailScreen({
             </View>
           )}
           {isPaymentPending && (
-            <Text style={[styles.processingNote, { color: theme.colors.textSecondary }]}>
-              Payment not completed. Finish checkout on web, then pull to refresh.
-            </Text>
+            <View style={styles.paymentPendingBox}>
+              <Text style={[styles.processingNote, { color: theme.colors.textSecondary }]}>
+                Complete payment to start enhancement. When you return from checkout, this screen updates automatically.
+              </Text>
+              <PrimaryButton
+                label="Resume payment"
+                onPress={handleResumePayment}
+                loading={resumingPayment}
+                style={styles.paymentBtn}
+              />
+            </View>
           )}
           {isFailed && (
             <View style={[styles.failedBox, { borderColor: theme.colors.error }]}>
@@ -528,11 +621,22 @@ export default function JobDetailScreen({
           </>
         )}
         {isReady && editedCount > 0 && (
-          <PrimaryButton
-            label={`Download all (${editedCount})`}
-            onPress={handleDownloadZip}
-            loading={downloadingZip}
-          />
+          <>
+            <PrimaryButton
+              label={`Download all (${editedCount})`}
+              onPress={handleDownloadZip}
+              loading={downloadingZip}
+            />
+            {shareEnabled && (
+              <PrimaryButton
+                label="Copy client link"
+                onPress={handleShareLink}
+                loading={sharingLink}
+                variant="secondary"
+                style={styles.shareBtn}
+              />
+            )}
+          </>
         )}
       </View>
     </SafeAreaView>
@@ -564,6 +668,8 @@ const styles = StyleSheet.create({
   processingNote: { ...theme.typography.caption, marginTop: theme.spacing.md },
   processingBox: { marginTop: theme.spacing.md, gap: theme.spacing.sm },
   processingHint: { ...theme.typography.caption },
+  paymentPendingBox: { marginTop: theme.spacing.md, gap: theme.spacing.sm },
+  paymentBtn: { marginTop: theme.spacing.xs },
   progressTrack: { height: 8, borderRadius: 999, overflow: "hidden" },
   progressFill: { height: 8, borderRadius: 999 },
   failedBox: { marginTop: theme.spacing.md, padding: theme.spacing.md, borderWidth: 1, borderRadius: theme.radius.sm, gap: theme.spacing.sm },
@@ -616,4 +722,5 @@ const styles = StyleSheet.create({
   draftActions: { flexDirection: "row", gap: theme.spacing.sm, marginBottom: theme.spacing.sm },
   halfBtn: { flex: 1 },
   bottomHint: { ...theme.typography.caption, textAlign: "center", marginTop: theme.spacing.sm },
+  shareBtn: { marginTop: theme.spacing.sm },
 });

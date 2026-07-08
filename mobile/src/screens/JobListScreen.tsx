@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -15,7 +15,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 import { theme } from "../theme";
-import type { Job } from "../types";
+import type { Job, JobStatus } from "../types";
 import StatusBadge from "../components/StatusBadge";
 import PrimaryButton from "../components/PrimaryButton";
 import { fetchJobThumbnailUrls } from "../lib/photoThumbnails";
@@ -28,6 +28,21 @@ function jobTitle(job: Job): string {
   })}`;
 }
 
+const LIST_POLL_MS = 10_000;
+const ACTIVE_STATUSES: JobStatus[] = ["processing", "submitted", "payment_pending"];
+
+function activeStatusHint(status: JobStatus): string | null {
+  switch (status) {
+    case "processing":
+    case "submitted":
+      return "Enhancing photos…";
+    case "payment_pending":
+      return "Awaiting payment";
+    default:
+      return null;
+  }
+}
+
 export default function JobListScreen({ navigation }: { navigation: any }) {
   const { user } = useAuth();
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -35,7 +50,7 @@ export default function JobListScreen({ navigation }: { navigation: any }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  async function fetchJobs() {
+  async function fetchJobs(silent = false) {
     if (!user) return;
     try {
       const { data, error } = await supabase
@@ -50,17 +65,34 @@ export default function JobListScreen({ navigation }: { navigation: any }) {
         setThumbnails(thumbs);
       }
     } catch {
-      setJobs([]);
-      setThumbnails({});
+      if (!silent) {
+        setJobs([]);
+        setThumbnails({});
+      }
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (!silent) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   }
+
+  const hasActiveJobs = useMemo(
+    () => jobs.some((j) => ACTIVE_STATUSES.includes(j.status)),
+    [jobs]
+  );
 
   useEffect(() => {
     fetchJobs();
   }, [user?.id]);
+
+  useEffect(() => {
+    if (!hasActiveJobs || !user?.id) return;
+    const id = setInterval(() => {
+      void fetchJobs(true);
+    }, LIST_POLL_MS);
+    return () => clearInterval(id);
+  }, [hasActiveJobs, user?.id]);
 
   useFocusEffect(
     useCallback(() => {
@@ -111,6 +143,7 @@ export default function JobListScreen({ navigation }: { navigation: any }) {
         }
         renderItem={({ item }) => {
           const thumb = thumbnails[item.id];
+          const hint = activeStatusHint(item.status);
           return (
             <TouchableOpacity
               style={[styles.card, { backgroundColor: theme.colors.surface, borderColor: theme.colors.borderLight }]}
@@ -138,6 +171,9 @@ export default function JobListScreen({ navigation }: { navigation: any }) {
                     })}
                   </Text>
                 </View>
+                {hint ? (
+                  <Text style={[styles.activeHint, { color: theme.colors.textSecondary }]}>{hint}</Text>
+                ) : null}
               </View>
               <Ionicons name="chevron-forward" size={20} color={theme.colors.textMuted} />
             </TouchableOpacity>
@@ -204,6 +240,7 @@ const styles = StyleSheet.create({
   cardBody: { flex: 1 },
   rowTitle: { ...theme.typography.bodyMedium, marginBottom: 6 },
   rowMeta: { flexDirection: "row", alignItems: "center", gap: theme.spacing.sm, flexWrap: "wrap" },
+  activeHint: { ...theme.typography.caption, marginTop: 4 },
   rowDate: { ...theme.typography.caption },
   bottomBar: {
     position: "absolute",

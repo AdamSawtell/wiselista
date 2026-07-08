@@ -1,6 +1,7 @@
 import { Platform, Linking, Alert } from "react-native";
 import * as FileSystem from "expo-file-system";
 import * as Sharing from "expo-sharing";
+import * as MediaLibrary from "expo-media-library";
 import { APP_URL } from "./supabase";
 
 function baseUrl(): string {
@@ -15,6 +16,13 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
     binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
   }
   return btoa(binary);
+}
+
+async function ensurePhotoLibraryPermission(): Promise<boolean> {
+  const { status: existing } = await MediaLibrary.getPermissionsAsync();
+  if (existing === "granted") return true;
+  const { status } = await MediaLibrary.requestPermissionsAsync();
+  return status === "granted";
 }
 
 async function shareLocalFile(uri: string, mimeType: string): Promise<void> {
@@ -39,12 +47,18 @@ async function parseApiError(res: Response): Promise<string> {
   return `Error ${res.status}`;
 }
 
-/** Download edited photos ZIP via API and open share sheet (native) or browser download (web). */
+export type DownloadResult = {
+  ok: boolean;
+  error?: string;
+  savedToPhotos?: boolean;
+};
+
+/** Download edited photos ZIP via API; opens share sheet on native. */
 export async function downloadJobZip(
   jobId: string,
   accessToken: string,
   displayName?: string
-): Promise<{ ok: boolean; error?: string }> {
+): Promise<DownloadResult> {
   const url = `${baseUrl()}/api/jobs/${jobId}/download-zip`;
   const safeName = (displayName ?? "property").replace(/[^\w\-]+/g, "-").slice(0, 40);
 
@@ -82,8 +96,8 @@ export async function downloadJobZip(
   }
 }
 
-/** Download a single photo URL and share / save. */
-export async function downloadPhoto(url: string, filename: string): Promise<{ ok: boolean; error?: string }> {
+/** Download a single photo and save to camera roll (native) or download (web). */
+export async function downloadPhoto(url: string, filename: string): Promise<DownloadResult> {
   try {
     if (Platform.OS === "web") {
       if (typeof document !== "undefined") {
@@ -106,8 +120,15 @@ export async function downloadPhoto(url: string, filename: string): Promise<{ ok
     if (result.status !== 200) {
       return { ok: false, error: `Download failed (${result.status})` };
     }
+
+    const permitted = await ensurePhotoLibraryPermission();
+    if (permitted) {
+      await MediaLibrary.saveToLibraryAsync(result.uri);
+      return { ok: true, savedToPhotos: true };
+    }
+
     await shareLocalFile(result.uri, "image/jpeg");
-    return { ok: true };
+    return { ok: true, savedToPhotos: false };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Download failed" };
   }
