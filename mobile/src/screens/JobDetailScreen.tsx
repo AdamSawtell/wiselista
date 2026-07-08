@@ -22,6 +22,8 @@ import { ROOM_LABELS, ROOM_TYPES, type RoomType } from "../types";
 import StatusBadge from "../components/StatusBadge";
 import PrimaryButton from "../components/PrimaryButton";
 import { downloadJobZip, downloadPhoto } from "../lib/downloadPhotos";
+import { useJobProcessing } from "../hooks/useJobProcessing";
+import { SUPPORT_EMAIL, supportMailto } from "../lib/support";
 
 function jobTitle(job: Job): string {
   if (job.name?.trim()) return job.name.trim();
@@ -56,6 +58,24 @@ export default function JobDetailScreen({
   const [removingPhotoId, setRemovingPhotoId] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [failedThumbnails, setFailedThumbnails] = useState<Record<string, boolean>>({});
+  const [retrying, setRetrying] = useState(false);
+
+  const processing = useJobProcessing(
+    jobId,
+    session?.access_token,
+    (job?.status as JobStatus) ?? "draft",
+    photos.length
+  );
+
+  useEffect(() => {
+    if (!job) return;
+    if (
+      processing.status !== job.status &&
+      (processing.status === "ready" || processing.status === "failed")
+    ) {
+      void fetchJob();
+    }
+  }, [processing.status, job?.status]);
 
   async function fetchJob() {
     setLoadError(null);
@@ -231,13 +251,52 @@ export default function JobDetailScreen({
   }
 
   async function handleDownloadPhoto(photo: Photo) {
-    const urls = signedUrls[photo.id];
-    const url = job?.status === "ready" && urls?.edited ? urls.edited : urls?.original;
-    if (!url) return;
+    const key =
+      job?.status === "ready" && photo.edited_key ? photo.edited_key : photo.original_key;
+    let url = signedUrls[photo.id]?.edited && job?.status === "ready"
+      ? signedUrls[photo.id]?.edited
+      : signedUrls[photo.id]?.original;
+
+    const { data: fresh } = await supabase.storage.from("wiselista-photos").createSignedUrl(key, 3600);
+    if (fresh?.signedUrl) url = fresh.signedUrl;
+    if (!url) {
+      Alert.alert("Download failed", "Could not get a download link. Pull to refresh and try again.");
+      return;
+    }
+
     setDownloadingPhotoId(photo.id);
     const result = await downloadPhoto(url, `wiselista-${photo.room_type}-${photo.sequence + 1}.jpg`);
     setDownloadingPhotoId(null);
     if (!result.ok) Alert.alert("Download failed", result.error ?? "Could not save photo");
+  }
+
+  async function handleRetryProcessing() {
+    if (!session?.access_token) return;
+    setRetrying(true);
+    try {
+      const res = await fetch(`${APP_URL.replace(/\/$/, "")}/api/jobs/${jobId}/process`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        Alert.alert("Retry failed", (data as { error?: string }).error ?? `Error ${res.status}`);
+        return;
+      }
+      await fetchJob();
+    } catch {
+      Alert.alert("Retry failed", "Network error");
+    } finally {
+      setRetrying(false);
+    }
+  }
+
+  async function handleContactSupport() {
+    const mailto = supportMailto(
+      "Wiselista job failed",
+      `Job ID: ${jobId}\n\nPlease help with my failed photo enhancement.`
+    );
+    await Linking.openURL(mailto);
   }
 
   if (loading) {
@@ -260,8 +319,12 @@ export default function JobDetailScreen({
   const isDraft = job.status === "draft";
   const isReady = job.status === "ready";
   const isProcessing = job.status === "processing" || job.status === "submitted";
+  const isPaymentPending = job.status === "payment_pending";
+  const isFailed = job.status === "failed";
   const canSubmit = isDraft && photos.length >= 1;
   const editedCount = photos.filter((p) => p.edited_key).length;
+  const progressPct =
+    processing.total > 0 ? Math.round((processing.current / processing.total) * 100) : 0;
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -294,16 +357,48 @@ export default function JobDetailScreen({
             </Text>
           </View>
           {isProcessing && (
+            <View style={styles.processingBox}>
+              <Text style={[styles.processingNote, { color: theme.colors.textSecondary }]}>
+                {processing.current > 0
+                  ? `Enhancing photo ${processing.current} of ${processing.total}…`
+                  : `Starting enhancement (${processing.total || photos.length} photo${photos.length === 1 ? "" : "s"})…`}
+              </Text>
+              <View style={[styles.progressTrack, { backgroundColor: theme.colors.surfaceMuted }]}>
+                <View
+                  style={[
+                    styles.progressFill,
+                    {
+                      backgroundColor: theme.colors.primary,
+                      width: `${Math.max(progressPct, 5)}%`,
+                    },
+                  ]}
+                />
+              </View>
+              <Text style={[styles.processingHint, { color: theme.colors.textMuted }]}>
+                Usually ~20 seconds per photo. Pull to refresh.
+              </Text>
+            </View>
+          )}
+          {isPaymentPending && (
             <Text style={[styles.processingNote, { color: theme.colors.textSecondary }]}>
-              Enhancing your photos — usually ~20 seconds per image. Pull to refresh.
+              Payment not completed. Finish checkout on web, then pull to refresh.
             </Text>
           )}
-          {job.status === "failed" && (
+          {isFailed && (
             <View style={[styles.failedBox, { borderColor: theme.colors.error }]}>
               <Text style={[styles.failedTitle, { color: theme.colors.error }]}>Enhancement failed</Text>
-              {job.failure_message ? (
-                <Text style={[styles.failedMsg, { color: theme.colors.textPrimary }]}>{job.failure_message}</Text>
+              {(job.failure_message || processing.failureMessage) ? (
+                <Text style={[styles.failedMsg, { color: theme.colors.textPrimary }]}>
+                  {job.failure_message || processing.failureMessage}
+                </Text>
               ) : null}
+              <Text style={[styles.failedMsg, { color: theme.colors.textMuted }]}>
+                Job ID: {jobId.slice(0, 8)}…
+              </Text>
+              <View style={styles.failedActions}>
+                <PrimaryButton label="Try again" onPress={handleRetryProcessing} loading={retrying} />
+                <PrimaryButton label={`Email ${SUPPORT_EMAIL}`} onPress={handleContactSupport} variant="ghost" />
+              </View>
             </View>
           )}
         </View>
@@ -467,9 +562,14 @@ const styles = StyleSheet.create({
   metaRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   metaDate: { ...theme.typography.caption },
   processingNote: { ...theme.typography.caption, marginTop: theme.spacing.md },
-  failedBox: { marginTop: theme.spacing.md, padding: theme.spacing.md, borderWidth: 1, borderRadius: theme.radius.sm },
+  processingBox: { marginTop: theme.spacing.md, gap: theme.spacing.sm },
+  processingHint: { ...theme.typography.caption },
+  progressTrack: { height: 8, borderRadius: 999, overflow: "hidden" },
+  progressFill: { height: 8, borderRadius: 999 },
+  failedBox: { marginTop: theme.spacing.md, padding: theme.spacing.md, borderWidth: 1, borderRadius: theme.radius.sm, gap: theme.spacing.sm },
   failedTitle: { ...theme.typography.captionMedium },
   failedMsg: { ...theme.typography.caption, marginTop: 4 },
+  failedActions: { gap: theme.spacing.sm, marginTop: theme.spacing.sm },
   sectionLabel: { ...theme.typography.label, marginBottom: theme.spacing.sm },
   emptyPhotos: { ...theme.typography.body, marginBottom: theme.spacing.lg },
   photoRow: {

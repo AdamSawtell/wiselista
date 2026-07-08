@@ -20,6 +20,7 @@ import { JobPlanEditor } from "@/components/JobPlanEditor";
 import { JobCaptureBriefPanel } from "@/components/JobCaptureBriefPanel";
 import { CaptureBriefProgress } from "@/components/CaptureBriefProgress";
 import { JobSetupAccordion } from "@/components/JobSetupAccordion";
+import { JobFailedPanel } from "@/components/JobFailedPanel";
 import { JobReadyBanner } from "@/components/JobReadyBanner";
 import { getPortalLabel, LISTING_TYPE_LABELS } from "@/lib/enhancement";
 
@@ -171,12 +172,7 @@ export default async function JobDetailPage({
         </div>
 
         {isFailed && (
-          <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm">
-            <p className="font-medium text-red-900">Enhancement failed</p>
-            {jobRow.failure_message && (
-              <p className="mt-1 text-red-800">{jobRow.failure_message}</p>
-            )}
-          </div>
+          <JobFailedPanel jobId={id} failureMessage={jobRow.failure_message} />
         )}
       </header>
 

@@ -37,9 +37,22 @@ export async function POST(
     return NextResponse.json({ status: "ready", message: "Already complete" });
   }
 
-  if (job.status !== "processing") {
+  if (job.status === "failed") {
+    const { error: resetError } = await supabase
+      .from("jobs")
+      .update({
+        status: "processing",
+        failure_message: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", jobId)
+      .eq("user_id", user.id);
+    if (resetError) {
+      return NextResponse.json({ error: resetError.message }, { status: 500 });
+    }
+  } else if (job.status !== "processing") {
     return NextResponse.json(
-      { error: "Processing can only be started when the project is enhancing" },
+      { error: "Processing can only be started when the project is enhancing or retrying after failure" },
       { status: 400 }
     );
   }
