@@ -20,19 +20,27 @@ export function ProcessingProgress({ jobId, photoCount, initialStatus }: Process
     if (status !== "processing") return;
 
     let active = true;
-    let kickedOff = false;
+    let inFlight = false;
+    let lastKickOffAt = 0;
 
-    const kickOffProcessing = async () => {
-      if (kickedOff || !active) return;
-      kickedOff = true;
+    const kickOffProcessing = async (force = false) => {
+      if (!active || inFlight) return;
+      const now = Date.now();
+      // Retry if the first process call timed out / never started progress.
+      if (!force && lastKickOffAt > 0 && now - lastKickOffAt < 25_000) return;
+      inFlight = true;
+      lastKickOffAt = now;
       try {
         await fetch(`/api/jobs/${jobId}/process`, { method: "POST" });
       } catch {
-        kickedOff = false;
+        // allow another retry on the next poll window
+        lastKickOffAt = 0;
+      } finally {
+        inFlight = false;
       }
     };
 
-    void kickOffProcessing();
+    void kickOffProcessing(true);
 
     const poll = async () => {
       try {
@@ -45,6 +53,11 @@ export function ProcessingProgress({ jobId, photoCount, initialStatus }: Process
         if (data.startedAt) setStartedAt(data.startedAt);
         if (data.status === "ready" || data.status === "failed") {
           router.refresh();
+          return;
+        }
+        // Still processing → kick again so Amplify ~30s timeouts can resume remaining photos.
+        if (data.status === "processing") {
+          void kickOffProcessing();
         }
       } catch {
         // keep polling
