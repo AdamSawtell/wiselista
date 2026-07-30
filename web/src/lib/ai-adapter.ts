@@ -170,6 +170,30 @@ async function callClaidEdit(inputUrl: string, roomType: RoomType): Promise<stri
   return tmpUrl;
 }
 
+function isTransientFetchError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /fetch failed|network|ECONNRESET|ETIMEDOUT|socket|UND_ERR/i.test(message);
+}
+
+async function fetchWithRetry(url: string, attempts = 3): Promise<Response> {
+  let lastError: unknown;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      const res = await fetch(url);
+      if (!res.ok && res.status >= 500 && i < attempts - 1) {
+        await new Promise((r) => setTimeout(r, 500 * (i + 1)));
+        continue;
+      }
+      return res;
+    } catch (e) {
+      lastError = e;
+      if (!isTransientFetchError(e) || i === attempts - 1) throw e;
+      await new Promise((r) => setTimeout(r, 500 * (i + 1)));
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error(String(lastError));
+}
+
 async function uploadClaidResult(
   supabase: SupabaseClient,
   userId: string,
@@ -178,18 +202,30 @@ async function uploadClaidResult(
   roomType: RoomType,
   originalUrl: string
 ): Promise<void> {
-  const tmpUrl = await callClaidEdit(originalUrl, roomType);
-  const imageRes = await fetch(tmpUrl);
-  if (!imageRes.ok) throw new Error(`Failed to download Claid result: ${imageRes.status}`);
-  const buffer = await imageRes.arrayBuffer();
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const tmpUrl = await callClaidEdit(originalUrl, roomType);
+      const imageRes = await fetchWithRetry(tmpUrl);
+      if (!imageRes.ok) throw new Error(`Failed to download Claid result: ${imageRes.status}`);
+      const buffer = await imageRes.arrayBuffer();
 
-  const editedKey = `${userId}/${jobId}/edited/${photoId}.jpg`;
-  const { error: uploadError } = await supabase.storage
-    .from(BUCKET)
-    .upload(editedKey, buffer, { contentType: "image/jpeg", upsert: true });
+      const editedKey = `${userId}/${jobId}/edited/${photoId}.jpg`;
+      const { error: uploadError } = await supabase.storage
+        .from(BUCKET)
+        .upload(editedKey, buffer, { contentType: "image/jpeg", upsert: true });
 
-  if (uploadError) throw uploadError;
-  await supabase.from("photos").update({ edited_key: editedKey }).eq("id", photoId);
+      if (uploadError) throw uploadError;
+      await supabase.from("photos").update({ edited_key: editedKey }).eq("id", photoId);
+      return;
+    } catch (e) {
+      lastError = e;
+      if (!isTransientFetchError(e) || attempt === 3) throw e;
+      console.warn("[Claid] transient error, retrying photo", { photoId, attempt, error: e instanceof Error ? e.message : e });
+      await new Promise((r) => setTimeout(r, 800 * attempt));
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error(String(lastError));
 }
 
 /** Re-enhance a single photo (job stays ready). */
@@ -234,8 +270,8 @@ export async function reprocessPhotoWithClaid(
 }
 
 /**
- * Process job with Claid: for each photo, call Claid edit → download result → upload to storage → set edited_key → mark job ready.
- * Must be awaited from the submit route (serverless kills fire-and-forget when the HTTP response returns).
+ * Process job with Claid — one photo per invocation so Amplify ~30s timeouts can resume.
+ * Dashboard ProcessingProgress keeps calling /process until all photos have edited_key.
  */
 export async function processJobWithRealAI(jobId: string, supabase?: SupabaseClient): Promise<void> {
   const db = supabase ?? createServiceClient();
@@ -250,50 +286,65 @@ export async function processJobWithRealAI(jobId: string, supabase?: SupabaseCli
     throw new Error(`Claid: job ${jobId} not found or missing user_id`);
   }
 
+  const { count: totalCount } = await db
+    .from("photos")
+    .select("id", { count: "exact", head: true })
+    .eq("job_id", jobId);
+
   const requests = await buildAIRequests(jobId, db);
   if (!requests.length) {
     await markJobReady(db, jobId);
     return;
   }
+
+  const total = totalCount ?? requests.length;
+  const doneBefore = total - requests.length;
   const startedAt = new Date().toISOString();
 
   await db
     .from("jobs")
     .update({
-      processing_photo_total: requests.length,
-      processing_photo_index: 0,
+      status: "processing",
+      failure_message: null,
+      processing_photo_total: total,
+      processing_photo_index: doneBefore + 1,
       processing_started_at: startedAt,
       updated_at: startedAt,
     })
     .eq("id", jobId);
 
-  for (let i = 0; i < requests.length; i++) {
-    const r = requests[i];
+  // One photo per request — Amplify often kills long multi-photo Claid runs.
+  const r = requests[0];
+  try {
+    await uploadClaidResult(db, job.user_id, jobId, r.photoId, r.roomType, r.originalUrl);
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    const failureMessage = `Photo ${r.photoId.slice(0, 8)}: ${message}`.slice(0, 500);
+    console.error("[Claid]", { jobId, userId: job.user_id, photoId: r.photoId, error: message });
     await db
       .from("jobs")
-      .update({ processing_photo_index: i + 1, updated_at: new Date().toISOString() })
+      .update({
+        status: "failed",
+        failure_message: failureMessage,
+        updated_at: new Date().toISOString(),
+      })
       .eq("id", jobId);
-
-    try {
-      await uploadClaidResult(db, job.user_id, jobId, r.photoId, r.roomType, r.originalUrl);
-    } catch (e) {
-      const message = e instanceof Error ? e.message : String(e);
-      const failureMessage = `Photo ${r.photoId.slice(0, 8)}: ${message}`.slice(0, 500);
-      console.error("[Claid]", { jobId, userId: job.user_id, photoId: r.photoId, error: message });
-      await db
-        .from("jobs")
-        .update({
-          status: "failed",
-          failure_message: failureMessage,
-          updated_at: new Date().toISOString(),
-          processing_photo_index: null,
-          processing_photo_total: null,
-          processing_started_at: null,
-        })
-        .eq("id", jobId);
-      return;
-    }
+    return;
   }
 
-  await markJobReady(db, jobId);
+  const remaining = await buildAIRequests(jobId, db);
+  if (!remaining.length) {
+    await markJobReady(db, jobId);
+    return;
+  }
+
+  await db
+    .from("jobs")
+    .update({
+      status: "processing",
+      processing_photo_index: doneBefore + 1,
+      processing_photo_total: total,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", jobId);
 }

@@ -18,16 +18,13 @@ export function JobFailedPanel({ jobId, failureMessage }: JobFailedPanelProps) {
     setRetrying(true);
     setError(null);
     try {
-      const res = await fetch(`/api/jobs/${jobId}/process`, { method: "POST" });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setError((data as { error?: string }).error ?? "Could not retry enhancement");
-        return;
-      }
+      // Fire process; do not wait for full Claid completion (Amplify may time out).
+      // Job page ProcessingProgress will resume remaining photos.
+      void fetch(`/api/jobs/${jobId}/process`, { method: "POST" });
+      router.push(`/dashboard/jobs/${jobId}?submitted=1`);
       router.refresh();
     } catch {
       setError("Network error — try again");
-    } finally {
       setRetrying(false);
     }
   }

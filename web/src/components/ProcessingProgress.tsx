@@ -26,8 +26,8 @@ export function ProcessingProgress({ jobId, photoCount, initialStatus }: Process
     const kickOffProcessing = async (force = false) => {
       if (!active || inFlight) return;
       const now = Date.now();
-      // Retry if the first process call timed out / never started progress.
-      if (!force && lastKickOffAt > 0 && now - lastKickOffAt < 25_000) return;
+      // One photo per /process call — allow the next kick shortly after the last one returns.
+      if (!force && lastKickOffAt > 0 && now - lastKickOffAt < 4_000) return;
       inFlight = true;
       lastKickOffAt = now;
       try {
