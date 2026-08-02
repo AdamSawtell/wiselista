@@ -1,6 +1,7 @@
 import { createClientForRequest } from "@/lib/supabase/server";
 import { getApiUser } from "@/lib/api-auth";
 import { runJobProcessing } from "@/lib/trigger-job-processing";
+import { resetFailedPhotosForRetry, getJobAiProgress } from "@/lib/photo-ai-queue";
 import { NextResponse } from "next/server";
 
 /** Claid can take ~20s per photo; allow enough time on serverless. */
@@ -10,8 +11,8 @@ export const maxDuration = 300;
 export const runtime = "nodejs";
 
 /**
- * Run (or resume) AI processing for a job. Called from the dashboard while the user
- * waits — avoids relying on the Stripe webhook Lambda timeout on Amplify.
+ * Run (or resume) one AI photo for a job. Dashboard + mobile call this while waiting;
+ * cron continues if the tab closes.
  */
 export async function POST(
   request: Request,
@@ -38,6 +39,12 @@ export async function POST(
   }
 
   if (job.status === "failed") {
+    try {
+      await resetFailedPhotosForRetry(supabase, jobId);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      return NextResponse.json({ error: message }, { status: 500 });
+    }
     const { error: resetError } = await supabase
       .from("jobs")
       .update({
@@ -52,36 +59,51 @@ export async function POST(
     }
   } else if (job.status !== "processing") {
     return NextResponse.json(
-      { error: "Processing can only be started when the project is enhancing or retrying after failure" },
+      {
+        error:
+          "Processing can only be started when the project is enhancing or retrying after failure",
+      },
       { status: 400 }
     );
   }
 
-  const { data: photos } = await supabase.from("photos").select("id, edited_key").eq("job_id", jobId);
-  const pending = (photos ?? []).filter((p) => !p.edited_key).length;
-  if (!photos?.length) {
+  const { count } = await supabase
+    .from("photos")
+    .select("id", { count: "exact", head: true })
+    .eq("job_id", jobId);
+  if (!count) {
     return NextResponse.json({ error: "No photos to process" }, { status: 400 });
   }
 
-  console.info("[Process] starting/resuming", { jobId, userId: user.id, pending, total: photos.length });
+  console.info("[Process] starting/resuming", { jobId, userId: user.id, total: count });
   const result = await runJobProcessing(jobId, supabase);
 
-  const { data: updated } = await supabase.from("jobs").select("status, failure_message").eq("id", jobId).single();
+  const progress = result.progress ?? (await getJobAiProgress(supabase, jobId));
+  const status = result.status ?? "processing";
 
-  if (!result.ok) {
+  if (status === "failed" && progress.ready === 0) {
     return NextResponse.json(
       {
-        status: updated?.status ?? "failed",
-        failure_message: updated?.failure_message ?? result.error ?? "Processing failed",
+        status: "failed",
+        failure_message: result.error ?? "Processing failed",
         mode: result.mode,
+        current: progress.current,
+        total: progress.total,
+        ready: progress.ready,
+        failed: progress.failed,
       },
       { status: 500 }
     );
   }
 
   return NextResponse.json({
-    status: updated?.status ?? "processing",
-    failure_message: updated?.failure_message ?? null,
+    status,
+    failure_message: status === "failed" ? result.error ?? null : null,
     mode: result.mode,
+    photoId: result.photoId,
+    current: progress.current,
+    total: progress.total,
+    ready: progress.ready,
+    failed: progress.failed,
   });
 }

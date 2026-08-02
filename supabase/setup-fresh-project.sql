@@ -31,6 +31,11 @@ CREATE TABLE IF NOT EXISTS public.photos (
   original_key TEXT NOT NULL,
   edited_key TEXT,
   ai_photo_id TEXT,
+  ai_status TEXT NOT NULL DEFAULT 'pending'
+    CHECK (ai_status IN ('pending', 'processing', 'ready', 'failed')),
+  ai_attempts INT NOT NULL DEFAULT 0,
+  ai_last_error TEXT,
+  ai_claimed_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -98,3 +103,97 @@ CREATE POLICY "wiselista_photos_delete"
 ON storage.objects FOR DELETE
 TO authenticated
 USING (bucket_id = 'wiselista-photos');
+
+-- ========== Photo AI queue (durable processing) ==========
+CREATE INDEX IF NOT EXISTS idx_photos_ai_queue
+  ON public.photos (job_id, ai_status, sequence)
+  WHERE edited_key IS NULL;
+
+CREATE OR REPLACE FUNCTION public.claim_next_photo_for_job(
+  p_job_id uuid,
+  p_max_attempts int DEFAULT 3,
+  p_stale_seconds int DEFAULT 120
+)
+RETURNS SETOF public.photos
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_photo public.photos;
+BEGIN
+  IF auth.role() IS DISTINCT FROM 'service_role' THEN
+    IF NOT EXISTS (
+      SELECT 1 FROM public.jobs j
+      WHERE j.id = p_job_id AND j.user_id = auth.uid()
+    ) THEN
+      RAISE EXCEPTION 'not allowed';
+    END IF;
+  END IF;
+
+  SELECT p.*
+  INTO v_photo
+  FROM public.photos p
+  WHERE p.job_id = p_job_id
+    AND p.edited_key IS NULL
+    AND p.ai_attempts < p_max_attempts
+    AND (
+      p.ai_status IN ('pending', 'failed')
+      OR (
+        p.ai_status = 'processing'
+        AND (p.ai_claimed_at IS NULL OR p.ai_claimed_at < now() - make_interval(secs => p_stale_seconds))
+      )
+    )
+  ORDER BY p.sequence ASC, p.created_at ASC
+  FOR UPDATE SKIP LOCKED
+  LIMIT 1;
+
+  IF NOT FOUND THEN
+    RETURN;
+  END IF;
+
+  UPDATE public.photos
+  SET
+    ai_status = 'processing',
+    ai_claimed_at = now(),
+    ai_attempts = ai_attempts + 1,
+    ai_last_error = NULL
+  WHERE id = v_photo.id
+  RETURNING * INTO v_photo;
+
+  RETURN NEXT v_photo;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.claim_next_photo_for_job(uuid, int, int) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.claim_next_photo_for_job(uuid, int, int) TO authenticated, service_role;
+
+CREATE OR REPLACE FUNCTION public.jobs_needing_ai_processing(p_limit int DEFAULT 10)
+RETURNS TABLE (job_id uuid)
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT j.id AS job_id
+  FROM public.jobs j
+  WHERE j.status IN ('processing', 'failed')
+    AND EXISTS (
+      SELECT 1
+      FROM public.photos p
+      WHERE p.job_id = j.id
+        AND p.edited_key IS NULL
+        AND p.ai_attempts < 3
+        AND (
+          p.ai_status IN ('pending', 'failed')
+          OR (
+            p.ai_status = 'processing'
+            AND (p.ai_claimed_at IS NULL OR p.ai_claimed_at < now() - interval '2 minutes')
+          )
+        )
+    )
+  ORDER BY j.updated_at ASC
+  LIMIT GREATEST(1, LEAST(p_limit, 50));
+$$;
+
+REVOKE ALL ON FUNCTION public.jobs_needing_ai_processing(int) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.jobs_needing_ai_processing(int) TO service_role;

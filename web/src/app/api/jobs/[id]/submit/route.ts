@@ -73,14 +73,35 @@ export async function POST(
     !isStripePaymentEnabled() || isValidPilotPromoCode(promoCode);
 
   if (skipPayment) {
+    const { error: queueError } = await supabase
+      .from("photos")
+      .update({
+        ai_status: "pending",
+        ai_attempts: 0,
+        ai_last_error: null,
+        ai_claimed_at: null,
+      })
+      .eq("job_id", jobId)
+      .is("edited_key", null);
+    if (queueError) {
+      console.warn("[Submit] photo queue reset skipped", queueError.message);
+    }
+
     const { error: updateError } = await supabase
       .from("jobs")
-      .update({ status: "processing", updated_at: new Date().toISOString() })
+      .update({
+        status: "processing",
+        failure_message: null,
+        processing_photo_index: 0,
+        processing_photo_total: photos.length,
+        processing_started_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
       .eq("id", jobId);
 
     if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 });
 
-    console.info("[Submit] payment skipped — dashboard will run processing", {
+    console.info("[Submit] payment skipped — dashboard/cron will run processing", {
       jobId,
       userId: user.id,
       photoCount: photos.length,

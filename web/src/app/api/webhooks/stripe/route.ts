@@ -61,11 +61,31 @@ export async function POST(request: Request) {
         ? session.payment_intent
         : (session.payment_intent?.id ?? null);
 
+    await supabase
+      .from("photos")
+      .update({
+        ai_status: "pending",
+        ai_attempts: 0,
+        ai_last_error: null,
+        ai_claimed_at: null,
+      })
+      .eq("job_id", jobId)
+      .is("edited_key", null);
+
+    const { count: photoCount } = await supabase
+      .from("photos")
+      .select("id", { count: "exact", head: true })
+      .eq("job_id", jobId);
+
     const { error: updateError } = await supabase
       .from("jobs")
       .update({
         status: "processing",
+        failure_message: null,
         stripe_checkout_session_id: session.id,
+        processing_photo_index: 0,
+        processing_photo_total: photoCount ?? 0,
+        processing_started_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
       .eq("id", jobId);

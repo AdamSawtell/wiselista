@@ -1,42 +1,26 @@
 /**
  * AI review adapter — send job for AI editing, one place for prompts.
- * No "coded prompt every time": prompts live in prompts.ts (default + per-room).
  *
  * Flow:
- * 1. Submit API calls triggerMockAI (or processJobWithRealAI when CLAID_API_KEY set).
- * 2. Build payload: job + photos with originalUrl + prompt per photo (getEditPrompt(room_type)).
- * 3. Mock: copy original → edited, mark job ready (current behaviour).
- * 4. Real (Claid): call Claid /v1/image/edit per photo → download tmp_url → upload to storage → set edited_key → mark job ready.
+ * 1. Submit moves job to processing.
+ * 2. /process or cron claims ONE photo, runs Claid, marks photo ready/failed.
+ * 3. Finalize job when no retryable photos remain.
  */
 
 import { createServiceClient, type SupabaseClient } from "@/lib/supabase/server";
-import { computeExpiresAt, normalizePlanTier } from "@/lib/plans";
 import { getEditPrompt, type RoomType } from "@/lib/prompts";
+import {
+  AI_MAX_ATTEMPTS,
+  claimNextPhoto,
+  ensurePhotosQueued,
+  finalizeJobFromPhotoState,
+  getJobAiProgress,
+  markPhotoAttemptFailed,
+  markPhotoReady,
+} from "@/lib/photo-ai-queue";
 
 const BUCKET = "wiselista-photos";
-
-async function markJobReady(supabase: SupabaseClient, jobId: string) {
-  const completedAt = new Date();
-  const { data: job } = await supabase.from("jobs").select("plan_tier").eq("id", jobId).single();
-  const expiresAt = computeExpiresAt(completedAt, normalizePlanTier(job?.plan_tier));
-
-  const { error } = await supabase
-    .from("jobs")
-    .update({
-      status: "ready",
-      completed_at: completedAt.toISOString(),
-      expires_at: expiresAt,
-      updated_at: completedAt.toISOString(),
-      processing_photo_index: null,
-      processing_photo_total: null,
-      processing_started_at: null,
-    })
-    .eq("id", jobId);
-
-  if (error) throw new Error(`Could not mark job ready: ${error.message}`);
-}
-const SIGNED_URL_EXPIRY_AI = 3600; // 1 hour for AI partner to fetch
-
+const SIGNED_URL_EXPIRY_AI = 3600;
 const CLAID_API_URL = "https://api.claid.ai/v1";
 
 /** Wiselista default: bright, clean, realistic. Real-estate upscale, HDR, mild manual tweaks. */
@@ -56,7 +40,6 @@ const CLAID_BASE_OPERATIONS = {
   },
 };
 
-/** Room-specific adjustment overrides (merged over base). Exterior: punch. Kitchen/bath: neutral. */
 const CLAID_ROOM_ADJUSTMENTS: Partial<
   Record<RoomType, { exposure?: number; saturation?: number; contrast?: number; sharpness?: number }>
 > = {
@@ -70,7 +53,6 @@ const CLAID_ROOM_ADJUSTMENTS: Partial<
 
 const CLAID_OUTPUT = { format: { type: "jpeg" as const, quality: 88 } };
 
-/** Build Claid operations for a room type (default + room overrides). */
 function getClaidOperations(roomType: RoomType) {
   const base = { ...CLAID_BASE_OPERATIONS };
   const adjustments = { ...base.adjustments };
@@ -92,11 +74,7 @@ export type AIPhotoRequest = {
   prompt: string;
 };
 
-/**
- * Build the payload to send to the AI partner: one request per photo with
- * original image URL and the prompt (default or room-specific from prompts.ts).
- * Use this when wiring the real AI: no prompt coded per job.
- */
+/** @deprecated Prefer claimNextPhoto — kept for scripts/tests that list pending work. */
 export async function buildAIRequests(jobId: string, supabase?: SupabaseClient): Promise<AIPhotoRequest[]> {
   const db = supabase ?? createServiceClient();
 
@@ -130,10 +108,6 @@ export async function buildAIRequests(jobId: string, supabase?: SupabaseClient):
   return requests;
 }
 
-/**
- * Call Claid /v1/image/edit with a signed image URL; returns temporary URL of enhanced image.
- * Uses room-specific operations (Wiselista default + room overrides). Requires CLAID_API_KEY.
- */
 async function callClaidEdit(inputUrl: string, roomType: RoomType): Promise<string> {
   const apiKey = process.env.CLAID_API_KEY;
   if (!apiKey) throw new Error("CLAID_API_KEY not set");
@@ -172,7 +146,7 @@ async function callClaidEdit(inputUrl: string, roomType: RoomType): Promise<stri
 
 function isTransientFetchError(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error);
-  return /fetch failed|network|ECONNRESET|ETIMEDOUT|socket|UND_ERR/i.test(message);
+  return /fetch failed|network|ECONNRESET|ETIMEDOUT|socket|UND_ERR|Claid API error 5/i.test(message);
 }
 
 async function fetchWithRetry(url: string, attempts = 3): Promise<Response> {
@@ -194,14 +168,14 @@ async function fetchWithRetry(url: string, attempts = 3): Promise<Response> {
   throw lastError instanceof Error ? lastError : new Error(String(lastError));
 }
 
-async function uploadClaidResult(
+async function enhanceAndStorePhoto(
   supabase: SupabaseClient,
   userId: string,
   jobId: string,
   photoId: string,
   roomType: RoomType,
   originalUrl: string
-): Promise<void> {
+): Promise<string> {
   let lastError: unknown;
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {
@@ -216,12 +190,16 @@ async function uploadClaidResult(
         .upload(editedKey, buffer, { contentType: "image/jpeg", upsert: true });
 
       if (uploadError) throw uploadError;
-      await supabase.from("photos").update({ edited_key: editedKey }).eq("id", photoId);
-      return;
+      await markPhotoReady(supabase, photoId, editedKey);
+      return editedKey;
     } catch (e) {
       lastError = e;
       if (!isTransientFetchError(e) || attempt === 3) throw e;
-      console.warn("[Claid] transient error, retrying photo", { photoId, attempt, error: e instanceof Error ? e.message : e });
+      console.warn("[Claid] transient error, retrying photo", {
+        photoId,
+        attempt,
+        error: e instanceof Error ? e.message : e,
+      });
       await new Promise((r) => setTimeout(r, 800 * attempt));
     }
   }
@@ -259,7 +237,7 @@ export async function reprocessPhotoWithClaid(
 
   if (!signed?.signedUrl) throw new Error("Could not sign photo URL");
 
-  await uploadClaidResult(
+  await enhanceAndStorePhoto(
     db,
     job.user_id,
     jobId,
@@ -269,11 +247,20 @@ export async function reprocessPhotoWithClaid(
   );
 }
 
+export type ProcessJobResult = {
+  status: "ready" | "failed" | "processing";
+  photoId?: string;
+  progress: { current: number; total: number; ready: number; failed: number };
+};
+
 /**
- * Process job with Claid — one photo per invocation so Amplify ~30s timeouts can resume.
- * Dashboard ProcessingProgress keeps calling /process until all photos have edited_key.
+ * Process at most one claimed photo for a job, then finalize status.
+ * Safe under Amplify timeouts; cron + UI keep calling until done.
  */
-export async function processJobWithRealAI(jobId: string, supabase?: SupabaseClient): Promise<void> {
+export async function processJobWithRealAI(
+  jobId: string,
+  supabase?: SupabaseClient
+): Promise<ProcessJobResult> {
   const db = supabase ?? createServiceClient();
 
   const { data: job } = await db
@@ -286,65 +273,101 @@ export async function processJobWithRealAI(jobId: string, supabase?: SupabaseCli
     throw new Error(`Claid: job ${jobId} not found or missing user_id`);
   }
 
-  const { count: totalCount } = await db
-    .from("photos")
-    .select("id", { count: "exact", head: true })
-    .eq("job_id", jobId);
+  await ensurePhotosQueued(db, jobId);
 
-  const requests = await buildAIRequests(jobId, db);
-  if (!requests.length) {
-    await markJobReady(db, jobId);
-    return;
-  }
-
-  const total = totalCount ?? requests.length;
-  const doneBefore = total - requests.length;
   const startedAt = new Date().toISOString();
-
   await db
     .from("jobs")
     .update({
       status: "processing",
       failure_message: null,
-      processing_photo_total: total,
-      processing_photo_index: doneBefore + 1,
       processing_started_at: startedAt,
       updated_at: startedAt,
     })
     .eq("id", jobId);
 
-  // One photo per request — Amplify often kills long multi-photo Claid runs.
-  const r = requests[0];
-  try {
-    await uploadClaidResult(db, job.user_id, jobId, r.photoId, r.roomType, r.originalUrl);
-  } catch (e) {
-    const message = e instanceof Error ? e.message : String(e);
-    const failureMessage = `Photo ${r.photoId.slice(0, 8)}: ${message}`.slice(0, 500);
-    console.error("[Claid]", { jobId, userId: job.user_id, photoId: r.photoId, error: message });
-    await db
-      .from("jobs")
-      .update({
-        status: "failed",
-        failure_message: failureMessage,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", jobId);
-    return;
+  const claimed = await claimNextPhoto(db, jobId);
+  if (!claimed) {
+    const status = await finalizeJobFromPhotoState(db, jobId);
+    const progress = await getJobAiProgress(db, jobId);
+    return {
+      status,
+      progress: {
+        current: progress.current,
+        total: progress.total,
+        ready: progress.ready,
+        failed: progress.failed,
+      },
+    };
   }
 
-  const remaining = await buildAIRequests(jobId, db);
-  if (!remaining.length) {
-    await markJobReady(db, jobId);
-    return;
-  }
-
+  const progressBefore = await getJobAiProgress(db, jobId);
   await db
     .from("jobs")
     .update({
-      status: "processing",
-      processing_photo_index: doneBefore + 1,
-      processing_photo_total: total,
+      processing_photo_index: Math.max(1, progressBefore.ready + 1),
+      processing_photo_total: progressBefore.total,
       updated_at: new Date().toISOString(),
     })
     .eq("id", jobId);
+
+  const { data: signed } = await db.storage
+    .from(BUCKET)
+    .createSignedUrl(claimed.original_key, SIGNED_URL_EXPIRY_AI);
+
+  if (!signed?.signedUrl) {
+    await markPhotoAttemptFailed(db, claimed.id, claimed.ai_attempts, "Could not sign photo URL");
+    const status = await finalizeJobFromPhotoState(db, jobId);
+    const progress = await getJobAiProgress(db, jobId);
+    return {
+      status,
+      photoId: claimed.id,
+      progress: {
+        current: progress.current,
+        total: progress.total,
+        ready: progress.ready,
+        failed: progress.failed,
+      },
+    };
+  }
+
+  try {
+    await enhanceAndStorePhoto(
+      db,
+      job.user_id,
+      jobId,
+      claimed.id,
+      claimed.room_type as RoomType,
+      signed.signedUrl
+    );
+    console.info("[Claid] photo ready", {
+      jobId,
+      photoId: claimed.id,
+      attempt: claimed.ai_attempts,
+      max: AI_MAX_ATTEMPTS,
+    });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    console.error("[Claid]", {
+      jobId,
+      userId: job.user_id,
+      photoId: claimed.id,
+      attempt: claimed.ai_attempts,
+      error: message,
+    });
+    await markPhotoAttemptFailed(db, claimed.id, claimed.ai_attempts, message);
+  }
+
+  const status = await finalizeJobFromPhotoState(db, jobId);
+  const progress = await getJobAiProgress(db, jobId);
+  return {
+    status,
+    photoId: claimed.id,
+    progress: {
+      current: progress.current,
+      total: progress.total,
+      ready: progress.ready,
+      failed: progress.failed,
+    },
+  };
 }

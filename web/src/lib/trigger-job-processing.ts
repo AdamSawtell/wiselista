@@ -1,6 +1,7 @@
 import { submitJobToMockAI } from "@/lib/ai-mock";
 import { processJobWithRealAI } from "@/lib/ai-adapter";
 import { createServiceClient, getServiceClientOrNull, type SupabaseClient } from "@/lib/supabase/server";
+import { getJobAiProgress } from "@/lib/photo-ai-queue";
 
 async function markJobFailed(
   jobId: string,
@@ -24,21 +25,29 @@ async function markJobFailed(
 }
 
 function resolveProcessingClient(supabase?: SupabaseClient | null): SupabaseClient {
+  // Prefer service role so claim RPC + storage writes are reliable on Amplify.
+  const service = getServiceClientOrNull();
+  if (service) return service;
   if (supabase) return supabase;
   return createServiceClient();
 }
 
+export type RunJobProcessingResult = {
+  ok: boolean;
+  error?: string;
+  mode?: string;
+  status?: string;
+  photoId?: string;
+  progress?: { current: number; total: number; ready: number; failed: number };
+};
+
 /**
- * Run AI processing to completion. Must be awaited in API routes — fire-and-forget
- * is killed on Amplify/serverless when the HTTP response returns.
- *
- * Pass the authenticated Supabase client from the request when the service role
- * key is not available on the host (e.g. missing on Amplify).
+ * Run one AI processing step (one photo for Claid). Must be awaited in API routes.
  */
 export async function runJobProcessing(
   jobId: string,
   supabase?: SupabaseClient | null
-): Promise<{ ok: boolean; error?: string; mode?: string }> {
+): Promise<RunJobProcessingResult> {
   const mode = process.env.CLAID_API_KEY ? "claid" : "mock";
   let db: SupabaseClient;
   try {
@@ -50,17 +59,36 @@ export async function runJobProcessing(
 
   try {
     if (process.env.CLAID_API_KEY) {
-      console.info("[ProcessJob] running Claid", { jobId });
-      await processJobWithRealAI(jobId, db);
-    } else {
-      console.info("[ProcessJob] running mock AI", { jobId });
-      await submitJobToMockAI(jobId, db);
+      console.info("[ProcessJob] running Claid step", { jobId });
+      const result = await processJobWithRealAI(jobId, db);
+      return {
+        ok: true,
+        mode,
+        status: result.status,
+        photoId: result.photoId,
+        progress: result.progress,
+        error: result.status === "failed" ? "One or more photos failed after retries" : undefined,
+      };
     }
-    return { ok: true, mode };
+
+    console.info("[ProcessJob] running mock AI", { jobId });
+    await submitJobToMockAI(jobId, db);
+    const progress = await getJobAiProgress(db, jobId);
+    return {
+      ok: true,
+      mode,
+      status: "ready",
+      progress: {
+        current: progress.current,
+        total: progress.total,
+        ready: progress.ready,
+        failed: progress.failed,
+      },
+    };
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     console.error("[ProcessJob] failed", { jobId, error: message });
     await markJobFailed(jobId, message, db);
-    return { ok: false, error: message, mode };
+    return { ok: false, error: message, mode, status: "failed" };
   }
 }

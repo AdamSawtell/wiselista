@@ -18,8 +18,7 @@ export function JobFailedPanel({ jobId, failureMessage }: JobFailedPanelProps) {
     setRetrying(true);
     setError(null);
     try {
-      // Fire process; do not wait for full Claid completion (Amplify may time out).
-      // Job page ProcessingProgress will resume remaining photos.
+      // Resets failed photos and starts processing; cron + progress UI finish the rest.
       void fetch(`/api/jobs/${jobId}/process`, { method: "POST" });
       router.push(`/dashboard/jobs/${jobId}?submitted=1`);
       router.refresh();
@@ -40,6 +39,9 @@ export function JobFailedPanel({ jobId, failureMessage }: JobFailedPanelProps) {
       {failureMessage && <p className="mt-1 text-red-800">{failureMessage}</p>}
       <p className="mt-2 text-red-800">
         Job ID: <code className="rounded bg-red-100 px-1.5 py-0.5 text-xs">{jobId}</code>
+      </p>
+      <p className="mt-2 text-red-700">
+        Successful photos are kept. Try again to retry only the ones that failed.
       </p>
       <div className="mt-3 flex flex-wrap gap-3">
         <button

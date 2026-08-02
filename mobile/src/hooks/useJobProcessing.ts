@@ -37,23 +37,29 @@ export function useJobProcessing(
     if (!accessToken || !ACTIVE_STATUSES.includes(initialStatus)) return;
 
     let active = true;
-    let kickedOff = false;
+    let inFlight = false;
+    let lastKickOffAt = 0;
     const base = (APP_URL || "https://wiselista.com").replace(/\/$/, "");
 
-    const kickOffProcessing = async () => {
-      if (kickedOff || !active || initialStatus !== "processing") return;
-      kickedOff = true;
+    const kickOffProcessing = async (force = false) => {
+      if (!active || inFlight || initialStatus !== "processing") return;
+      const now = Date.now();
+      if (!force && lastKickOffAt > 0 && now - lastKickOffAt < 3_000) return;
+      inFlight = true;
+      lastKickOffAt = now;
       try {
         await fetch(`${base}/api/jobs/${jobId}/process`, {
           method: "POST",
           headers: { Authorization: `Bearer ${accessToken}` },
         });
       } catch {
-        kickedOff = false;
+        lastKickOffAt = 0;
+      } finally {
+        inFlight = false;
       }
     };
 
-    void kickOffProcessing();
+    void kickOffProcessing(true);
 
     const poll = async () => {
       try {
@@ -65,16 +71,20 @@ export function useJobProcessing(
           status?: JobStatus;
           current?: number;
           total?: number;
+          ready?: number;
           failureMessage?: string | null;
         };
         setState({
           status: data.status ?? initialStatus,
-          current: data.current ?? 0,
+          current: data.ready ?? data.current ?? 0,
           total: data.total || photoCount,
           failureMessage: data.failureMessage ?? null,
         });
+        if (data.status === "processing") {
+          void kickOffProcessing();
+        }
       } catch {
-        // keep polling
+        // keep polling — server cron continues if app backgrounds
       }
     };
 
