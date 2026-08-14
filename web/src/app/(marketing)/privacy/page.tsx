@@ -6,6 +6,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "Privacy policy",
   description: "How Wiselista collects, uses, and stores your account and listing photo data.",
+  alternates: { canonical: "/privacy" },
 };
 
 export default function PrivacyPage() {

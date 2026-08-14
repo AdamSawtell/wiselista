@@ -8,6 +8,7 @@ export const metadata: Metadata = {
   title: "How Wiselista works",
   description:
     "Create a listing project, send a magic link to your vendor or tenant, and get AI-enhanced photos ready for Domain and realestate.com.au.",
+  alternates: { canonical: "/how-it-works" },
 };
 
 const STORYBOARD_STEPS = [

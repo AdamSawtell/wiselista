@@ -5,6 +5,7 @@ import { LoginForm } from "./LoginForm";
 export const metadata: Metadata = {
   title: "Sign in",
   description: "Sign in or create a Wiselista account to capture and enhance listing photos.",
+  alternates: { canonical: "/login" },
 };
 
 // Force dynamic so Amplify static worker doesn't pre-render this (layout uses cookies).

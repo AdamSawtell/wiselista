@@ -11,7 +11,6 @@ export const metadata: Metadata = {
   },
   description:
     "Capture property photos, submit for AI editing, get pro-quality listings. For rental managers, agents & homeowners.",
-  alternates: { canonical: "/" },
   openGraph: {
     type: "website",
     url: SITE,

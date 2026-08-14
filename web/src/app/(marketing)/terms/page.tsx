@@ -6,6 +6,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "Terms of use",
   description: "Terms for using Wiselista to capture, enhance, and download listing photos.",
+  alternates: { canonical: "/terms" },
 };
 
 export default function TermsPage() {

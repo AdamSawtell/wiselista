@@ -1,4 +1,12 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+
+export const metadata: Metadata = {
+  title: "Investors",
+  description:
+    "Invest in Wiselista — guided capture and AI-edited listing photos for Australian and NZ agencies.",
+  alternates: { canonical: "/investors" },
+};
 
 export const dynamic = "force-dynamic";
 
