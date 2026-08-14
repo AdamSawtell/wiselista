@@ -46,3 +46,7 @@ export function getBrightnessHint(status: BrightnessStatus): string | null {
   if (status === "bright") return "This may be too bright — avoid shooting directly into windows, then retake.";
   return null;
 }
+
+export function shouldHoldForBrightness(status: BrightnessStatus): boolean {
+  return status === "dark" || status === "bright";
+}

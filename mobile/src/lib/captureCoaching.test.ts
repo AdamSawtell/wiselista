@@ -5,6 +5,7 @@ import {
   getRollDegrees,
   getTiltHint,
   getTiltStatus,
+  shouldHoldForBrightness,
 } from "./captureCoaching";
 
 describe("captureCoaching", () => {
@@ -41,6 +42,12 @@ describe("captureCoaching", () => {
 
     it("returns null hint for ok brightness", () => {
       expect(getBrightnessHint("ok")).toBeNull();
+    });
+
+    it("holds upload when dark or bright", () => {
+      expect(shouldHoldForBrightness("dark")).toBe(true);
+      expect(shouldHoldForBrightness("bright")).toBe(true);
+      expect(shouldHoldForBrightness("ok")).toBe(false);
     });
 
     it("estimates luma from base64", () => {

@@ -66,11 +66,17 @@ export type AppStackParamList = {
   ShootReview: { jobId: string; propertyName?: string };
   CapturePreview: {
     jobId: string;
-    photoId: string;
+    photoId?: string;
     previewUri: string;
     roomType: RoomType;
     stepIndex: number;
     propertyName?: string;
+    briefSlotId?: string;
+    slotLabel?: string;
+    totalSteps?: number;
+    templateId?: string;
+    brightnessHint?: string | null;
+    extraShot?: boolean;
   };
   Camera: {
     jobId: string;
@@ -79,6 +85,10 @@ export type AppStackParamList = {
     guided?: boolean;
     stepIndex?: number;
     propertyName?: string;
+    briefSlotId?: string;
+    slotLabel?: string;
+    totalSteps?: number;
+    templateId?: string;
   };
 };
 

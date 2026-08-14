@@ -3,15 +3,17 @@
 import { useEffect, useRef, useState } from "react";
 import {
   CAPTURE_WELCOME_TIPS,
-  getCaptureTipsForSlot,
   type CaptureSession,
 } from "@/lib/capture-shared";
 import {
   estimateBrightnessFromFile,
   getBrightnessHint,
   getBrightnessStatus,
+  shouldHoldForBrightness,
 } from "@/lib/capture-coaching";
-import { computeBriefProgress, isBriefComplete, progressForSlots } from "@/lib/capture-brief";
+import { isBriefComplete, progressForSlots } from "@/lib/capture-brief";
+import { getShotRecipe } from "@/lib/shot-recipes";
+import { ShotRecipeCard } from "@/components/ShotRecipeCard";
 
 type Props = {
   token: string;
@@ -26,6 +28,7 @@ export function CustomerCaptureFlow({ token, initialSession }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [photoHint, setPhotoHint] = useState<string | null>(null);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [done, setDone] = useState(initialSession.alreadySubmitted);
   const [customerName, setCustomerName] = useState("");
   const [filledSlots, setFilledSlots] = useState<Set<string>>(
@@ -35,7 +38,9 @@ export function CustomerCaptureFlow({ token, initialSession }: Props) {
 
   const slots = session.slots;
   const slot = slots[stepIndex];
-  const tips = slot ? getCaptureTipsForSlot(slot) : [];
+  const recipe = slot
+    ? getShotRecipe(slot.id, slot.room_type, session.templateId ?? "house_3")
+    : null;
   const progress = progressForSlots(slots, filledSlots);
   const briefComplete = isBriefComplete(progress);
 
@@ -58,12 +63,7 @@ export function CustomerCaptureFlow({ token, initialSession }: Props) {
     setUploading(true);
     setError(null);
     setPhotoHint(null);
-
-    const luma = await estimateBrightnessFromFile(file);
-    if (luma !== null) {
-      const hint = getBrightnessHint(getBrightnessStatus(luma));
-      if (hint) setPhotoHint(hint);
-    }
+    setPendingFile(null);
 
     try {
       const body = new FormData();
@@ -84,6 +84,22 @@ export function CustomerCaptureFlow({ token, initialSession }: Props) {
       setUploading(false);
       if (fileRef.current) fileRef.current.value = "";
     }
+  }
+
+  async function considerUpload(file: File) {
+    setError(null);
+    const luma = await estimateBrightnessFromFile(file);
+    if (luma !== null) {
+      const status = getBrightnessStatus(luma);
+      const hint = getBrightnessHint(status);
+      if (hint && shouldHoldForBrightness(status)) {
+        setPendingFile(file);
+        setPhotoHint(hint);
+        if (fileRef.current) fileRef.current.value = "";
+        return;
+      }
+    }
+    await uploadPhoto(file);
   }
 
   async function handleComplete() {
@@ -179,23 +195,7 @@ export function CustomerCaptureFlow({ token, initialSession }: Props) {
           </p>
           <h2 className="mt-1 text-xl font-semibold text-slate-900">{slot?.label}</h2>
 
-          <div className="mt-4 rounded-lg bg-sky-50 p-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-sky-800">Tips for this room</p>
-            <ul className="mt-3 space-y-2">
-              {tips.map((tip) => (
-                <li key={tip} className="flex items-start gap-2 text-sm text-slate-700">
-                  <span className="mt-0.5 text-wiselista-accent">✓</span>
-                  {tip}
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {slot?.room_type === "exterior" && (
-            <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-              Tip: rotate your phone sideways (landscape) for front-of-house shots.
-            </p>
-          )}
+          {recipe ? <ShotRecipeCard recipe={recipe} /> : null}
 
           <div className="mt-6">
             <input
@@ -206,24 +206,47 @@ export function CustomerCaptureFlow({ token, initialSession }: Props) {
               className="hidden"
               onChange={(e) => {
                 const file = e.target.files?.[0];
-                if (file) void uploadPhoto(file);
+                if (file) void considerUpload(file);
               }}
             />
             <button
               type="button"
-              disabled={uploading || session.photoCount >= session.maxPhotos}
+              disabled={uploading || session.photoCount >= session.maxPhotos || Boolean(pendingFile)}
               onClick={() => fileRef.current?.click()}
               className="btn-primary w-full"
             >
               {uploading ? "Uploading…" : filledSlots.has(slot!.id) ? "Retake photo" : "Take photo"}
             </button>
-            {filledSlots.has(slot!.id) && !photoHint && (
+            {filledSlots.has(slot!.id) && !photoHint && !pendingFile && (
               <p className="mt-2 text-center text-xs text-emerald-600">Photo saved for this room</p>
             )}
             {photoHint && (
               <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-center text-xs text-amber-900">
                 {photoHint}
               </p>
+            )}
+            {pendingFile && (
+              <div className="mt-3 flex gap-2">
+                <button
+                  type="button"
+                  className="btn-primary flex-1 text-sm"
+                  disabled={uploading}
+                  onClick={() => void uploadPhoto(pendingFile)}
+                >
+                  Use anyway
+                </button>
+                <button
+                  type="button"
+                  className="btn-secondary flex-1 text-sm"
+                  onClick={() => {
+                    setPendingFile(null);
+                    setPhotoHint(null);
+                    fileRef.current?.click();
+                  }}
+                >
+                  Retake
+                </button>
+              </div>
             )}
           </div>
 

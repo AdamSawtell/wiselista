@@ -12,6 +12,7 @@ export interface Job {
   failure_message?: string | null;
   name?: string | null;
   plan_tier?: string | null;
+  capture_brief?: unknown;
   photos?: Photo[];
 }
 
@@ -23,6 +24,7 @@ export interface Photo {
   original_key: string;
   edited_key: string | null;
   created_at: string;
+  brief_slot_id?: string | null;
 }
 
 export const ROOM_LABELS: Record<RoomType, string> = {

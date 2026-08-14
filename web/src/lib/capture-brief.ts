@@ -4,6 +4,7 @@
  */
 
 import { getPlanConfig, type PlanTier } from "@/lib/plans";
+import { exteriorSlotLabel } from "@/lib/shot-recipes";
 
 export type ClaidRoomType =
   | "living_room"
@@ -156,7 +157,7 @@ export function buildCaptureBrief(options: BriefBuildOptions): CaptureBrief {
     slots.push({ id, label, room_type, required, sequence: seq++ });
   };
 
-  add("exterior_front", "Front of house", "exterior");
+  add("exterior_front", exteriorSlotLabel("exterior_front", options.template_id), "exterior");
   add("living_room", "Living room", "living_room");
   add("kitchen", "Kitchen", "kitchen");
   if (include_dining) add("dining_room", "Dining room", "living_room");
@@ -174,7 +175,7 @@ export function buildCaptureBrief(options: BriefBuildOptions): CaptureBrief {
   if (include_laundry) add("laundry", "Laundry", "other");
   if (include_garage) add("garage", "Garage / carport", "exterior", false);
 
-  add("exterior_rear", "Backyard / rear exterior", "exterior", false);
+  add("exterior_rear", exteriorSlotLabel("exterior_rear", options.template_id), "exterior", false);
 
   return {
     template_id: options.template_id,
@@ -254,6 +255,21 @@ function isClaidRoomType(v: string): v is ClaidRoomType {
 
 export function orderedSlots(brief: CaptureBrief): CaptureBriefSlot[] {
   return [...brief.slots].sort((a, b) => a.sequence - b.sequence);
+}
+
+export function firstIncompleteStepIndex(
+  slots: Array<{ id: string; required: boolean }>,
+  filledSlotIds: Iterable<string | null | undefined>
+): number {
+  if (!slots.length) return 0;
+  const filled = new Set<string>();
+  for (const id of filledSlotIds) {
+    if (id) filled.add(id);
+  }
+  const requiredMiss = slots.findIndex((s) => s.required && !filled.has(s.id));
+  if (requiredMiss >= 0) return requiredMiss;
+  const anyMiss = slots.findIndex((s) => !filled.has(s.id));
+  return anyMiss >= 0 ? anyMiss : 0;
 }
 
 export function requiredSlotCount(brief: CaptureBrief): number {

@@ -1,6 +1,7 @@
 /** Capture brief — shared shot-list logic for mobile guided shoot. */
 
 import { getPlanConfig, normalizePlanTier, type PlanTier } from "./plans";
+import { exteriorSlotLabel } from "./shotRecipes";
 import type { RoomType } from "../types";
 
 export type CaptureBriefSlot = {
@@ -95,7 +96,7 @@ export function buildCaptureBrief(options: {
     slots.push({ id, label, room_type, required, sequence: seq++ });
   };
 
-  add("exterior_front", "Front of house", "exterior");
+  add("exterior_front", exteriorSlotLabel("exterior_front", options.template_id), "exterior");
   add("living_room", "Living room", "living_room");
   add("kitchen", "Kitchen", "kitchen");
   if (include_dining) add("dining_room", "Dining room", "living_room");
@@ -104,7 +105,7 @@ export function buildCaptureBrief(options: {
   for (let i = 0; i < bathrooms; i++) add(`bathroom_${i + 1}`, bathroomLabel(i, bathrooms), "bathroom");
   if (include_laundry) add("laundry", "Laundry", "other");
   if (include_garage) add("garage", "Garage / carport", "exterior", false);
-  add("exterior_rear", "Backyard / rear exterior", "exterior", false);
+  add("exterior_rear", exteriorSlotLabel("exterior_rear", options.template_id), "exterior", false);
 
   return {
     template_id: options.template_id,
@@ -175,6 +176,27 @@ export function resolveCaptureBrief(raw: unknown): CaptureBrief {
 
 export function orderedSlots(brief: CaptureBrief): CaptureBriefSlot[] {
   return [...brief.slots].sort((a, b) => a.sequence - b.sequence);
+}
+
+export function filledSlotIdSet(ids: Iterable<string | null | undefined>): Set<string> {
+  const filled = new Set<string>();
+  for (const id of ids) {
+    if (id) filled.add(id);
+  }
+  return filled;
+}
+
+/** First required empty slot, else first empty optional, else 0. */
+export function firstIncompleteStepIndex(
+  slots: Array<{ id: string; required: boolean }>,
+  filledSlotIds: Iterable<string | null | undefined>
+): number {
+  if (!slots.length) return 0;
+  const filled = filledSlotIdSet(filledSlotIds);
+  const requiredMiss = slots.findIndex((s) => s.required && !filled.has(s.id));
+  if (requiredMiss >= 0) return requiredMiss;
+  const anyMiss = slots.findIndex((s) => !filled.has(s.id));
+  return anyMiss >= 0 ? anyMiss : 0;
 }
 
 export function validateBriefForPlan(

@@ -2,20 +2,19 @@
 
 **Purpose:** Cursor (and humans) need a single place for “what exists now” and “what changed and why.” Update when a feature ships or an architectural change is made.
 
-**Last updated:** Feb 2025 (pre-build; no code yet)
+**Last updated:** 15 Aug 2026
 
 ---
 
 ## What exists now
 
-- **Stack (locked):** Supabase (DB, Auth, Storage) + Next.js on Vercel (API + web dashboard) + Expo (mobile). See docs/06-SIMPLE-COST-EFFECTIVE-RECOMMENDATIONS.md and docs/adr/ADR-002-simplest-stack.md.
+- **Stack (locked):** Supabase (DB, Auth, Storage) + Next.js (API + web dashboard, Amplify) + Expo (mobile web at mobile.wiselista.com). See docs/adr/ADR-002-simplest-stack.md.
 - **web/** — Next.js 15, App Router, TypeScript, Tailwind.
-  - API: `GET/POST /api/jobs`, `GET /api/jobs/[id]`, `POST /api/jobs/[id]/photos`, `POST /api/jobs/[id]/submit`, `POST /api/webhooks/stripe`.
-  - Auth: Supabase Auth (server client + browser client); login page, dashboard (jobs list), job detail page.
-  - Mock AI: lib/ai-mock.ts — after payment, sets edited_key = original_key and status = ready.
-- **supabase/migrations/** — Schema: jobs, photos, payments; RLS for user-scoped access.
-- **mobile/** — Not yet (Phase 2).
-- **Data model:** docs/03-TECHNICAL-SPEC.md; implemented in Supabase (jobs, photos, payments; users = auth.users).
+  - API: jobs, photos, submit, Stripe webhook, customer capture links, Claid process/cron.
+  - Capture: `lib/shot-recipes.ts` + `lib/capture-brief.ts` drive the customer magic-link flow.
+- **mobile/** — Expo 54. Guided shoot, job list, submit, share. Same recipe logic in `src/lib/shotRecipes.ts` (duplicated, not a new package).
+- **supabase/migrations/** — jobs, photos (`brief_slot_id`), payments, capture tokens.
+- **Data model:** docs/03-TECHNICAL-SPEC.md.
 
 ---
 
@@ -24,6 +23,7 @@
 | Date | Change | Why |
 |------|--------|-----|
 | 2025-02-02 | Phase 1 foundation: web app, Supabase schema, API, mock AI, Stripe webhook, dashboard | 02 accepted; start Phase 1 (roadmap) |
+| 2026-08-15 | Shot recipes, brief resume, brightness hold before upload | [PRD-shot-recipes.md](./PRD-shot-recipes.md) — professional capture copy without a native rebuild |
 
 ---
 

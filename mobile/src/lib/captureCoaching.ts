@@ -47,3 +47,7 @@ export function getBrightnessHint(status: BrightnessStatus): string | null {
   if (status === "bright") return "Scene may be overexposed — avoid shooting into windows";
   return null;
 }
+
+export function shouldHoldForBrightness(status: BrightnessStatus): boolean {
+  return status === "dark" || status === "bright";
+}

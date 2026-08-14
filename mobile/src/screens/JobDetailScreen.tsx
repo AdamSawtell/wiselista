@@ -28,6 +28,12 @@ import { useAppForegroundRefresh } from "../hooks/useAppForegroundRefresh";
 import { createShareLink } from "../lib/shareJob";
 import { getPlanConfig, normalizePlanTier } from "../lib/plans";
 import { SUPPORT_EMAIL, supportMailto } from "../lib/support";
+import {
+  firstIncompleteStepIndex,
+  orderedSlots,
+  resolveCaptureBrief,
+  type CaptureBriefSlot,
+} from "../lib/captureBrief";
 
 function jobTitle(job: Job): string {
   if (job.name?.trim()) return job.name.trim();
@@ -410,6 +416,10 @@ export default function JobDetailScreen({
   const editedCount = photos.filter((p) => p.edited_key).length;
   const progressPct =
     processing.total > 0 ? Math.round((processing.current / processing.total) * 100) : 0;
+  const brief = isDraft ? resolveCaptureBrief(job.capture_brief) : null;
+  const briefSlots: CaptureBriefSlot[] = brief ? orderedSlots(brief) : [];
+  const filledSlotIds = new Set(photos.map((p) => p.brief_slot_id).filter((id): id is string => Boolean(id)));
+  const resumeStep = briefSlots.length ? firstIncompleteStepIndex(briefSlots, filledSlotIds) : 0;
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -500,6 +510,37 @@ export default function JobDetailScreen({
           Photos · {photos.length}
           {isReady && editedCount > 0 ? ` · ${editedCount} enhanced` : ""}
         </Text>
+
+        {isDraft && briefSlots.length > 0 && (
+          <View style={[styles.briefBox, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+            <Text style={[styles.briefTitle, { color: theme.colors.textPrimary }]}>Shot list</Text>
+            {briefSlots.map((slot) => {
+              const filled = filledSlotIds.has(slot.id);
+              return (
+                <View key={slot.id} style={styles.briefRow}>
+                  <Text style={[styles.briefMark, { color: filled ? theme.colors.success : theme.colors.textMuted }]}>
+                    {filled ? "Done" : "Open"}
+                  </Text>
+                  <Text style={[styles.briefLabel, { color: theme.colors.textPrimary }]}>
+                    {slot.label}
+                    {!slot.required ? " · optional" : ""}
+                  </Text>
+                </View>
+              );
+            })}
+            <PrimaryButton
+              label="Continue guided shoot"
+              onPress={() =>
+                navigation.navigate("GuidedShoot", {
+                  jobId,
+                  propertyName: job.name?.trim() || undefined,
+                  stepIndex: resumeStep,
+                })
+              }
+              style={{ marginTop: theme.spacing.md }}
+            />
+          </View>
+        )}
 
         {photos.length === 0 ? (
           <Text style={[styles.emptyPhotos, { color: theme.colors.textMuted }]}>No photos yet.</Text>
@@ -678,6 +719,16 @@ const styles = StyleSheet.create({
   failedActions: { gap: theme.spacing.sm, marginTop: theme.spacing.sm },
   sectionLabel: { ...theme.typography.label, marginBottom: theme.spacing.sm },
   emptyPhotos: { ...theme.typography.body, marginBottom: theme.spacing.lg },
+  briefBox: {
+    padding: theme.spacing.md,
+    borderRadius: theme.radius.sm,
+    borderWidth: 1,
+    marginBottom: theme.spacing.lg,
+  },
+  briefTitle: { ...theme.typography.captionMedium, marginBottom: theme.spacing.sm },
+  briefRow: { flexDirection: "row", gap: theme.spacing.sm, marginBottom: 6, alignItems: "center" },
+  briefMark: { ...theme.typography.captionMedium, width: 40 },
+  briefLabel: { ...theme.typography.caption, flex: 1 },
   photoRow: {
     flexDirection: "row",
     alignItems: "center",

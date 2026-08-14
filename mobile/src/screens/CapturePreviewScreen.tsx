@@ -8,10 +8,10 @@ import {
   ActivityIndicator,
   Alert,
 } from "react-native";
-import { APP_URL } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 import { theme } from "../theme";
 import { ROOM_LABELS, type RoomType } from "../types";
+import { uploadJobPhoto } from "../lib/uploadPhoto";
 import PrimaryButton from "../components/PrimaryButton";
 
 export default function CapturePreviewScreen({
@@ -22,7 +22,7 @@ export default function CapturePreviewScreen({
   route: {
     params: {
       jobId: string;
-      photoId: string;
+      photoId?: string;
       previewUri: string;
       roomType: RoomType;
       briefSlotId?: string;
@@ -30,35 +30,85 @@ export default function CapturePreviewScreen({
       stepIndex: number;
       totalSteps?: number;
       propertyName?: string;
+      templateId?: string;
+      brightnessHint?: string | null;
+      extraShot?: boolean;
     };
   };
 }) {
-  const { session } = useAuth();
-  const { jobId, photoId, previewUri, roomType, stepIndex, propertyName, slotLabel, totalSteps } =
-    route.params;
-  const [removing, setRemoving] = useState(false);
+  const { user } = useAuth();
+  const {
+    jobId,
+    previewUri,
+    roomType,
+    stepIndex,
+    propertyName,
+    slotLabel,
+    totalSteps,
+    briefSlotId,
+    templateId,
+    brightnessHint,
+    extraShot,
+  } = route.params;
+  const [saving, setSaving] = useState(false);
   const isLast = totalSteps != null ? stepIndex >= totalSteps - 1 : false;
+  const lightingHold = Boolean(brightnessHint);
 
-  async function handleRetake() {
-    if (!session?.access_token) return;
-    setRemoving(true);
+  function cameraParams(nextExtra: boolean) {
+    return {
+      jobId,
+      roomType,
+      briefSlotId: nextExtra ? undefined : briefSlotId,
+      slotLabel,
+      guided: true,
+      stepIndex,
+      totalSteps,
+      propertyName,
+      templateId,
+      extraShot: nextExtra,
+    };
+  }
+
+  async function savePhoto(asExtra: boolean) {
+    if (!user) return null;
+    return uploadJobPhoto(user.id, jobId, previewUri, roomType, {
+      briefSlotId: asExtra ? null : briefSlotId ?? null,
+    });
+  }
+
+  async function handleAccept() {
+    setSaving(true);
     try {
-      const url = `${APP_URL.replace(/\/$/, "")}/api/jobs/${jobId}/photos/${photoId}`;
-      await fetch(url, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      });
-      navigation.replace("Camera", {
+      await savePhoto(Boolean(extraShot));
+      if (isLast) {
+        navigation.replace("ShootReview", { jobId, propertyName });
+        return;
+      }
+      navigation.replace("GuidedShoot", {
         jobId,
-        roomType,
-        guided: true,
-        stepIndex,
         propertyName,
+        stepIndex: extraShot ? stepIndex : stepIndex + 1,
       });
-    } catch {
-      Alert.alert("Error", "Could not remove photo. Try again.");
+    } catch (e) {
+      Alert.alert("Upload failed", e instanceof Error ? e.message : "Try again.");
     } finally {
-      setRemoving(false);
+      setSaving(false);
+    }
+  }
+
+  function handleRetake() {
+    navigation.replace("Camera", cameraParams(Boolean(extraShot)));
+  }
+
+  async function handleAddAnother() {
+    setSaving(true);
+    try {
+      await savePhoto(Boolean(extraShot));
+      navigation.replace("Camera", cameraParams(true));
+    } catch (e) {
+      Alert.alert("Upload failed", e instanceof Error ? e.message : "Try again.");
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -73,41 +123,31 @@ export default function CapturePreviewScreen({
 
       <View style={styles.body}>
         <Image source={{ uri: previewUri }} style={[styles.preview, { borderColor: theme.colors.border }]} resizeMode="cover" />
-        <Text style={[styles.hint, { color: theme.colors.textSecondary }]}>
-          Check framing and lighting before continuing.
-        </Text>
-
-        <PrimaryButton
-          label={isLast ? "Review shoot" : "Next room"}
-          onPress={() => {
-            if (isLast) {
-              navigation.replace("ShootReview", { jobId, propertyName });
-              return;
-            }
-            navigation.replace("GuidedShoot", {
-              jobId,
-              propertyName,
-              stepIndex: stepIndex + 1,
-            });
-          }}
-        />
-        <PrimaryButton
-          label={`Add another ${ROOM_LABELS[roomType].toLowerCase()} photo`}
-          onPress={() =>
-            navigation.replace("Camera", {
-              jobId,
-              roomType,
-              guided: true,
-              stepIndex,
-              propertyName,
-            })
-          }
-          variant="secondary"
-        />
-        {removing ? (
-          <ActivityIndicator color={theme.colors.error} style={styles.retakeLoader} />
+        {lightingHold ? (
+          <Text style={[styles.hold, { color: theme.colors.warning }]}>{brightnessHint}</Text>
         ) : (
-          <PrimaryButton label="Retake" onPress={handleRetake} variant="ghost" />
+          <Text style={[styles.hint, { color: theme.colors.textSecondary }]}>
+            Check framing and lighting before continuing.
+          </Text>
+        )}
+
+        {saving ? (
+          <ActivityIndicator color={theme.colors.primary} style={styles.retakeLoader} />
+        ) : (
+          <>
+            <PrimaryButton
+              label={lightingHold ? "Use anyway" : isLast ? "Save and review" : "Save and next room"}
+              onPress={() => void handleAccept()}
+            />
+            {!lightingHold && (
+              <PrimaryButton
+                label={`Add another ${ROOM_LABELS[roomType].toLowerCase()} photo`}
+                onPress={() => void handleAddAnother()}
+                variant="secondary"
+              />
+            )}
+            <PrimaryButton label="Retake" onPress={handleRetake} variant="ghost" />
+          </>
         )}
       </View>
     </SafeAreaView>
@@ -133,5 +173,6 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.surfaceMuted,
   },
   hint: { ...theme.typography.body, marginBottom: theme.spacing.lg },
+  hold: { ...theme.typography.bodyMedium, marginBottom: theme.spacing.lg },
   retakeLoader: { marginTop: theme.spacing.md },
 });

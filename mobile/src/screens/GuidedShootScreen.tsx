@@ -12,14 +12,16 @@ import { useFocusEffect } from "@react-navigation/native";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 import { theme } from "../theme";
-import { getTipsForSlot } from "../lib/captureTips";
+import { getShotRecipe } from "../lib/shotRecipes";
 import {
+  firstIncompleteStepIndex,
   orderedSlots,
   resolveCaptureBrief,
   type CaptureBriefSlot,
 } from "../lib/captureBrief";
 import StepDots from "../components/StepDots";
 import PrimaryButton from "../components/PrimaryButton";
+import ShotRecipeCard from "../components/ShotRecipeCard";
 
 function stepLabel(index: number, total: number): string {
   const n = String(index + 1).padStart(2, "0");
@@ -43,32 +45,49 @@ export default function GuidedShootScreen({
   const { user } = useAuth();
   const jobId = route.params.jobId;
   const propertyName = route.params.propertyName;
-  const stepIndex = route.params.stepIndex ?? 0;
+  const requestedStep = route.params.stepIndex;
   const [photoCount, setPhotoCount] = useState(0);
   const [slots, setSlots] = useState<CaptureBriefSlot[]>([]);
+  const [templateId, setTemplateId] = useState("house_3");
+  const [filledSlotIds, setFilledSlotIds] = useState<Set<string>>(new Set());
+  const [stepIndex, setStepIndex] = useState(requestedStep ?? 0);
   const [loadingBrief, setLoadingBrief] = useState(true);
 
   const totalSteps = slots.length || 1;
   const currentSlot = slots[stepIndex];
-  const tips = currentSlot ? getTipsForSlot(currentSlot.id, currentSlot.room_type) : [];
+  const recipe = currentSlot
+    ? getShotRecipe(currentSlot.id, currentSlot.room_type, templateId)
+    : null;
+  const slotFilled = currentSlot ? filledSlotIds.has(currentSlot.id) : false;
   const isLastStep = stepIndex >= totalSteps - 1;
 
   async function loadBriefAndCount() {
     if (!user) return;
     setLoadingBrief(true);
-    const [{ data: job }, { count }] = await Promise.all([
+    const [{ data: job }, { data: photos, count }] = await Promise.all([
       supabase.from("jobs").select("capture_brief").eq("id", jobId).single(),
-      supabase.from("photos").select("id", { count: "exact", head: true }).eq("job_id", jobId),
+      supabase.from("photos").select("id, brief_slot_id", { count: "exact" }).eq("job_id", jobId),
     ]);
-    setSlots(orderedSlots(resolveCaptureBrief(job?.capture_brief)));
+    const brief = resolveCaptureBrief(job?.capture_brief);
+    const nextSlots = orderedSlots(brief);
+    const filled = new Set(
+      (photos ?? []).map((p) => p.brief_slot_id).filter((id): id is string => Boolean(id))
+    );
+    setSlots(nextSlots);
+    setTemplateId(brief.template_id);
+    setFilledSlotIds(filled);
     setPhotoCount(count ?? 0);
+    setStepIndex((prev) => {
+      if (typeof requestedStep === "number") return Math.min(requestedStep, Math.max(nextSlots.length - 1, 0));
+      return firstIncompleteStepIndex(nextSlots, filled);
+    });
     setLoadingBrief(false);
   }
 
   useFocusEffect(
     useCallback(() => {
       void loadBriefAndCount();
-    }, [jobId, user?.id])
+    }, [jobId, user?.id, requestedStep])
   );
 
   function openCamera() {
@@ -82,6 +101,7 @@ export default function GuidedShootScreen({
       stepIndex,
       totalSteps,
       propertyName,
+      templateId,
     });
   }
 
@@ -127,21 +147,21 @@ export default function GuidedShootScreen({
         {!currentSlot?.required && (
           <Text style={[styles.optionalTag, { color: theme.colors.textMuted }]}>Optional</Text>
         )}
-        <Text style={[styles.roomHint, { color: theme.colors.textSecondary }]}>
-          Capture this room, then continue to the next.
-        </Text>
+        {slotFilled ? (
+          <Text style={[styles.savedTag, { color: theme.colors.success }]}>Photo saved for this room</Text>
+        ) : (
+          <Text style={[styles.roomHint, { color: theme.colors.textSecondary }]}>
+            Follow the recipe, then continue to the next room.
+          </Text>
+        )}
 
-        <View style={[styles.tipsCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
-          <Text style={[styles.tipsTitle, { color: theme.colors.textPrimary }]}>Before you shoot</Text>
-          {tips.map((tip) => (
-            <View key={tip} style={styles.tipRow}>
-              <View style={[styles.tipDash, { backgroundColor: theme.colors.primary }]} />
-              <Text style={[styles.tipText, { color: theme.colors.textSecondary }]}>{tip}</Text>
-            </View>
-          ))}
-        </View>
+        {recipe ? <ShotRecipeCard recipe={recipe} /> : null}
 
-        <PrimaryButton label="Take photo" onPress={openCamera} style={styles.captureBtn} />
+        <PrimaryButton
+          label={slotFilled ? "Retake photo" : "Take photo"}
+          onPress={openCamera}
+          style={styles.captureBtn}
+        />
         <PrimaryButton
           label={isLastStep ? "Skip to review" : "Skip room"}
           onPress={skipRoom}
@@ -177,17 +197,8 @@ const styles = StyleSheet.create({
   stepLabel: { ...theme.typography.label, marginBottom: theme.spacing.sm },
   roomTitle: { ...theme.typography.titleLarge, marginBottom: theme.spacing.xs },
   optionalTag: { ...theme.typography.caption, marginBottom: theme.spacing.xs },
+  savedTag: { ...theme.typography.captionMedium, marginBottom: theme.spacing.lg },
   roomHint: { ...theme.typography.body, marginBottom: theme.spacing.lg },
-  tipsCard: {
-    padding: theme.spacing.lg,
-    borderRadius: theme.radius.sm,
-    borderWidth: 1,
-    marginBottom: theme.spacing.xl,
-  },
-  tipsTitle: { ...theme.typography.captionMedium, marginBottom: theme.spacing.md, textTransform: "uppercase", letterSpacing: 0.8 },
-  tipRow: { flexDirection: "row", gap: theme.spacing.sm, marginBottom: theme.spacing.sm, alignItems: "flex-start" },
-  tipDash: { width: 3, height: 16, marginTop: 3, borderRadius: 1 },
-  tipText: { ...theme.typography.body, flex: 1 },
   captureBtn: { marginBottom: theme.spacing.xs },
   finishBtn: { marginTop: theme.spacing.md },
 });

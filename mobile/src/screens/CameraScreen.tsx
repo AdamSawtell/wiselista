@@ -8,6 +8,7 @@ import {
   ScrollView,
   Dimensions,
   Platform,
+  Alert,
 } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import * as ImagePicker from "expo-image-picker";
@@ -15,10 +16,12 @@ import { useAuth } from "../contexts/AuthContext";
 import { theme } from "../theme";
 import { ROOM_LABELS, ROOM_TYPES, type RoomType } from "../types";
 import { CAPTURE_TIPS } from "../lib/captureTips";
+import { getShotRecipe } from "../lib/shotRecipes";
 import {
   estimateBrightnessFromBase64,
   getBrightnessHint,
   getBrightnessStatus,
+  shouldHoldForBrightness,
 } from "../lib/captureCoaching";
 import { uploadJobPhoto } from "../lib/uploadPhoto";
 import { useCaptureCoaching } from "../hooks/useCaptureCoaching";
@@ -43,6 +46,8 @@ export default function CameraScreen({
       stepIndex?: number;
       totalSteps?: number;
       propertyName?: string;
+      templateId?: string;
+      extraShot?: boolean;
     };
   };
 }) {
@@ -55,6 +60,8 @@ export default function CameraScreen({
   const stepIndex = route.params.stepIndex ?? 0;
   const totalSteps = route.params.totalSteps;
   const propertyName = route.params.propertyName;
+  const templateId = route.params.templateId ?? "house_3";
+  const extraShot = route.params.extraShot ?? false;
 
   const [roomType, setRoomType] = useState<RoomType>(fixedRoom ?? "living_room");
   const [permission, requestPermission] = useCameraPermissions();
@@ -73,34 +80,56 @@ export default function CameraScreen({
     if (!permission?.granted && permission?.canAskAgain) requestPermission();
   }, [permission]);
 
-  async function processCapture(uri: string) {
+  async function processCapture(uri: string, brightnessHintNext: string | null) {
     if (!user) return;
+    if (guided) {
+      navigation.replace("CapturePreview", {
+        jobId,
+        previewUri: uri,
+        roomType,
+        briefSlotId: extraShot ? undefined : briefSlotId,
+        slotLabel,
+        stepIndex,
+        totalSteps,
+        propertyName,
+        templateId,
+        brightnessHint: brightnessHintNext,
+        extraShot,
+      });
+      return;
+    }
     setUploading(true);
     setError(null);
     try {
-      const result = await uploadJobPhoto(user.id, jobId, uri, roomType, {
+      await uploadJobPhoto(user.id, jobId, uri, roomType, {
         briefSlotId: briefSlotId ?? null,
       });
-      if (guided) {
-        navigation.replace("CapturePreview", {
-          jobId,
-          photoId: result.photoId,
-          previewUri: uri,
-          roomType,
-          briefSlotId,
-          slotLabel,
-          stepIndex,
-          totalSteps,
-          propertyName,
-        });
-        return;
-      }
       navigation.goBack();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Upload failed");
     } finally {
       setUploading(false);
     }
+  }
+
+  async function finishCapture(uri: string, base64?: string | null) {
+    let hint: string | null = null;
+    if (base64) {
+      const luma = estimateBrightnessFromBase64(base64);
+      if (luma != null) {
+        const status = getBrightnessStatus(luma);
+        hint = getBrightnessHint(status);
+        setBrightnessHint(hint);
+        if (!guided && shouldHoldForBrightness(status) && hint) {
+          Alert.alert("Check lighting", hint, [
+            { text: "Retake", style: "cancel" },
+            { text: "Use anyway", onPress: () => void processCapture(uri, hint) },
+          ]);
+          return;
+        }
+      }
+    }
+    await processCapture(uri, hint);
   }
 
   async function handleTakeWithCamera() {
@@ -116,13 +145,7 @@ export default function CameraScreen({
     });
     if (result.canceled || !result.assets?.[0]?.uri) return;
     const asset = result.assets[0];
-    if (asset.base64) {
-      const luma = estimateBrightnessFromBase64(asset.base64);
-      if (luma != null) {
-        setBrightnessHint(getBrightnessHint(getBrightnessStatus(luma)));
-      }
-    }
-    await processCapture(asset.uri);
+    await finishCapture(asset.uri, asset.base64);
   }
 
   async function handleCapture() {
@@ -130,14 +153,14 @@ export default function CameraScreen({
     try {
       const photo = await cameraRef.current.takePictureAsync({
         quality: 0.9,
-        base64: false,
+        base64: true,
         skipProcessing: true,
       });
       if (!photo?.uri) {
         setError("Failed to capture");
         return;
       }
-      await processCapture(photo.uri);
+      await finishCapture(photo.uri, photo.base64);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Capture failed");
     }
@@ -156,16 +179,11 @@ export default function CameraScreen({
     });
     if (result.canceled || !result.assets?.[0]?.uri) return;
     const asset = result.assets[0];
-    if (asset.base64) {
-      const luma = estimateBrightnessFromBase64(asset.base64);
-      if (luma != null) {
-        setBrightnessHint(getBrightnessHint(getBrightnessStatus(luma)));
-      }
-    }
-    await processCapture(asset.uri);
+    await finishCapture(asset.uri, asset.base64);
   }
 
-  const tips = CAPTURE_TIPS[roomType].slice(0, 2);
+  const recipe = getShotRecipe(briefSlotId ?? roomType, roomType, templateId);
+  const tips = extraShot ? CAPTURE_TIPS[roomType].slice(0, 2) : [recipe.overlayLine];
 
   if (!useWebFallback && !permission) {
     return (

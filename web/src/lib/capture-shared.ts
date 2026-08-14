@@ -1,4 +1,5 @@
 import { ROOM_LABELS } from "@/lib/jobs";
+import { getShotRecipe, recipeTipLines } from "@/lib/shot-recipes";
 
 export const CAPTURE_LINK_TTL_DAYS = 14;
 
@@ -82,16 +83,9 @@ export const CAPTURE_TIPS: Record<string, string[]> = {
   ],
 };
 
-/** Tips for a brief slot — uses slot id for special rooms, room_type as fallback. */
-export function getCaptureTipsForSlot(slot: CaptureBriefSlotView): string[] {
-  if (slot.id === "dining_room" && CAPTURE_TIPS.dining_room) return CAPTURE_TIPS.dining_room;
-  if (slot.id === "study" && CAPTURE_TIPS.study) return CAPTURE_TIPS.study;
-  if (slot.id === "laundry" && CAPTURE_TIPS.laundry) return CAPTURE_TIPS.laundry;
-  if (slot.id === "garage" && CAPTURE_TIPS.garage) return CAPTURE_TIPS.garage;
-  if (slot.id.startsWith("bedroom")) return CAPTURE_TIPS.bedroom;
-  if (slot.id.startsWith("bathroom")) return CAPTURE_TIPS.bathroom;
-  if (slot.id.startsWith("exterior")) return CAPTURE_TIPS.exterior;
-  return CAPTURE_TIPS[slot.room_type] ?? CAPTURE_TIPS.other;
+/** Tips for a brief slot — recipe lines keyed by slot id, room_type as fallback. */
+export function getCaptureTipsForSlot(slot: CaptureBriefSlotView, templateId?: string): string[] {
+  return recipeTipLines(getShotRecipe(slot.id, slot.room_type, templateId));
 }
 
 /** Shown once before the room-by-room flow starts. */
@@ -126,6 +120,7 @@ export type CaptureSession = {
   slots: CaptureBriefSlotView[];
   filledSlotIds: string[];
   requiredSlotCount: number;
+  templateId?: string;
 };
 
 export function normalizeCaptureStatus(status: string | null | undefined): CaptureStatus {

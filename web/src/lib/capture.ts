@@ -75,6 +75,7 @@ function payloadToSession(data: RpcCapturePayload): CaptureSession {
     slots,
     filledSlotIds,
     requiredSlotCount: requiredSlotCount(brief),
+    templateId: brief.template_id,
   };
 }
 export function generateCaptureToken(): string {
