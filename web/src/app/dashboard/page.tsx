@@ -80,24 +80,19 @@ export default async function DashboardPage({
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 sm:py-10">
-      <header className="mb-8 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Projects</h1>
-          <p className="mt-1 text-sm text-slate-500">
-            {counts.all === 0
-              ? "Your property listings will appear here."
-              : `${counts.all} listing${counts.all === 1 ? "" : "s"}`}
-            {counts.ready > 0 && (
-              <span>
-                {" "}
-                · {counts.ready} ready to download
-              </span>
-            )}
-          </p>
-        </div>
-        <Link href="/dashboard/new" className="btn-primary shrink-0">
-          New project
-        </Link>
+      <header className="mb-8">
+        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Projects</h1>
+        <p className="mt-1 text-sm text-slate-500">
+          {counts.all === 0
+            ? "Your property listings will appear here."
+            : `${counts.all} listing${counts.all === 1 ? "" : "s"}`}
+          {counts.ready > 0 && (
+            <span>
+              {" "}
+              · {counts.ready} ready to download
+            </span>
+          )}
+        </p>
       </header>
 
       {counts.all > 0 && (

@@ -16,21 +16,17 @@ export function JobReadyBanner({ photoCount, targetPortal, propertyAddress, expi
       <p className="font-medium">
         {photoCount} photo{photoCount === 1 ? "" : "s"} enhanced and ready to download
       </p>
-      <p className="mt-0.5 text-emerald-800/90">
-        {propertyAddress && <span>{propertyAddress}</span>}
-        {propertyAddress && portal && <span className="mx-1.5 text-emerald-600/60">·</span>}
-        {portal ? (
-          <span>Upload to {portal}</span>
-        ) : (
-          !propertyAddress && "Add a target portal in project setup if you like"
-        )}
-        {expiresAt && (
-          <>
-            <span className="mx-1.5 text-emerald-600/60">·</span>
-            <span>Available until {formatJobDateShort(expiresAt)}</span>
-          </>
-        )}
-      </p>
+      {(propertyAddress || portal || expiresAt) && (
+        <p className="mt-0.5 text-emerald-800/90">
+          {[
+            propertyAddress,
+            portal ? `Upload to ${portal}` : null,
+            expiresAt ? `Available until ${formatJobDateShort(expiresAt)}` : null,
+          ]
+            .filter(Boolean)
+            .join(" · ")}
+        </p>
+      )}
     </div>
   );
 }

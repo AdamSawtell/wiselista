@@ -25,8 +25,8 @@ export function CreateJobForm({ compact = false }: CreateJobFormProps) {
 
   async function handleCreate(e?: React.FormEvent) {
     e?.preventDefault();
-    if (planTier === "pro" && customerCapture && !name.trim()) {
-      setError("Add a project name when sending the link to your customer to capture photos.");
+    if (!name.trim()) {
+      setError("Add a listing name — street or property is enough.");
       return;
     }
     if (!captureBriefIsValid(captureBrief, planTier)) {
@@ -40,7 +40,7 @@ export function CreateJobForm({ compact = false }: CreateJobFormProps) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: name.trim() || undefined,
+          name: name.trim(),
           plan_tier: planTier,
           customer_capture: planTier === "pro" && customerCapture,
           capture_brief: captureBrief,
@@ -91,7 +91,8 @@ export function CreateJobForm({ compact = false }: CreateJobFormProps) {
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="Project name"
+          placeholder="12 Oak Street"
+          required
           maxLength={120}
           autoFocus
           className="w-36 rounded-lg border border-wiselista-border px-3 py-1.5 text-sm focus:border-wiselista-accent focus:outline-none focus:ring-1 focus:ring-wiselista-accent sm:w-44"
@@ -108,7 +109,7 @@ export function CreateJobForm({ compact = false }: CreateJobFormProps) {
     <form onSubmit={handleCreate} className="space-y-6">
       <div>
         <label htmlFor="project-name" className="block text-sm font-medium text-slate-800">
-          Project name
+          Listing name
         </label>
         <input
           id="project-name"
@@ -116,10 +117,11 @@ export function CreateJobForm({ compact = false }: CreateJobFormProps) {
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="12 Oak Street"
+          required
           maxLength={120}
           className="mt-2 block w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-wiselista-accent focus:outline-none focus:ring-1 focus:ring-wiselista-accent"
         />
-        <p className="mt-1.5 text-xs text-slate-500">Optional — rename anytime from the project page.</p>
+        <p className="mt-1.5 text-xs text-slate-500">Street or property name. You can rename it later.</p>
       </div>
 
       <div>

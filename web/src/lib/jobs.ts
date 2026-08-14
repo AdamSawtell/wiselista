@@ -7,16 +7,19 @@ export const ROOM_LABELS: Record<string, string> = {
   other: "Other",
 };
 
+const UNTITLED_LISTING = "Untitled listing";
+
 export function getJobDisplayName(job: { name?: string | null; id: string }): string {
   const trimmed = job.name?.trim();
-  if (trimmed) return trimmed;
-  return `Project ${job.id.slice(0, 8)}`;
+  if (trimmed && trimmed !== `Project ${job.id.slice(0, 8)}`) return trimmed;
+  return UNTITLED_LISTING;
 }
 
 /** True when the agent has not renamed the auto-generated project title. */
 export function isDefaultProjectName(name: string | null | undefined, jobId: string): boolean {
   const trimmed = name?.trim();
   if (!trimmed) return true;
+  if (trimmed === UNTITLED_LISTING) return true;
   return trimmed === `Project ${jobId.slice(0, 8)}`;
 }
 

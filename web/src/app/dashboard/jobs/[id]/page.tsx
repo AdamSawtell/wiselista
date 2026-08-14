@@ -231,17 +231,17 @@ export default async function JobDetailPage({
             />
           </div>
 
-          <div className="mt-8 flex flex-wrap items-center justify-between gap-4 rounded-lg border border-slate-200 bg-white px-4 py-4">
-            <div>
-              <p className="text-sm font-medium text-slate-900">Submit for enhancement</p>
-              <p className="mt-0.5 text-xs text-slate-500">
-                {photoCount === 0
-                  ? "Add at least one photo first"
-                  : `${photoCount} photo${photoCount === 1 ? "" : "s"} on ${plan.name}`}
-              </p>
+          {photoCount > 0 && (
+            <div className="mt-8 flex flex-wrap items-center justify-between gap-4 rounded-lg border border-slate-200 bg-white px-4 py-4">
+              <div>
+                <p className="text-sm font-medium text-slate-900">Submit for enhancement</p>
+                <p className="mt-0.5 text-xs text-slate-500">
+                  {photoCount} photo{photoCount === 1 ? "" : "s"} on {plan.name}
+                </p>
+              </div>
+              <SubmitJobButton jobId={id} photoCount={photoCount} planTier={planTier} />
             </div>
-            <SubmitJobButton jobId={id} photoCount={photoCount} planTier={planTier} />
-          </div>
+          )}
 
           <JobSetupAccordion>
             <PropertyContextForm
