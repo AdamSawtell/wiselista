@@ -9,7 +9,7 @@ export const runtime = "nodejs";
 export async function POST(request: Request) {
   const stripe = getStripe();
   if (!stripe) {
-    return NextResponse.json({ error: "Stripe not configured" }, { status: 503 });
+    return NextResponse.json({ error: "Payment is unavailable" }, { status: 503 });
   }
 
   const body = await request.text();

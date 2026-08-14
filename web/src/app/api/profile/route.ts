@@ -36,7 +36,7 @@ export async function GET(request: Request) {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const supabase = await createClientForRequest(request);
-  if (!supabase) return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
+  if (!supabase) return NextResponse.json({ error: "Service unavailable" }, { status: 503 });
 
   const { data, error } = await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -62,7 +62,7 @@ export async function PATCH(request: Request) {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const supabase = await createClientForRequest(request);
-  if (!supabase) return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
+  if (!supabase) return NextResponse.json({ error: "Service unavailable" }, { status: 503 });
 
   let body: AgentProfileInput;
   try {
@@ -119,7 +119,7 @@ export async function POST(request: Request) {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const supabase = await createClientForRequest(request);
-  if (!supabase) return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
+  if (!supabase) return NextResponse.json({ error: "Service unavailable" }, { status: 503 });
 
   const formData = await request.formData();
   const file = formData.get("file") as File | null;
@@ -194,7 +194,7 @@ export async function DELETE(request: Request) {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const supabase = await createClientForRequest(request);
-  if (!supabase) return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
+  if (!supabase) return NextResponse.json({ error: "Service unavailable" }, { status: 503 });
 
   const { data: existing } = await supabase
     .from("profiles")

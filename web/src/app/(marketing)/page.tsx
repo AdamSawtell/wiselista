@@ -108,7 +108,7 @@ export default function Home() {
               </Link>
             </div>
             <p className="px-2 pb-1 pt-2 text-center text-xs text-slate-500">
-              Core from AUD $29 · Pro from AUD $49 · Secure Stripe payment · No subscription
+              Core from AUD $29 · Pro from AUD $49 · Secure card payment · No subscription
             </p>
           </div>
         </div>
@@ -303,7 +303,7 @@ export default function Home() {
               {
                 step: "2",
                 title: "Submit & pay",
-                body: "Review your batch, remove any duds, then pay securely via Stripe. We start AI processing immediately.",
+                body: "Review your batch, remove any duds, then pay securely by card. We start AI processing immediately.",
               },
               {
                 step: "3",

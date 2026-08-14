@@ -15,7 +15,7 @@ export async function GET(request: Request) {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const supabase = await createClientForRequest(request);
-  if (!supabase) return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
+  if (!supabase) return NextResponse.json({ error: "Service unavailable" }, { status: 503 });
   const { data, error } = await supabase
     .from("jobs")
     .select("id, status, name, created_at, updated_at")
@@ -57,7 +57,7 @@ export async function POST(request: Request) {
   }
 
   const supabase = await createClientForRequest(request);
-  if (!supabase) return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
+  if (!supabase) return NextResponse.json({ error: "Service unavailable" }, { status: 503 });
 
   const captureEnabled = customerCapture && planTier === "pro";
   const captureToken = captureEnabled ? generateCaptureToken() : null;

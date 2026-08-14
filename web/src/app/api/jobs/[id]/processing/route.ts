@@ -13,7 +13,7 @@ export async function GET(
 
   const { id } = await params;
   const supabase = await createClientForRequest(request);
-  if (!supabase) return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
+  if (!supabase) return NextResponse.json({ error: "Service unavailable" }, { status: 503 });
 
   const { data: job, error } = await supabase
     .from("jobs")

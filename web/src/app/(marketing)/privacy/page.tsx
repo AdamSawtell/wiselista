@@ -31,7 +31,7 @@ export default function PrivacyPage() {
           <li>Profile details you choose to add, such as your name and agency.</li>
           <li>Project details: property name or address you enter, room types, and job status.</li>
           <li>Photos you or your vendor upload for a project.</li>
-          <li>Payment records from Stripe (we do not store full card numbers).</li>
+          <li>Payment records from our card processor (we do not store full card numbers).</li>
           <li>Technical logs needed to run the service: time, path, and error messages.</li>
         </ul>
       </section>
@@ -45,16 +45,13 @@ export default function PrivacyPage() {
         <h2>Who else sees it</h2>
         <ul>
           <li>
-            <strong>Supabase</strong> — stores accounts, project records, and photo files.
+            <strong>Hosting and storage</strong> — accounts, project records, and photo files.
           </li>
           <li>
-            <strong>Stripe</strong> — processes card payments and sends receipts.
+            <strong>Payment processor</strong> — card payments and receipts. Full card numbers stay with them.
           </li>
           <li>
-            <strong>Claid</strong> — receives a temporary link to each photo so it can enhance the image. We store the result in your project.
-          </li>
-          <li>
-            <strong>AWS Amplify</strong> — hosts the website and API.
+            <strong>Image enhancement partner</strong> — receives a temporary copy of each photo to enhance it. We store the result in your project.
           </li>
         </ul>
         <p>

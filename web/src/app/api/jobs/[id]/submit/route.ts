@@ -29,7 +29,7 @@ export async function POST(
       )
     : await createClient();
 
-  if (!supabase) return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
+  if (!supabase) return NextResponse.json({ error: "Service unavailable" }, { status: 503 });
 
   const { data: job, error: jobError } = await supabase
     .from("jobs")
@@ -113,7 +113,7 @@ export async function POST(
 
   const stripe = getStripe();
   if (!stripe) {
-    return NextResponse.json({ error: "Stripe not available" }, { status: 503 });
+    return NextResponse.json({ error: "Payment is unavailable" }, { status: 503 });
   }
 
   const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
@@ -158,7 +158,7 @@ export async function POST(
 
     return NextResponse.json({ url: session.url });
   } catch (e) {
-    const message = e instanceof Error ? e.message : "Stripe error";
+    const message = e instanceof Error ? e.message : "Payment error";
     console.error("[Submit] Stripe checkout failed", { jobId, error: message });
     return NextResponse.json({ error: message }, { status: 500 });
   }

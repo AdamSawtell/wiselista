@@ -29,7 +29,7 @@ export default function DashboardError({
           We couldn’t load your dashboard. This is often due to a session or database connection issue.
         </p>
         <p className="mt-2 text-xs text-slate-500">
-          Try signing out and back in. If you’ve just set Supabase env vars in Amplify, redeploy and try again.
+          Try signing out and back in, then refresh this page.
         </p>
         <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
           <button

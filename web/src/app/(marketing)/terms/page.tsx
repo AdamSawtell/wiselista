@@ -44,9 +44,9 @@ export default function TermsPage() {
       <section>
         <h2>Payment</h2>
         <p>
-          You pay when you submit a project. Stripe handles the card payment and emails a
-          receipt. Prices are in Australian dollars. Pilot or promo codes may skip payment when
-          we have agreed that in writing or issued a code.
+          You pay when you submit a project. Our payment processor handles the card charge and
+          emails a receipt. Prices are in Australian dollars. Pilot or promo codes may skip
+          payment when we have agreed that in writing or issued a code.
         </p>
       </section>
 

@@ -16,7 +16,7 @@ export async function GET(
 
   const { id } = await params;
   const supabase = await createClientForRequest(request);
-  if (!supabase) return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
+  if (!supabase) return NextResponse.json({ error: "Service unavailable" }, { status: 503 });
 
   const { data: job, error: jobError } = await supabase
     .from("jobs")
@@ -93,7 +93,7 @@ export async function PATCH(
   if (body.plan_tier !== undefined) {
     const nextTier = normalizePlanTier(body.plan_tier);
     const supabaseCheck = await createClientForRequest(request);
-    if (!supabaseCheck) return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
+    if (!supabaseCheck) return NextResponse.json({ error: "Service unavailable" }, { status: 503 });
 
     const { data: job } = await supabaseCheck
       .from("jobs")
@@ -132,7 +132,7 @@ export async function PATCH(
     }
 
     const supabaseBrief = await createClientForRequest(request);
-    if (!supabaseBrief) return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
+    if (!supabaseBrief) return NextResponse.json({ error: "Service unavailable" }, { status: 503 });
 
     const { data: jobForBrief } = await supabaseBrief
       .from("jobs")
@@ -159,7 +159,7 @@ export async function PATCH(
   }
 
   const supabase = await createClientForRequest(request);
-  if (!supabase) return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
+  if (!supabase) return NextResponse.json({ error: "Service unavailable" }, { status: 503 });
 
   const { data, error } = await supabase
     .from("jobs")
@@ -189,7 +189,7 @@ export async function DELETE(
         global: { headers: { Authorization: `Bearer ${token}` } },
       })
     : await createClient();
-  if (!supabase) return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
+  if (!supabase) return NextResponse.json({ error: "Service unavailable" }, { status: 503 });
 
   const { data: job, error: jobError } = await supabase
     .from("jobs")

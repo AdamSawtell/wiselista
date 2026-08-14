@@ -36,7 +36,7 @@ export async function DELETE(
     : await createClient();
   if (!supabase) {
     console.warn("[DeletePhoto] Supabase not configured", { rid });
-    return NextResponse.json({ ok: false, rid, error: "Supabase not configured" }, { status: 503 });
+    return NextResponse.json({ ok: false, rid, error: "Service unavailable" }, { status: 503 });
   }
 
   const { data: job, error: jobError } = await supabase

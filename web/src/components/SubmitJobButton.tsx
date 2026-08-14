@@ -66,7 +66,7 @@ export function SubmitJobButton({ jobId, photoCount, planTier }: SubmitJobButton
         window.location.href = data.url;
         return;
       }
-      setError("No payment URL returned. Add Stripe keys to .env.local to test payment.");
+      setError("Payment could not be started. Try again or contact support.");
       setLoading(false);
       setProgress(0);
     } catch {

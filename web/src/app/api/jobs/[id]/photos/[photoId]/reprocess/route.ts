@@ -16,7 +16,7 @@ export async function POST(
 
   const { id: jobId, photoId } = await params;
   const supabase = await createClientForRequest(request);
-  if (!supabase) return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
+  if (!supabase) return NextResponse.json({ error: "Service unavailable" }, { status: 503 });
 
   const { data: job } = await supabase
     .from("jobs")
