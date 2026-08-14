@@ -24,6 +24,7 @@
 |------|--------|-----|
 | 2025-02-02 | Phase 1 foundation: web app, Supabase schema, API, mock AI, Stripe webhook, dashboard | 02 accepted; start Phase 1 (roadmap) |
 | 2026-08-15 | Shot recipes, brief resume, brightness hold before upload | [PRD-shot-recipes.md](./PRD-shot-recipes.md) — professional capture copy without a native rebuild |
+| 2026-08-15 | Live capture coach on native CameraView | [PRD-live-capture-coach.md](./PRD-live-capture-coach.md) — one overlay line, tilt hold, landscape cue |
 
 ---
 

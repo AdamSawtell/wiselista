@@ -2,6 +2,8 @@ import {
   estimateBrightnessFromBase64,
   getBrightnessHint,
   getBrightnessStatus,
+  getDeviceHold,
+  getLiveCoach,
   getRollDegrees,
   getTiltHint,
   getTiltStatus,
@@ -53,6 +55,61 @@ describe("captureCoaching", () => {
     it("estimates luma from base64", () => {
       const luma = estimateBrightnessFromBase64("AAAA");
       expect(luma).toBe(0);
+    });
+  });
+
+  describe("live coach", () => {
+    it("treats y-dominant gravity as portrait and x-dominant as landscape", () => {
+      expect(getDeviceHold(0.1, -0.95)).toBe("portrait");
+      expect(getDeviceHold(0.9, -0.2)).toBe("landscape");
+    });
+
+    it("holds shutter and shows tilt on a portrait room", () => {
+      const coach = getLiveCoach({
+        rollDegrees: 12,
+        deviceHold: "portrait",
+        wantsLandscape: false,
+        overlayLine: "1× · corner wide",
+      });
+      expect(coach.kind).toBe("tilt");
+      expect(coach.holdShutter).toBe(true);
+      expect(coach.message).toMatch(/left/i);
+    });
+
+    it("shows the recipe line when level on a portrait room", () => {
+      const coach = getLiveCoach({
+        rollDegrees: 1,
+        deviceHold: "portrait",
+        wantsLandscape: false,
+        overlayLine: "1× · corner wide",
+      });
+      expect(coach.kind).toBe("ok");
+      expect(coach.holdShutter).toBe(false);
+      expect(coach.message).toBe("1× · corner wide");
+    });
+
+    it("asks to rotate for landscape recipes and ignores portrait tilt hold", () => {
+      const coach = getLiveCoach({
+        rollDegrees: 20,
+        deviceHold: "portrait",
+        wantsLandscape: true,
+        overlayLine: "1× landscape · facade",
+      });
+      expect(coach.kind).toBe("rotate");
+      expect(coach.holdShutter).toBe(false);
+      expect(coach.message).toMatch(/sideways/i);
+    });
+
+    it("does not apply portrait tilt hold once the phone is sideways", () => {
+      const coach = getLiveCoach({
+        rollDegrees: 80,
+        deviceHold: "landscape",
+        wantsLandscape: true,
+        overlayLine: "1× landscape · facade",
+      });
+      expect(coach.kind).toBe("ok");
+      expect(coach.holdShutter).toBe(false);
+      expect(coach.message).toBe("1× landscape · facade");
     });
   });
 });

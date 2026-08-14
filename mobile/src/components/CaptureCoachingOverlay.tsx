@@ -1,37 +1,34 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { theme } from "../theme";
+import type { LiveCoach } from "../lib/captureCoaching";
 
 type Props = {
   rollDegrees: number;
-  tiltHint: string | null;
-  isLevel: boolean;
+  coach: LiveCoach;
   sensorsAvailable: boolean;
 };
 
-export default function CaptureCoachingOverlay({
-  rollDegrees,
-  tiltHint,
-  isLevel,
-  sensorsAvailable,
-}: Props) {
-  if (!sensorsAvailable) return null;
+export default function CaptureCoachingOverlay({ rollDegrees, coach, sensorsAvailable }: Props) {
+  const warn = coach.kind !== "ok";
 
   return (
     <>
       <View style={styles.hintBar}>
-        <View style={[styles.hintPill, isLevel ? styles.hintOk : styles.hintWarn]}>
-          <Text style={[styles.hintText, !isLevel && styles.hintTextOnRed]}>
-            {isLevel ? "Level" : tiltHint}
+        <View style={[styles.hintPill, warn ? styles.hintWarn : styles.hintOk]}>
+          <Text style={[styles.hintText, warn && styles.hintTextOnRed]} numberOfLines={2}>
+            {coach.kind === "ok" && sensorsAvailable ? `Level · ${coach.message}` : coach.message}
           </Text>
         </View>
       </View>
-      <View
-        style={[styles.levelWrap, { transform: [{ rotate: `${rollDegrees}deg` }] }]}
-        pointerEvents="none"
-      >
-        <View style={[styles.levelLine, isLevel ? styles.levelLineOk : styles.levelLineWarn]} />
-      </View>
+      {sensorsAvailable && coach.showLevelLine ? (
+        <View
+          style={[styles.levelWrap, { transform: [{ rotate: `${rollDegrees}deg` }] }]}
+          pointerEvents="none"
+        >
+          <View style={[styles.levelLine, warn ? styles.levelLineWarn : styles.levelLineOk]} />
+        </View>
+      ) : null}
     </>
   );
 }
@@ -40,15 +37,16 @@ const styles = StyleSheet.create({
   hintBar: {
     position: "absolute",
     top: theme.spacing.lg,
-    left: 0,
-    right: 0,
+    left: theme.spacing.md,
+    right: theme.spacing.md,
     alignItems: "center",
     zIndex: 2,
   },
   hintPill: {
     paddingHorizontal: theme.spacing.md,
-    paddingVertical: 6,
+    paddingVertical: 8,
     borderRadius: theme.radius.sm,
+    maxWidth: "100%",
   },
   hintOk: { backgroundColor: "rgba(255,255,255,0.92)" },
   hintWarn: { backgroundColor: theme.colors.primary },

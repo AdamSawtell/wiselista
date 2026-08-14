@@ -16,6 +16,66 @@ export function getTiltHint(rollDegrees: number, threshold = 5): string | null {
   return "Tilt phone right to level the horizon";
 }
 
+export type DeviceHold = "portrait" | "landscape";
+
+/** Gravity-dominant axis. Works while the UI stays portrait-locked. */
+export function getDeviceHold(x: number, y: number): DeviceHold {
+  return Math.abs(x) > Math.abs(y) ? "landscape" : "portrait";
+}
+
+export type LiveCoachKind = "tilt" | "rotate" | "ok";
+
+export type LiveCoach = {
+  kind: LiveCoachKind;
+  message: string;
+  holdShutter: boolean;
+  showLevelLine: boolean;
+};
+
+export function getLiveCoach(input: {
+  rollDegrees: number;
+  deviceHold: DeviceHold;
+  wantsLandscape: boolean;
+  overlayLine: string;
+  threshold?: number;
+}): LiveCoach {
+  const threshold = input.threshold ?? 5;
+
+  if (input.wantsLandscape) {
+    if (input.deviceHold !== "landscape") {
+      return {
+        kind: "rotate",
+        message: "Rotate the phone sideways",
+        holdShutter: false,
+        showLevelLine: false,
+      };
+    }
+    return {
+      kind: "ok",
+      message: input.overlayLine,
+      holdShutter: false,
+      showLevelLine: false,
+    };
+  }
+
+  const tiltHint = getTiltHint(input.rollDegrees, threshold);
+  if (tiltHint) {
+    return {
+      kind: "tilt",
+      message: tiltHint,
+      holdShutter: true,
+      showLevelLine: true,
+    };
+  }
+
+  return {
+    kind: "ok",
+    message: input.overlayLine,
+    holdShutter: false,
+    showLevelLine: true,
+  };
+}
+
 /** Average luma 0–255 from base64 JPEG/PNG data URI or raw base64. */
 export function estimateBrightnessFromBase64(base64: string): number | null {
   const raw = base64.includes(",") ? base64.split(",")[1]! : base64;

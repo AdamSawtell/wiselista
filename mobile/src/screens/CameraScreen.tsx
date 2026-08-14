@@ -21,6 +21,7 @@ import {
   estimateBrightnessFromBase64,
   getBrightnessHint,
   getBrightnessStatus,
+  getLiveCoach,
   shouldHoldForBrightness,
 } from "../lib/captureCoaching";
 import { uploadJobPhoto } from "../lib/uploadPhoto";
@@ -71,6 +72,14 @@ export default function CameraScreen({
   const cameraRef = useRef<CameraView>(null);
   const useWebFallback = Platform.OS === "web";
   const coaching = useCaptureCoaching(guided && !useWebFallback);
+  const recipe = getShotRecipe(briefSlotId ?? roomType, roomType, templateId);
+  const liveCoach = getLiveCoach({
+    rollDegrees: coaching.rollDegrees,
+    deviceHold: coaching.sensorsAvailable ? coaching.deviceHold : "portrait",
+    wantsLandscape: recipe.orientation === "landscape",
+    overlayLine: extraShot ? CAPTURE_TIPS[roomType][0] ?? recipe.overlayLine : recipe.overlayLine,
+  });
+  const webTips = extraShot ? CAPTURE_TIPS[roomType].slice(0, 2) : [recipe.overlayLine];
 
   useEffect(() => {
     if (fixedRoom) setRoomType(fixedRoom);
@@ -148,7 +157,8 @@ export default function CameraScreen({
     await finishCapture(asset.uri, asset.base64);
   }
 
-  async function handleCapture() {
+  async function handleCapture(force = false) {
+    if (!force && liveCoach.holdShutter) return;
     if (!cameraRef.current || uploading) return;
     try {
       const photo = await cameraRef.current.takePictureAsync({
@@ -181,9 +191,6 @@ export default function CameraScreen({
     const asset = result.assets[0];
     await finishCapture(asset.uri, asset.base64);
   }
-
-  const recipe = getShotRecipe(briefSlotId ?? roomType, roomType, templateId);
-  const tips = extraShot ? CAPTURE_TIPS[roomType].slice(0, 2) : [recipe.overlayLine];
 
   if (!useWebFallback && !permission) {
     return (
@@ -233,8 +240,7 @@ export default function CameraScreen({
           {guided && (
             <CaptureCoachingOverlay
               rollDegrees={coaching.rollDegrees}
-              tiltHint={coaching.tiltHint}
-              isLevel={coaching.isLevel}
+              coach={liveCoach}
               sensorsAvailable={coaching.sensorsAvailable}
             />
           )}
@@ -243,30 +249,25 @@ export default function CameraScreen({
 
       <View style={styles.overlay} pointerEvents="none">
         <View style={[styles.frame, { width: frameWidth, height: frameWidth * 0.75 }]}>
-          <Text style={styles.frameLabel}>{ROOM_LABELS[roomType]}</Text>
+          <Text style={styles.frameLabel}>{slotLabel ?? ROOM_LABELS[roomType]}</Text>
           <View style={styles.frameGuide} />
         </View>
       </View>
 
       <View style={[styles.controls, { backgroundColor: theme.colors.cameraBar }]}>
-        {guided && (
+        {guided && useWebFallback && (
           <View style={styles.tipsRow}>
-            {!useWebFallback && !coaching.isLevel && coaching.tiltHint && (
-              <Text style={[styles.coachingLine, { color: theme.colors.primaryLight }]}>
-                {coaching.tiltHint}
-              </Text>
-            )}
-            {brightnessHint && (
-              <Text style={[styles.coachingLine, { color: theme.colors.primaryLight }]}>
-                {brightnessHint}
-              </Text>
-            )}
-            {tips.map((tip) => (
+            {webTips.map((tip) => (
               <Text key={tip} style={[styles.tipLine, { color: theme.colors.cameraBarMuted }]}>
-                • {tip}
+                {tip}
               </Text>
             ))}
           </View>
+        )}
+        {brightnessHint && (
+          <Text style={[styles.coachingLine, { color: theme.colors.primaryLight }]}>
+            {brightnessHint}
+          </Text>
         )}
 
         {!guided && (
@@ -322,17 +323,30 @@ export default function CameraScreen({
           </>
         ) : (
           <TouchableOpacity
-            style={[styles.capture, { backgroundColor: theme.colors.primary }, uploading && styles.captureDisabled]}
-            onPress={handleCapture}
-            disabled={uploading}
+            style={[
+              styles.capture,
+              { backgroundColor: theme.colors.primary },
+              (uploading || liveCoach.holdShutter) && styles.captureDisabled,
+            ]}
+            onPress={() => void handleCapture(false)}
+            disabled={uploading || liveCoach.holdShutter}
             activeOpacity={0.9}
           >
             {uploading ? (
               <ActivityIndicator color={theme.colors.textOnPrimary} />
             ) : (
-              <Text style={[styles.captureText, { color: theme.colors.textOnPrimary }]}>Capture</Text>
+              <Text style={[styles.captureText, { color: theme.colors.textOnPrimary }]}>
+                {liveCoach.holdShutter ? "Level the phone" : "Capture"}
+              </Text>
             )}
           </TouchableOpacity>
+          {liveCoach.holdShutter && !uploading && (
+            <TouchableOpacity style={styles.libraryBtn} onPress={() => void handleCapture(true)}>
+              <Text style={[styles.libraryBtnText, { color: theme.colors.cameraBarMuted }]}>
+                Capture anyway
+              </Text>
+            </TouchableOpacity>
+          )}
         )}
 
         <TouchableOpacity style={styles.back} onPress={() => navigation.goBack()}>

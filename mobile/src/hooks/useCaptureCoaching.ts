@@ -1,13 +1,21 @@
 import { useEffect, useState } from "react";
 import { Platform } from "react-native";
 import { Accelerometer } from "expo-sensors";
-import { getRollDegrees, getTiltHint, getTiltStatus, type TiltStatus } from "../lib/captureCoaching";
+import {
+  getDeviceHold,
+  getRollDegrees,
+  getTiltHint,
+  getTiltStatus,
+  type DeviceHold,
+  type TiltStatus,
+} from "../lib/captureCoaching";
 
 const UPDATE_MS = 120;
 const LEVEL_THRESHOLD = 5;
 
 export function useCaptureCoaching(enabled: boolean) {
   const [rollDegrees, setRollDegrees] = useState(0);
+  const [accel, setAccel] = useState({ x: 0, y: -1 });
   const [available, setAvailable] = useState(false);
 
   useEffect(() => {
@@ -27,6 +35,7 @@ export function useCaptureCoaching(enabled: boolean) {
 
       Accelerometer.setUpdateInterval(UPDATE_MS);
       subscription = Accelerometer.addListener(({ x, y }) => {
+        setAccel({ x, y });
         setRollDegrees(getRollDegrees(x, y));
       });
     })();
@@ -39,12 +48,14 @@ export function useCaptureCoaching(enabled: boolean) {
 
   const tiltStatus: TiltStatus = getTiltStatus(rollDegrees, LEVEL_THRESHOLD);
   const tiltHint = getTiltHint(rollDegrees, LEVEL_THRESHOLD);
+  const deviceHold: DeviceHold = getDeviceHold(accel.x, accel.y);
 
   return {
     rollDegrees,
     tiltStatus,
     tiltHint,
     isLevel: tiltStatus === "level",
+    deviceHold,
     sensorsAvailable: available,
   };
 }
