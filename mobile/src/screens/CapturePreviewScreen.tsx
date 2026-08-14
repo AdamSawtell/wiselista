@@ -70,7 +70,7 @@ export default function CapturePreviewScreen({
   }
 
   async function savePhoto(asExtra: boolean) {
-    if (!user) return null;
+    if (!user) throw new Error("Sign in to save this photo.");
     return uploadJobPhoto(user.id, jobId, previewUri, roomType, {
       briefSlotId: asExtra ? null : briefSlotId ?? null,
     });

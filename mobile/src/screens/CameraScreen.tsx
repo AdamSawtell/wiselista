@@ -11,7 +11,6 @@ import {
   Alert,
 } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
-import * as ImagePicker from "expo-image-picker";
 import { useAuth } from "../contexts/AuthContext";
 import { theme } from "../theme";
 import { ROOM_LABELS, ROOM_TYPES, type RoomType } from "../types";
@@ -25,6 +24,7 @@ import {
   shouldHoldForBrightness,
 } from "../lib/captureCoaching";
 import { uploadJobPhoto } from "../lib/uploadPhoto";
+import { fileToPreviewUri, pickWebImage, readFileAsDataUrl } from "../lib/webCapture";
 import { useCaptureCoaching } from "../hooks/useCaptureCoaching";
 import CaptureCoachingOverlay from "../components/CaptureCoachingOverlay";
 
@@ -90,7 +90,6 @@ export default function CameraScreen({
   }, [permission]);
 
   async function processCapture(uri: string, brightnessHintNext: string | null) {
-    if (!user) return;
     if (guided) {
       navigation.replace("CapturePreview", {
         jobId,
@@ -105,6 +104,10 @@ export default function CameraScreen({
         brightnessHint: brightnessHintNext,
         extraShot,
       });
+      return;
+    }
+    if (!user) {
+      setError("Sign in to save this photo.");
       return;
     }
     setUploading(true);
@@ -141,20 +144,29 @@ export default function CameraScreen({
     await processCapture(uri, hint);
   }
 
-  async function handleTakeWithCamera() {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== "granted") {
-      setError("Camera access is required to capture property photos.");
-      return;
+  async function handleWebFile(mode: "camera" | "library") {
+    setError(null);
+    setUploading(true);
+    try {
+      const file = await pickWebImage(mode);
+      if (!file) {
+        setUploading(false);
+        return;
+      }
+      const uri = fileToPreviewUri(file);
+      let base64: string | undefined;
+      try {
+        const dataUrl = await readFileAsDataUrl(file);
+        base64 = dataUrl.includes(",") ? dataUrl.split(",")[1] : dataUrl;
+      } catch {
+        base64 = undefined;
+      }
+      await finishCapture(uri, base64);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not keep that photo. Try again.");
+    } finally {
+      setUploading(false);
     }
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.9,
-      base64: true,
-    });
-    if (result.canceled || !result.assets?.[0]?.uri) return;
-    const asset = result.assets[0];
-    await finishCapture(asset.uri, asset.base64);
   }
 
   async function handleCapture(force = false) {
@@ -174,22 +186,6 @@ export default function CameraScreen({
     } catch (e) {
       setError(e instanceof Error ? e.message : "Capture failed");
     }
-  }
-
-  async function handlePickFromLibrary() {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== "granted") {
-      setError("Photo library permission required");
-      return;
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.9,
-      base64: true,
-    });
-    if (result.canceled || !result.assets?.[0]?.uri) return;
-    const asset = result.assets[0];
-    await finishCapture(asset.uri, asset.base64);
   }
 
   if (!useWebFallback && !permission) {
@@ -231,7 +227,7 @@ export default function CameraScreen({
             {slotLabel ?? ROOM_LABELS[roomType]}
           </Text>
           <Text style={[styles.webFallbackSub, { color: theme.colors.cameraBarMuted }]}>
-            Tap Take photo to open your phone camera — same as the customer capture link.
+            Take the photo, then check it here before we save it.
           </Text>
         </View>
       ) : (
@@ -302,7 +298,7 @@ export default function CameraScreen({
           <>
             <TouchableOpacity
               style={[styles.capture, { backgroundColor: theme.colors.primary }, uploading && styles.captureDisabled]}
-              onPress={handleTakeWithCamera}
+              onPress={() => void handleWebFile("camera")}
               disabled={uploading}
             >
               {uploading ? (
@@ -313,7 +309,7 @@ export default function CameraScreen({
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.libraryBtn, uploading && styles.captureDisabled]}
-              onPress={handlePickFromLibrary}
+              onPress={() => void handleWebFile("library")}
               disabled={uploading}
             >
               <Text style={[styles.libraryBtnText, { color: theme.colors.cameraBarMuted }]}>
