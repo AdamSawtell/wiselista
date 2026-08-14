@@ -6,16 +6,20 @@ import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
+type Mode = "signin" | "signup";
+
 export function LoginForm() {
+  const [mode, setMode] = useState<Mode>("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [checkEmail, setCheckEmail] = useState(false);
   const [clearing, setClearing] = useState(false);
   const searchParams = useSearchParams();
   const sessionError = searchParams.get("error") === "session";
 
-  // Clear cookies from old Supabase projects when session is broken.
   useEffect(() => {
     if (!sessionError || !isSupabaseConfigured()) return;
     clearSupabaseAuthCookies(true);
@@ -33,13 +37,14 @@ export function LoginForm() {
     return (
       <div className="flex min-h-[calc(100vh-8rem)] items-center justify-center px-4 py-12">
         <div className="w-full max-w-md card p-8 shadow-md text-center">
-          <h1 className="text-xl font-bold text-slate-900">Supabase not configured</h1>
+          <h1 className="text-xl font-bold text-slate-900">Sign in unavailable</h1>
           <p className="mt-3 text-sm text-slate-600">
-            Add <code className="rounded bg-slate-100 px-1 py-0.5">NEXT_PUBLIC_SUPABASE_URL</code> and{" "}
-            <code className="rounded bg-slate-100 px-1 py-0.5">NEXT_PUBLIC_SUPABASE_ANON_KEY</code> to{" "}
-            <code className="rounded bg-slate-100 px-1 py-0.5">web/.env.local</code>, then restart the dev server.
+            The sign-in service is not configured. Email{" "}
+            <a href="mailto:info@wiselista.com" className="font-medium text-wiselista-accent hover:underline">
+              info@wiselista.com
+            </a>{" "}
+            and we will help you in.
           </p>
-          <p className="mt-4 text-xs text-slate-500">See <code className="rounded bg-slate-100 px-1">.env.example</code> in the web folder.</p>
           <Link href="/" className="btn-secondary mt-6 inline-block">
             ← Back to home
           </Link>
@@ -56,7 +61,7 @@ export function LoginForm() {
     window.location.href = "/login";
   }
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSignIn(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError(null);
@@ -67,9 +72,59 @@ export function LoginForm() {
       setError(err.message);
       return;
     }
-    // Full page redirect so the browser sends the new session cookies with the dashboard request.
-    // Client-side router.push can run before cookies are applied, causing "session expired" on dashboard.
     window.location.href = "/dashboard";
+  }
+
+  async function handleSignUp(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters.");
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+    setLoading(true);
+    await clearAuthState();
+    const { data, error: err } = await supabase.auth.signUp({ email, password });
+    setLoading(false);
+    if (err) {
+      setError(err.message);
+      return;
+    }
+    if (data.session) {
+      window.location.href = "/dashboard";
+      return;
+    }
+    setCheckEmail(true);
+  }
+
+  if (checkEmail) {
+    return (
+      <div className="flex min-h-[calc(100vh-8rem)] items-center justify-center px-4 py-12">
+        <div className="w-full max-w-md card p-8 shadow-md text-center">
+          <h1 className="text-2xl font-bold text-slate-900">Check your email</h1>
+          <p className="mt-3 text-sm text-slate-600">
+            We sent a confirmation link to <span className="font-medium text-slate-800">{email}</span>.
+            Open it to finish creating your account, then sign in.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              setCheckEmail(false);
+              setMode("signin");
+              setPassword("");
+              setConfirmPassword("");
+            }}
+            className="btn-primary mt-6 w-full"
+          >
+            Back to sign in
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -77,14 +132,16 @@ export function LoginForm() {
       <div className="w-full max-w-md">
         <div className="card p-8 shadow-md">
           <div className="text-center">
-            <h1 className="text-2xl font-bold text-slate-900">Sign in to Wiselista</h1>
+            <h1 className="text-2xl font-bold text-slate-900">
+              {mode === "signin" ? "Sign in to Wiselista" : "Create your account"}
+            </h1>
             <p className="mt-2 text-sm text-slate-600">
-              Property photos, AI-edited. For agents, rental managers & homeowners.
+              Property photos, AI-edited. For agents, rental managers and homeowners.
             </p>
           </div>
           {sessionError && (
             <div className="mt-6 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800">
-              <p>Your session may have expired or the dashboard couldn’t load. Please sign in again.</p>
+              <p>Your session may have expired. Please sign in again.</p>
               <button
                 type="button"
                 onClick={handleClearSession}
@@ -95,7 +152,7 @@ export function LoginForm() {
               </button>
             </div>
           )}
-          <form onSubmit={handleSubmit} className="mt-8 space-y-5">
+          <form onSubmit={mode === "signin" ? handleSignIn : handleSignUp} className="mt-8 space-y-5">
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-slate-700">
                 Email
@@ -120,25 +177,80 @@ export function LoginForm() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                autoComplete="current-password"
+                autoComplete={mode === "signin" ? "current-password" : "new-password"}
                 className="mt-1.5 block w-full rounded-lg border border-wiselista-border bg-white px-4 py-2.5 text-slate-900 shadow-sm focus:border-wiselista-accent focus:outline-none focus:ring-1 focus:ring-wiselista-accent"
               />
             </div>
+            {mode === "signup" && (
+              <div>
+                <label htmlFor="confirm-password" className="block text-sm font-medium text-slate-700">
+                  Confirm password
+                </label>
+                <input
+                  id="confirm-password"
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                  autoComplete="new-password"
+                  className="mt-1.5 block w-full rounded-lg border border-wiselista-border bg-white px-4 py-2.5 text-slate-900 shadow-sm focus:border-wiselista-accent focus:outline-none focus:ring-1 focus:ring-wiselista-accent"
+                />
+              </div>
+            )}
             {error && (
               <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
                 {error}
               </div>
             )}
-            <button
-              type="submit"
-              disabled={loading}
-              className="btn-primary w-full py-3"
-            >
-              {loading ? "Signing in…" : "Sign in"}
+            <button type="submit" disabled={loading} className="btn-primary w-full py-3">
+              {loading
+                ? mode === "signin"
+                  ? "Signing in…"
+                  : "Creating account…"
+                : mode === "signin"
+                  ? "Sign in"
+                  : "Create account"}
             </button>
           </form>
-          <p className="mt-6 text-center text-sm text-slate-500">
-            No account? Create one in your Supabase project (Auth) or ask your team for access.
+          <p className="mt-6 text-center text-sm text-slate-600">
+            {mode === "signin" ? (
+              <>
+                No account?{" "}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMode("signup");
+                    setError(null);
+                  }}
+                  className="font-medium text-wiselista-accent hover:underline"
+                >
+                  Create one
+                </button>
+              </>
+            ) : (
+              <>
+                Already have an account?{" "}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMode("signin");
+                    setError(null);
+                  }}
+                  className="font-medium text-wiselista-accent hover:underline"
+                >
+                  Sign in
+                </button>
+              </>
+            )}
+          </p>
+          <p className="mt-3 text-center text-sm text-slate-500">
+            Prefer a guided pilot?{" "}
+            <a
+              href="mailto:info@wiselista.com?subject=Wiselista%20pilot%20access"
+              className="font-medium text-wiselista-accent hover:underline"
+            >
+              Email info@wiselista.com
+            </a>
           </p>
         </div>
         <p className="mt-6 text-center">

@@ -30,10 +30,10 @@ export default async function DashboardPage({
   const statusFilter = (statusParam ?? "all") as JobStatusFilterValue;
 
   const supabase = await createClient();
-  if (!supabase) redirect("/login?error=session");
+  if (!supabase) redirect("/login");
 
   const { data: authData, error: authError } = await supabase.auth.getUser();
-  if (authError || !authData?.user) redirect("/login?error=session");
+  if (authError || !authData?.user) redirect("/login");
   const user = authData.user;
 
   const result = await supabase

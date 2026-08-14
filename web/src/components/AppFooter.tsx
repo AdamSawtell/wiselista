@@ -9,6 +9,12 @@ export function AppFooter() {
           <Link href="/#how-it-works" className="transition-colors hover:text-wiselista-accent">
             Help
           </Link>
+          <Link href="/privacy" className="transition-colors hover:text-wiselista-accent">
+            Privacy
+          </Link>
+          <Link href="/terms" className="transition-colors hover:text-wiselista-accent">
+            Terms
+          </Link>
           <Link href="/investors" className="transition-colors hover:text-wiselista-accent">
             Investors
           </Link>

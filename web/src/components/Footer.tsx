@@ -41,6 +41,15 @@ export function Footer() {
               <Link href="/investors" className="transition-colors hover:text-wiselista-accent">
                 Investors
               </Link>
+              <a href="mailto:info@wiselista.com" className="transition-colors hover:text-wiselista-accent">
+                Contact
+              </a>
+              <Link href="/privacy" className="transition-colors hover:text-wiselista-accent">
+                Privacy
+              </Link>
+              <Link href="/terms" className="transition-colors hover:text-wiselista-accent">
+                Terms
+              </Link>
             </nav>
           </div>
 

@@ -7,7 +7,7 @@ import { updateSession } from "@/lib/supabase/middleware";
  */
 function isAllowedOrigin(origin: string | null): boolean {
   if (!origin) return false;
-  if (origin === "https://wiselista.com") return true;
+  if (origin === "https://wiselista.com" || origin === "https://www.wiselista.com") return true;
   if (origin === "https://mobile.wiselista.com") return true;
   if (origin.startsWith("http://localhost:") || origin.startsWith("http://127.0.0.1:")) return true;
   if (origin.endsWith(".amplifyapp.com") || origin === "https://amplifyapp.com") return true;
@@ -31,6 +31,15 @@ function corsHeaders(origin: string | null): Record<string, string> {
  * OPTIONS preflight returns 204 with same CORS headers; other methods get CORS on the response.
  */
 export async function middleware(request: NextRequest) {
+  const host = request.headers.get("host") ?? "";
+  if (host.startsWith("www.")) {
+    const url = request.nextUrl.clone();
+    url.hostname = "wiselista.com";
+    url.protocol = "https";
+    url.port = "";
+    return NextResponse.redirect(url, 308);
+  }
+
   const path = request.nextUrl.pathname;
   const isApi = path.startsWith("/api/");
   const origin = request.headers.get("origin");

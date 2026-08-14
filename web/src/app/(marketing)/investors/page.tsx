@@ -17,7 +17,7 @@ const WHY_INVEST = [
   },
   {
     title: "Simple, repeatable revenue",
-    body: "Per-job pricing (AUD $29 today) maps directly to listing volume. No subscription friction — agents pay when they list.",
+            body: "Per-project pricing (Core AUD $29, Pro AUD $49) maps directly to listing volume. No subscription friction — agents pay when they list.",
   },
 ] as const;
 

@@ -1,5 +1,11 @@
+import type { Metadata } from "next";
 import { Suspense } from "react";
 import { LoginForm } from "./LoginForm";
+
+export const metadata: Metadata = {
+  title: "Sign in",
+  description: "Sign in or create a Wiselista account to capture and enhance listing photos.",
+};
 
 // Force dynamic so Amplify static worker doesn't pre-render this (layout uses cookies).
 export const dynamic = "force-dynamic";
